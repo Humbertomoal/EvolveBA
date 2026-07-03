@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Proveedor {
+  id                    String   @id @default(cuid())
+  razonSocial           String
+  vendedorNombre        String?
+  vendedorCelular       String?
+  vendedorCorreo        String?
+  contactoAdminNombre   String
+  contactoAdminTelefono String?
+  contactoAdminCorreo   String
+  tipoPersona           String
+  rfc                   String   @unique
+  domicilio             String
+  estado                String   @default("Activo")
+  eliminado             Boolean  @default(false)
+  eliminadoEn           DateTime?
+  clienteId             String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  usuarioId             String?  @unique
+  usuario               Usuario? @relation(fields: [usuarioId], references: [id])
+
+  licitaciones LicitacionProveedor[]
+  ofertas      OfertaItem[]
+  asignaciones AsignacionMaterial[]
+  ordenes      OrdenCompra[]
+  materiales   ProveedorMaterial[]
+  mensajes     ChatMensaje[]
+}
+
+model Producto {
+  id           String   @id @default(cuid())
+  codigo       String   @unique
+  nombre       String
+  tipoItem     String
+  familia      String?
+  unidadMedida String
+  descripcion  String?
+  imagenUrl    String?
+  eliminado    Boolean  @default(false)
+  eliminadoEn  DateTime?
+  clienteId    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items       LicitacionItem[]
+  proveedores ProveedorMaterial[]
+}
+
+model Licitacion {
+  id                      String    @id @default(cuid())
+  numero                  String    @unique
+  jerarquia               String?
+  tipoLicitacion          String?
+  fechaCreacion           DateTime  @default(now())
+  fechaEjecucion          DateTime?
+  fechaFinLicitacion      DateTime?
+  fechaInicioRangoEntrega DateTime?
+  fechaFinRangoEntrega    DateTime?
+  costoObjetivo           Float?
+  importeVenta            Float?
+  tiempoConfirmacionHoras Int       @default(24)
+  duracionRondaMinutos    Int       @default(1440)
+  maxRondas               Int       @default(3)
+  rondaActual             Int       @default(0)
+  inicioRondaActual       DateTime?
+  esperandoDecision       Boolean   @default(false)
+  estado                  String    @default("Borrador")
+  modoLicitacion          String    @default("Proveedores")
+  instrucciones           String?
+  archivosAdjuntos        String?
+  fechaInicioLicitacion   DateTime?
+  fechaFinReal            DateTime?
+  fechaEsperandoDecision  DateTime?
+  fechaCerrada            DateTime?
+  fechaFinalizada         DateTime?
+  fechaCancelada          DateTime?
+  eliminado               Boolean   @default(false)
+  eliminadoEn             DateTime?
+  compradorId             String
+  clienteId               String
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  items                LicitacionItem[]
+  proveedoresInvitados LicitacionProveedor[]
+  asignaciones         AsignacionMaterial[]
+  ordenes              OrdenCompra[]
+  mensajes             ChatMensaje[]
+}
+
+model LicitacionItem {
+  id                 String     @id @default(cuid())
+  licitacionId       String
+  licitacion         Licitacion @relation(fields: [licitacionId], references: [id])
+  productoId         String
+  producto           Producto   @relation(fields: [productoId], references: [id])
+  especificacion     String?
+  fechaEntrega       DateTime?
+  cantidadSolicitada Float
+  precioObjetivo     Float?
+  moneda             String     @default("MXN")
+  createdAt          DateTime   @default(now())
+
+  ofertas      OfertaItem[]
+  asignaciones AsignacionMaterial[]
+}
+
+model OfertaItem {
+  id                   String         @id @default(cuid())
+  licitacionItemId     String
+  licitacionItem       LicitacionItem @relation(fields: [licitacionItemId], references: [id])
+  proveedorId          String
+  proveedor            Proveedor      @relation(fields: [proveedorId], references: [id])
+  ronda                Int            @default(1)
+  precioUnitario       Float
+  cantidadDisponible   Float
+  puedeCumplirFecha    Boolean        @default(true)
+  fechaEstimadaEntrega DateTime?
+  moneda               String         @default("MXN")
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@unique([licitacionItemId, proveedorId, ronda])
+}
+
+model LicitacionProveedor {
+  id           String     @id @default(cuid())
+  licitacionId String
+  licitacion   Licitacion @relation(fields: [licitacionId], references: [id])
+  proveedorId  String
+  proveedor    Proveedor  @relation(fields: [proveedorId], references: [id])
+  invitadoEn   DateTime   @default(now())
+}
+
+model AsignacionMaterial {
+  id                      String         @id @default(cuid())
+  licitacionId            String
+  licitacion              Licitacion     @relation(fields: [licitacionId], references: [id])
+  licitacionItemId        String
+  licitacionItem          LicitacionItem @relation(fields: [licitacionItemId], references: [id])
+  proveedorId             String
+  proveedor               Proveedor      @relation(fields: [proveedorId], references: [id])
+  cantidadAsignada        Float
+  precioUnitario          Float
+  ronda                   Int
+  orden                   Int            @default(1)
+  estatusProveedor        String         @default("Pendiente")
+  fechaObjetivo           DateTime?
+  fechaEstimadaProveedor  DateTime?
+  fechaLimiteConfirmacion DateTime?
+  fechaConfirmacion       DateTime?
+  motivoRechazo           String?
+  moneda                  String         @default("MXN")
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  lineas OrdenCompraLinea[]
+}
+
+model OrdenCompra {
+  id                   String    @id @default(cuid())
+  numero               String    @unique
+  licitacionId         String
+  licitacion           Licitacion @relation(fields: [licitacionId], references: [id])
+  proveedorId          String
+  proveedor            Proveedor  @relation(fields: [proveedorId], references: [id])
+  estado               String    @default("Pendiente")
+  fechaCreacion        DateTime  @default(now())
+  fechaEstimadaEntrega DateTime?
+  clienteId            String
+  updatedAt            DateTime  @updatedAt
+  fechaPendiente       DateTime?
+  fechaEnTransito      DateTime?
+  fechaEntregada       DateTime?
+  fechaRecibida        DateTime?
+  fechaCancelada       DateTime?
+
+  lineas OrdenCompraLinea[]
+}
+
+model ProveedorMaterial {
+  id          String   @id @default(cuid())
+  proveedorId String
+  proveedor   Proveedor @relation(fields: [proveedorId], references: [id])
+  productoId  String
+  producto    Producto  @relation(fields: [productoId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([proveedorId, productoId])
+}
+
+model OrdenCompraLinea {
+  id                     String             @id @default(cuid())
+  ordenCompraId          String
+  ordenCompra            OrdenCompra        @relation(fields: [ordenCompraId], references: [id])
+  asignacionId           String             @unique
+  asignacion             AsignacionMaterial @relation(fields: [asignacionId], references: [id])
+  productoNombre         String
+  cantidad               Float
+  unidadMedida           String
+  precioUnitario         Float
+  fechaEntregaObjetivo   DateTime?
+  fechaEstimadaProveedor DateTime?
+  subtotal               Float
+  moneda                 String             @default("MXN")
+  createdAt              DateTime           @default(now())
+}
+
+model Usuario {
+  id               String    @id @default(cuid())
+  nombre           String
+  apellido         String
+  email            String    @unique
+  password         String?
+  microsoftId      String?
+  avatar           String?
+  activo           Boolean   @default(true)
+  rolId            String
+  rol              Rol       @relation(fields: [rolId], references: [id])
+  clienteId        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  ultimoAcceso     DateTime?
+  emailVerificado  Boolean   @default(false)
+  primerAcceso     Boolean   @default(true)
+  tipoUsuario      String    @default("comprador")
+  proveedor        Proveedor?
+}
+
+model Rol {
+  id           String       @id @default(cuid())
+  nombre       String
+  descripcion  String?
+  esAdmin      Boolean      @default(false)
+  esSupervisor Boolean      @default(false)
+  clienteId    String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  permisos RolPermiso[]
+  usuarios Usuario[]
+}
+
+model RolPermiso {
+  id       String  @id @default(cuid())
+  rolId    String
+  rol      Rol     @relation(fields: [rolId], references: [id])
+  modulo   String
+  ver      Boolean @default(false)
+  crear    Boolean @default(false)
+  editar   Boolean @default(false)
+  eliminar Boolean @default(false)
+
+  @@unique([rolId, modulo])
+}
+
+model ChatMensaje {
+  id           String     @id @default(cuid())
+  licitacionId String
+  licitacion   Licitacion @relation(fields: [licitacionId], references: [id])
+  proveedorId  String
+  proveedor    Proveedor  @relation(fields: [proveedorId], references: [id])
+  emisor       String
+  mensaje      String
+  leido        Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+model CatalogoValor {
+  id        String   @id @default(cuid())
+  tipo      String
+  codigo    String
+  nombre    String
+  simbolo   String?
+  activo    Boolean  @default(true)
+  orden     Int      @default(0)
+  clienteId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tipo, codigo, clienteId])
+}
