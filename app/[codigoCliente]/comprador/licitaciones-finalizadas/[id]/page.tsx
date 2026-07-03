@@ -70,7 +70,7 @@ export default async function DetalleFinalizadaPage({
       productoNombre: item.producto.nombre,
       unidadMedida: item.producto.unidadMedida,
       cantidadSolicitada: item.cantidadSolicitada,
-      asignaciones: item.asignaciones.map((a) => ({
+      asignaciones: item.asignaciones.map((a: any) => ({
         id: a.id,
         proveedorId: a.proveedor.id,
         proveedorNombre: a.proveedor.razonSocial,
