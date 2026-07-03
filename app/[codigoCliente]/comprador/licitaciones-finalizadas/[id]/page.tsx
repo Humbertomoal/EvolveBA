@@ -110,9 +110,10 @@ export default async function DetalleFinalizadaPage({
       ganadoresMap.set(item.id, winners);
     }
 
+    
     const itemsHistorial = lic.items
-      .filter((item) => item.ofertas.length > 0)
-      .map((item) => {
+        .filter((item: any) => item.ofertas.length > 0)
+        .map((item: any) => {
         const rondas = [...new Set(item.ofertas.map((o) => o.ronda))].sort(
           (a, b) => a - b
         );
