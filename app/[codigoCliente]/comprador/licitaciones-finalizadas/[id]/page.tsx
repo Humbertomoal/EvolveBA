@@ -64,8 +64,8 @@ export default async function DetalleFinalizadaPage({
 
   // ── Build "Ganadores" tab data ─────────────────────────────────────────────
 
-  const itemsAsignados: DetalleFinalizadaProps["items"] = lic.items.map(
-    (item) => ({
+    const itemsAsignados: DetalleFinalizadaProps["items"] = (lic.items as any[]).map(
+    (item: any) => ({
       id: item.id,
       productoNombre: item.producto.nombre,
       unidadMedida: item.producto.unidadMedida,
