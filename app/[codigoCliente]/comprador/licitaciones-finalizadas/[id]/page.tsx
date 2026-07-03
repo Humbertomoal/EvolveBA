@@ -106,7 +106,7 @@ export default async function DetalleFinalizadaPage({
     // Collect winners: itemId -> Set<proveedorId>
     const ganadoresMap = new Map<string, Set<string>>();
     for (const item of lic.items) {
-      const winners = new Set(item.asignaciones.map((a) => a.proveedor.id));
+      const winners = new Set(item.asignaciones.map((a: any)  => a.proveedor.id));
       ganadoresMap.set(item.id, winners);
     }
 
