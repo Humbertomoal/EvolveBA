@@ -69,8 +69,8 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         token.primerAcceso = (user as any).primerAcceso;
         token.esAdmin = (user as any).esAdmin;
       }
-      if (trigger === "update" && session) {
-        Object.assign(token, session);
+      if (trigger === "update" && session?.user) {
+        Object.assign(token, session.user);
       }
       return token;
     },
