@@ -12,9 +12,13 @@ type NavChild = {
   badge?: number;
 };
 
-type NavItem =
-  | { href: string; label: string; icon: React.ReactNode; badge?: number; children?: never }
-  | { href?: never; label: string; icon: React.ReactNode; badge?: number; children: NavChild[] };
+type NavItem = {
+  href?: string;
+  label: string;
+  icon: React.ReactNode;
+  badge?: number;
+  children?: NavChild[];
+};
 
 type UsuarioInfo = {
   nombre: string;
@@ -159,6 +163,8 @@ export default function SidebarNav({
                 </div>
               );
             }
+
+            if (!item.href) return null;
 
             const isActive =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
