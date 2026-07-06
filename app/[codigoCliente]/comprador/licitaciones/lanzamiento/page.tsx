@@ -28,7 +28,7 @@ export default async function LanzamientoLicitacionesPage({
     },
     select: { id: true },
   });
-  await Promise.all(programadas.map(({ id }) => verificarYActualizarEstado(id)));
+  await Promise.all(programadas.map(({ id }: any) => verificarYActualizarEstado(id)));
 
   const licitaciones = await getLicitacionesByEstado(
     ["Borrador", "Programada"],

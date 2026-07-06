@@ -91,7 +91,7 @@ export default async function MisLicitacionesPage({
       },
       select: { id: true },
     });
-    await Promise.all(licParaVerificar.map(({ id }) => verificarYActualizarEstado(id)));
+    await Promise.all(licParaVerificar.map(({ id }: any) => verificarYActualizarEstado(id)));
   }
 
   // Fetch all 3 groups in parallel (after state verification, states may have changed)

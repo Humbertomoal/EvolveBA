@@ -26,7 +26,7 @@ export default async function LicitacionesEnProcesoPage({
     },
     select: { id: true },
   });
-  await Promise.all(enProceso.map(({ id }) => verificarYActualizarEstado(id)));
+  await Promise.all(enProceso.map(({ id }: any) => verificarYActualizarEstado(id)));
 
   const licitaciones = await getLicitacionesByEstado(
     ["En Proceso"],
