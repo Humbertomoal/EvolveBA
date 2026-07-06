@@ -87,7 +87,7 @@ function generarPDF(
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
   );
   const total = confirmadas.reduce(
-    (sum, a) => sum + a.cantidadAsignada * a.precioUnitario,
+    (sum: any, a: any) => sum + a.cantidadAsignada * a.precioUnitario,
     0
   );
 
@@ -173,7 +173,7 @@ export default function ResultadoView({
 
   // Tiempo límite más próximo entre pendientes (para el header)
   const limitePendientesMs = pendientes
-    .map((a) => (a.fechaLimiteConfirmacion ? new Date(a.fechaLimiteConfirmacion).getTime() : null))
+    .map((a: any) => (a.fechaLimiteConfirmacion ? new Date(a.fechaLimiteConfirmacion).getTime() : null))
     .filter((ms): ms is number => ms !== null)
     .sort((a: any, b: any) => a - b)[0] ?? null;
 
@@ -373,7 +373,7 @@ export default function ResultadoView({
               <td className="px-4 py-3 text-right font-semibold text-zinc-900">
                 {formatPeso(
                   asignaciones.reduce(
-                    (sum, a) => sum + a.cantidadAsignada * a.precioUnitario,
+                    (sum: any, a: any) => sum + a.cantidadAsignada * a.precioUnitario,
                     0
                   )
                 )}

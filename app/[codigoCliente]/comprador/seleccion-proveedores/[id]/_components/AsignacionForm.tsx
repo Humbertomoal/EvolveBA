@@ -319,7 +319,7 @@ export default function AsignacionForm({
     acc[moneda] = (acc[moneda] ?? 0) + sub1 + sub2;
     return acc;
   }, {} as Record<string, number>);
-  const costoTotal = Object.values(totalesPorMoneda).reduce((s, v) => s + v, 0);
+  const costoTotal = Object.values(totalesPorMoneda).reduce((s: any, v: any) => s + v, 0)as number;
 
   const margen = licitacion.importeVenta != null ? licitacion.importeVenta - costoTotal : null;
   const pctMargen = margen != null && licitacion.importeVenta ? (margen / licitacion.importeVenta) * 100 : null;
@@ -396,7 +396,7 @@ export default function AsignacionForm({
               const sub2 = o2 && fila.secondary ? fila.secondary.cantidad * o2.precioUnitario : 0;
 
               const altParaSecundaria = item.ofertas.filter(
-                (o) => o.proveedorId !== fila.primary.proveedorId
+                (o: any) => o.proveedorId !== fila.primary.proveedorId
               );
 
               return (
@@ -572,7 +572,7 @@ export default function AsignacionForm({
                   )}
                 </td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
-                  {formatImporte(total, moneda)}
+                  {formatImporte(total as number, moneda)}
                 </td>
               </tr>
             ))}

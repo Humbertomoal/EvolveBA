@@ -44,7 +44,7 @@ export default function PanelFiltros({
   const botonRef = useRef<HTMLButtonElement>(null);
 
   // A select section is active when its value differs from the first (default) option.
-  const contador = secciones.reduce((sum, s) => {
+  const contador = secciones.reduce((sum: any, s: any) => {
     if (s.tipo === "select") {
       return sum + (s.valor !== (s.opciones[0]?.value ?? "") ? 1 : 0);
     }

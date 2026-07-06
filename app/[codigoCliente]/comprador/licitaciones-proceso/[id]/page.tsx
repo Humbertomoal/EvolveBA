@@ -69,7 +69,7 @@ export default async function DetalleLicitacionProcesoPage({
     licitacion.proveedoresInvitados.map((lp: any) => {
       const proveedorId = lp.proveedor.id;
       const ofertasProveedor = ofertasRondaActual.filter(
-        (o) => o.proveedorId === proveedorId
+        (o: any) => o.proveedorId === proveedorId
       );
       const cotizó = ofertasProveedor.length > 0;
 

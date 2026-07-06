@@ -60,7 +60,7 @@ export async function crearOrdenesCompraParaLicitacion(
         fechaEstimadaEntrega,
         fechaPendiente: new Date(),
         lineas: {
-          create: lineas.map((a) => ({
+          create: lineas.map((a: any) => ({
             asignacionId: a.id,
             productoNombre: a.licitacionItem.producto.nombre,
             cantidad: a.cantidadAsignada,

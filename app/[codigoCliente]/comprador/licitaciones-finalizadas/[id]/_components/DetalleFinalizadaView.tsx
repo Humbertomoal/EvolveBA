@@ -95,7 +95,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
     <div className="space-y-6">
       {items.map((item: any) => {
         const totalAsignado = item.asignaciones.reduce(
-          (s, a) => s + a.cantidadAsignada,
+          (s: any, a: any) => s + a.cantidadAsignada,
           0
         );
         const totalesPorMoneda = item.asignaciones.reduce((acc: any, a: any) => {
@@ -133,7 +133,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {item.asignaciones.map((a) => (
+                  {item.asignaciones.map((a: any) => (
                     <tr key={a.id} className="hover:bg-zinc-50/50">
                       <td className="px-4 py-2.5 text-zinc-700">
                         {a.proveedorNombre}
@@ -170,7 +170,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
                         {i === 0 ? `${totalAsignado} ${item.unidadMedida}` : ""}
                       </td>
                       <td />
-                      <td className="px-4 py-2 text-right">{formatImporte(total, moneda)}</td>
+                      <td className="px-4 py-2 text-right">{formatImporte(total as number, moneda)}</td>
                       <td />
                       <td />
                     </tr>
@@ -268,7 +268,7 @@ function HistorialPujasTab({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {item.filas.map((fila) => (
+                  {item.filas.map((fila: any) => (
                     <tr key={fila.ronda} className="hover:bg-zinc-50/40">
                       <td className="px-4 py-2.5 font-medium text-zinc-600">
                         Ronda {fila.ronda}
@@ -366,7 +366,7 @@ export default function DetalleFinalizadaView({
             <p className="text-xs text-zinc-400">Costo total asignado</p>
             {Object.entries(totalesPorMoneda).map(([moneda, total]) => (
               <p key={moneda} className="mt-0.5 text-xl font-semibold text-zinc-900">
-                {formatImporte(total, moneda)}
+                {formatImporte(total as number, moneda)}
               </p>
             ))}
           </div>

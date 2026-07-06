@@ -62,7 +62,7 @@ export default async function SeleccionProveedoresPage({
     costoObjetivo: l.costoObjetivo,
     estado: l.estado,
     costoLicitacion: l.asignaciones.reduce(
-      (sum, a) => sum + a.precioUnitario * a.cantidadAsignada,
+      (sum: any, a: any) => sum + a.precioUnitario * a.cantidadAsignada,
       0
     ),
   }));

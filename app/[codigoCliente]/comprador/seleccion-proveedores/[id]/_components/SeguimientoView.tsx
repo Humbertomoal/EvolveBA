@@ -191,7 +191,7 @@ export default function SeguimientoView({
     acc[moneda] = (acc[moneda] ?? 0) + a.cantidadAsignada * a.precioUnitario;
     return acc;
   }, {} as Record<string, number>);
-  const costoTotal = Object.values(totalesPorMoneda).reduce((s, v) => s + v, 0);
+  const costoTotal = Object.values(totalesPorMoneda).reduce((s: any, v: any) => s + v, 0)as number;
   const margen =
     licitacion.importeVenta != null
       ? licitacion.importeVenta - costoTotal
@@ -217,7 +217,7 @@ export default function SeguimientoView({
   async function handleReasignar() {
     if (!modalReasignar || !nuevoProveedorId) return;
     const oferta = modalReasignar.ofertasAlternativas.find(
-      (o) => o.proveedorId === nuevoProveedorId
+      (o: any) => o.proveedorId === nuevoProveedorId
     );
     if (!oferta) return;
     setEjecutando(true);
@@ -308,7 +308,7 @@ export default function SeguimientoView({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {asignaciones.map((a) => (
+            {asignaciones.map((a: any) => (
               <tr
                 key={a.id}
                 className={`transition-colors hover:bg-zinc-50/60 ${
@@ -414,7 +414,7 @@ export default function SeguimientoView({
                   )}
                 </td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
-                  {formatImporte(total, moneda)}
+                  {formatImporte(total as number, moneda)}
                 </td>
                 <td colSpan={6} />
               </tr>

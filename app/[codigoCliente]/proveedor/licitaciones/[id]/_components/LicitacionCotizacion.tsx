@@ -712,7 +712,7 @@ export default function LicitacionCotizacion({
               <p className="text-xs font-medium text-zinc-400">Valor Total de Propuesta</p>
               {Object.entries(totalesPorMoneda).map(([moneda, total]) => (
                 <p key={moneda} className="text-2xl font-bold text-[var(--color-primario)]">
-                  {formatImporte(total, moneda)}
+                  {formatImporte(total as number, moneda)}
                 </p>
               ))}
               {Object.keys(totalesPorMoneda).length === 0 && (
@@ -759,7 +759,7 @@ export default function LicitacionCotizacion({
               {Object.entries(totalesPorMoneda).map(([moneda, total], i) => (
                 <span key={moneda}>
                   {i > 0 && " + "}
-                  <span className="font-semibold text-zinc-900">{formatImporte(total, moneda)}</span>
+                  <span className="font-semibold text-zinc-900">{formatImporte(total as number, moneda)}</span>
                 </span>
               ))}?{" "}
               Podrás modificarla mientras la ronda actual siga abierta.

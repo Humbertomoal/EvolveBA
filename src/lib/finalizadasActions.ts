@@ -123,7 +123,7 @@ export async function buscarFinalizadasAction(
       numItems: l._count.items,
       numProveedores: l._count.proveedoresInvitados,
       costoFinal: l.asignaciones.reduce(
-        (sum, a) => sum + a.cantidadAsignada * a.precioUnitario,
+        (sum: any, a: any) => sum + a.cantidadAsignada * a.precioUnitario,
         0
       ),
     })),

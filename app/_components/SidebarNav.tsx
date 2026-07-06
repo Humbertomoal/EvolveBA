@@ -39,7 +39,7 @@ export default function SidebarNav({
 
   // Auto-open groups that contain the current path
   const initialOpen = items
-    .filter((item) => item.children?.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`)))
+    .filter((item) => item.children?.some((c: any) => pathname === c.href || pathname.startsWith(`${c.href}/`)))
     .map((item: any) => item.label);
 
   const [openGroups, setOpenGroups] = useState<string[]>(initialOpen);
@@ -101,7 +101,7 @@ export default function SidebarNav({
             if (item.children) {
               const isGroupOpen = openGroups.includes(item.label);
               const hasActiveChild = item.children.some(
-                (c) => pathname === c.href || pathname.startsWith(`${c.href}/`)
+                (c: any) => pathname === c.href || pathname.startsWith(`${c.href}/`)
               );
 
               return (
@@ -126,7 +126,7 @@ export default function SidebarNav({
 
                   {isGroupOpen && (
                     <div className="mt-0.5 flex flex-col gap-0.5 pl-4">
-                      {item.children.map((child) => {
+                      {item.children.map((child: any) => {
                         const isActive =
                           pathname === child.href ||
                           pathname.startsWith(`${child.href}/`);

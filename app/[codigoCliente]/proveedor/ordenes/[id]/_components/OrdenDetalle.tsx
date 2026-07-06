@@ -178,7 +178,7 @@ export default function OrdenDetalle({
                     )}
                   </td>
                   <td className="px-4 py-3 text-right text-sm font-bold text-zinc-900">
-                    {formatImporte(total, moneda)}
+                    {formatImporte(total as number, moneda)}
                   </td>
                 </tr>
               ))}

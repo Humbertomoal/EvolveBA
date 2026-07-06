@@ -65,7 +65,7 @@ function initEstado(
     s[p.id] = {};
     for (const item of items) {
       const ex = existentes.find(
-        (o) => o.proveedorId === p.id && o.licitacionItemId === item.licitacionItemId
+        (o: any) => o.proveedorId === p.id && o.licitacionItemId === item.licitacionItemId
       );
       s[p.id][item.licitacionItemId] = {
         precioUnitario: ex ? String(ex.precioUnitario) : "",

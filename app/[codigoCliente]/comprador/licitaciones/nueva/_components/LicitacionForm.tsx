@@ -218,7 +218,7 @@ export default function LicitacionForm({
     // Price or qty change → update costoObjetivo from sum of subtotals (unidirectional)
     if (campo === "precioObjetivo" || campo === "cantidadSolicitada") {
       const newTotal = newItems.reduce(
-        (sum, i) =>
+        (sum: any, i: any) =>
           sum + (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0),
         0
       );
@@ -242,7 +242,7 @@ export default function LicitacionForm({
     const newItems = items.filter((item) => item._id !== id);
     setItems(newItems);
     const newTotal = newItems.reduce(
-      (sum, i) =>
+      (sum: any, i: any) =>
         sum + (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0),
       0
     );
@@ -272,7 +272,7 @@ export default function LicitacionForm({
     );
     if (!todosVacios) return;
     const totalUnidades = items.reduce(
-      (sum, i) => sum + (parseFloat(i.cantidadSolicitada) || 0),
+      (sum: any, i: any) => sum + (parseFloat(i.cantidadSolicitada) || 0),
       0
     );
     if (totalUnidades <= 0) return;
@@ -292,7 +292,7 @@ export default function LicitacionForm({
     const costo = parseFloat(costoObjetivo);
     if (!costo || costo <= 0) return;
     const totalUnidades = items.reduce(
-      (sum, i) => sum + (parseFloat(i.cantidadSolicitada) || 0),
+      (sum: any, i: any) => sum + (parseFloat(i.cantidadSolicitada) || 0),
       0
     );
     if (totalUnidades <= 0) return;

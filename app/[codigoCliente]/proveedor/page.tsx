@@ -125,7 +125,7 @@ export default async function ProveedorHomePage({
         Accesos rápidos
       </h2>
       <div className="mt-3 grid grid-cols-2 gap-3">
-        {accesos.map((a) => (
+        {accesos.map((a: any) => (
           <Link
             key={a.href}
             href={a.href}

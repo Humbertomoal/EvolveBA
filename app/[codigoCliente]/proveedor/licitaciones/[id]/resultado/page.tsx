@@ -88,7 +88,7 @@ export default async function ResultadoPage({
     );
   }
 
-  const asignaciones: AsignacionProveedor[] = asignacionesRaw.map((a) => ({
+  const asignaciones: AsignacionProveedor[] = asignacionesRaw.map((a: any) => ({
     id: a.id,
     productoNombre: a.licitacionItem.producto.nombre,
     unidadMedida: a.licitacionItem.producto.unidadMedida,

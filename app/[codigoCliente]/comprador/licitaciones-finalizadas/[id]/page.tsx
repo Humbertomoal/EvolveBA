@@ -117,7 +117,7 @@ export default async function DetalleFinalizadaPage({
           (a: any, b: any) => a - b
         );
 
-        const filas = rondas.map((ronda) => {
+        const filas = rondas.map((ronda: any) => {
           const ofertas: Record<string, number | null> = {};
           for (const prov of proveedores) {
             const oferta = item.ofertas.find(
