@@ -47,7 +47,7 @@ export async function crearOrdenesCompraParaLicitacion(
 
     const fechaMs = lineas
       .map((l: any) => (l.fechaEstimadaProveedor ?? l.fechaObjetivo)?.getTime())
-      .filter((t): t is number => t !== undefined);
+      .filter((t: any): t is number => t !== undefined);
     const fechaEstimadaEntrega = fechaMs.length > 0 ? new Date(Math.max(...fechaMs)) : null;
 
     await db.ordenCompra.create({
