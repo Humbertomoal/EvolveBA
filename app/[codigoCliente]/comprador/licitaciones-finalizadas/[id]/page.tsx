@@ -64,13 +64,13 @@ export default async function DetalleFinalizadaPage({
 
   // ── Build "Ganadores" tab data ─────────────────────────────────────────────
 
-  const itemsAsignados: DetalleFinalizadaProps["items"] = lic.items.map(
+  const itemsAsignados: DetalleFinalizadaProps["items"] = (lic.items as any[]).map(
     (item) => ({
       id: item.id,
       productoNombre: item.producto.nombre,
       unidadMedida: item.producto.unidadMedida,
       cantidadSolicitada: item.cantidadSolicitada,
-      asignaciones: item.asignaciones.map((a) => ({
+      asignaciones: item.asignaciones.map((a: any) => ({
         id: a.id,
         proveedorId: a.proveedor.id,
         proveedorNombre: a.proveedor.razonSocial,
@@ -106,14 +106,14 @@ export default async function DetalleFinalizadaPage({
     // Collect winners: itemId -> Set<proveedorId>
     const ganadoresMap = new Map<string, Set<string>>();
     for (const item of lic.items) {
-      const winners = new Set<string>(item.asignaciones.map((a) => a.proveedor.id));
+      const winners = new Set<string>(item.asignaciones.map((a: any) => a.proveedor.id));
       ganadoresMap.set(item.id, winners);
     }
 
     const itemsHistorial = lic.items
-      .filter((item) => item.ofertas.length > 0)
-      .map((item) => {
-        const rondas = [...new Set(item.ofertas.map((o) => o.ronda))].sort(
+      .filter((item: any) => item.ofertas.length > 0)
+      .map((item: any) => {
+        const rondas = [...new Set(item.ofertas.map((o: any) => o.ronda))].sort(
           (a, b) => a - b
         );
 
