@@ -166,7 +166,7 @@ export default async function DetalleLicitacionPage({
   // Para esperandoDecision: la primera aparición de cada ítem (desc por ronda) = la más reciente
   const ofertaMap = licitacion.esperandoDecision
     ? ofertasExistentes.reduce(
-        (map, o) => {
+        (map: any, o: any) => {
           if (!map.has(o.licitacionItemId)) map.set(o.licitacionItemId, o);
           return map;
         },
