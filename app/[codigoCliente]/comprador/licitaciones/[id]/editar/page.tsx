@@ -89,7 +89,7 @@ export default async function EditarLicitacionPage({
       precioObjetivo: item.precioObjetivo !== null ? String(item.precioObjetivo) : "",
       moneda: item.moneda ?? "MXN",
     })),
-    proveedoresInvitados: licitacion.proveedoresInvitados.map((p) => p.proveedorId),
+    proveedoresInvitados: licitacion.proveedoresInvitados.map((p: any) => p.proveedorId),
   };
 
   const [productos, proveedores, proveedorMateriales, jerarquias, tiposLicitacion, monedas] =
