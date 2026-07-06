@@ -31,7 +31,7 @@ export default async function LicitacionesFinalizadasPage({
   ]);
 
   const jerarquias = jerarquiaRows
-    .map((r) => r.jerarquia)
+    .map((r: any) => r.jerarquia)
     .filter(Boolean) as string[];
 
   return (
