@@ -146,7 +146,7 @@ export default async function DetalleSeleccionPage({
     );
 
     const asignaciones: AsignacionDetalle[] = asignacionesExistentes.map(
-      (a) => {
+      (a: any) => {
         // Ofertas alternativas para reasignación (todos excepto el actual proveedor)
         const itemOfertas = todasLasOfertas.filter(
           (o: any) => o.licitacionItemId === a.licitacionItemId
