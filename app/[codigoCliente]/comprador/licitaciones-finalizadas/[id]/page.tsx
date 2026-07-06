@@ -114,7 +114,7 @@ export default async function DetalleFinalizadaPage({
       .filter((item: any) => item.ofertas.length > 0)
       .map((item: any) => {
         const rondas = [...new Set(item.ofertas.map((o: any) => o.ronda))].sort(
-          (a, b) => a - b
+          (a: any, b: any) => a - b
         );
 
         const filas = rondas.map((ronda) => {
