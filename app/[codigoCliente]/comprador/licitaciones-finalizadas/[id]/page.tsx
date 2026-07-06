@@ -121,7 +121,7 @@ export default async function DetalleFinalizadaPage({
           const ofertas: Record<string, number | null> = {};
           for (const prov of proveedores) {
             const oferta = item.ofertas.find(
-              (o) => o.ronda === ronda && o.proveedorId === prov.id
+              (o: any) => o.ronda === ronda && o.proveedorId === prov.id
             );
             ofertas[prov.id] = oferta?.precioUnitario ?? null;
           }
