@@ -107,13 +107,13 @@ export default async function DetalleLicitacionPage({
     }
 
     // Construir resumen por item (mejor oferta = precio más bajo de todas las rondas)
-    const resumen: MejorOfertaItem[] = itemsFiltrados.map((item) => {
+    const resumen: MejorOfertaItem[] = itemsFiltrados.map((item: any) => {
       const ofertas = ofertasByItem.get(item.id) ?? [];
-      const porPrecio = [...ofertas].sort((a, b) => a.precioUnitario - b.precioUnitario);
+      const porPrecio = [...ofertas].sort((a: any, b: any) => a.precioUnitario - b.precioUnitario);
       const mejor = porPrecio[0] ?? null;
       const historial = [...ofertas]
-        .sort((a, b) => a.ronda - b.ronda)
-        .map((o) => ({
+        .sort((a: any, b: any) => a.ronda - b.ronda)
+        .map((o: any) => ({
           ronda: o.ronda,
           precioUnitario: o.precioUnitario,
           cantidadDisponible: o.cantidadDisponible,
@@ -172,9 +172,9 @@ export default async function DetalleLicitacionPage({
         },
         new Map<string, (typeof ofertasExistentes)[0]>()
       )
-    : new Map(ofertasExistentes.map((o) => [o.licitacionItemId, o]));
+    : new Map(ofertasExistentes.map((o: any) => [o.licitacionItemId, o]));
 
-  const items: ItemDetalle[] = itemsFiltrados.map((item) => {
+  const items: ItemDetalle[] = itemsFiltrados.map((item: any) => {
     const oferta = ofertaMap.get(item.id);
     return {
       licitacionItemId: item.id,

@@ -79,7 +79,7 @@ export default function ResumenOfertasView({
 
   for (const item of resumen) {
     if (item.historial.length === 0) continue;
-    const sorted = [...item.historial].sort((a, b) => a.ronda - b.ronda);
+    const sorted = [...item.historial].sort((a: any, b: any) => a.ronda - b.ronda);
     sorted.forEach((oferta, idx) => {
       const prev = idx > 0 ? sorted[idx - 1] : null;
       const diffPct = prev
@@ -166,7 +166,7 @@ export default function ResumenOfertasView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {resumen.map((item) =>
+                {resumen.map((item: any) =>
                   item.mejorPrecio === null ? (
                     <tr key={item.licitacionItemId} className="bg-zinc-50/40">
                       <td className={`${CELL} font-medium text-zinc-500`}>

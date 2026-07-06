@@ -103,7 +103,7 @@ export async function buscarOrdenesCompradorAction(
   const nextCursor = hasMore ? batch[batch.length - 1].id : null;
 
   return {
-    ordenes: batch.map((o) => ({
+    ordenes: batch.map((o: any) => ({
       id: o.id,
       numero: o.numero,
       licitacionNumero: o.licitacion.numero,
@@ -152,7 +152,7 @@ export async function buscarOrdenesProveedorAction(
   const nextCursor = hasMore ? batch[batch.length - 1].id : null;
 
   return {
-    ordenes: batch.map((o) => ({
+    ordenes: batch.map((o: any) => ({
       id: o.id,
       numero: o.numero,
       licitacionNumero: o.licitacion.numero,

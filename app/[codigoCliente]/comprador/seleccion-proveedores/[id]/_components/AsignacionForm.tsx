@@ -73,7 +73,7 @@ function generarPDF(
     if (!fila) continue;
     const addFila = (pId: string, cant: number) => {
       if (!pId) return;
-      const oferta = item.ofertas.find((o) => o.proveedorId === pId);
+      const oferta = item.ofertas.find((o: any) => o.proveedorId === pId);
       if (!oferta) return;
       if (!grupos.has(pId)) grupos.set(pId, { nombre: oferta.proveedorNombre, filas: [] });
       grupos.get(pId)!.filas.push({
@@ -176,7 +176,7 @@ export default function AsignacionForm({
   const [cancelando, setCancelando] = useState(false);
 
   function getOferta(item: ItemParaAsignacion, proveedorId: string): OfertaParaDropdown | undefined {
-    return item.ofertas.find((o) => o.proveedorId === proveedorId);
+    return item.ofertas.find((o: any) => o.proveedorId === proveedorId);
   }
 
   function updatePrimaryProveedor(itemId: string, newProveedorId: string) {
@@ -188,7 +188,7 @@ export default function AsignacionForm({
     const resto = item.cantidadSolicitada - primaryCant;
     let secondary: FilaState | null = null;
     if (resto > 0) {
-      const alt = item.ofertas.find((o) => o.proveedorId !== newProveedorId);
+      const alt = item.ofertas.find((o: any) => o.proveedorId !== newProveedorId);
       if (alt) secondary = { proveedorId: alt.proveedorId, cantidad: resto };
     }
     setAsignacion((prev) => ({
@@ -205,7 +205,7 @@ export default function AsignacionForm({
       let secondary = fila.secondary;
       if (resto > 0) {
         if (!secondary) {
-          const alt = item.ofertas.find((o) => o.proveedorId !== fila.primary.proveedorId);
+          const alt = item.ofertas.find((o: any) => o.proveedorId !== fila.primary.proveedorId);
           secondary = alt ? { proveedorId: alt.proveedorId, cantidad: resto } : null;
         } else {
           secondary = { ...secondary, cantidad: resto };
@@ -380,7 +380,7 @@ export default function AsignacionForm({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {items.map((item) => {
+            {items.map((item: any) => {
               const fila = asignacion[item.licitacionItemId];
               if (!fila) return null;
 
@@ -424,7 +424,7 @@ export default function AsignacionForm({
                           className={INPUT_CLS}
                           style={{ minWidth: "240px" }}
                         >
-                          {item.ofertas.map((o) => (
+                          {item.ofertas.map((o: any) => (
                             <option key={o.proveedorId} value={o.proveedorId}>
                               {o.proveedorNombre} — {formatImporte(o.precioUnitario, item.moneda)} (disp: {o.cantidadDisponible})
                             </option>
@@ -501,7 +501,7 @@ export default function AsignacionForm({
                             className={`${INPUT_CLS} text-xs`}
                             style={{ minWidth: "240px" }}
                           >
-                            {altParaSecundaria.map((o) => (
+                            {altParaSecundaria.map((o: any) => (
                               <option key={o.proveedorId} value={o.proveedorId}>
                                 {o.proveedorNombre} — {formatImporte(o.precioUnitario, item.moneda)} (disp: {o.cantidadDisponible})
                               </option>

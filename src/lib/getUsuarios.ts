@@ -21,7 +21,7 @@ export async function getRoles(clienteId = "default"): Promise<RolDTO[]> {
       },
       orderBy: { createdAt: "asc" },
     });
-    return roles.map((r) => ({
+    return roles.map((r: any) => ({
       id: r.id,
       nombre: r.nombre,
       descripcion: r.descripcion,

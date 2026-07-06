@@ -79,7 +79,7 @@ export default async function EditarLicitacionPage({
     instrucciones: licitacion.instrucciones ?? "",
     estado: licitacion.estado,
     modoLicitacion: licitacion.modoLicitacion,
-    items: licitacion.items.map((item) => ({
+    items: licitacion.items.map((item: any) => ({
       _id: item.id,
       productoId: item.productoId,
       unidadMedida: item.producto.unidadMedida,

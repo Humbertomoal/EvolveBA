@@ -53,7 +53,7 @@ export default function CatalogosView({
 
   const tabValores = valores
     .filter((v) => v.tipo === tab)
-    .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+    .sort((a: any, b: any) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
 
   const esMonedaTab = tab === "MONEDA";
   const esMonedaModal =

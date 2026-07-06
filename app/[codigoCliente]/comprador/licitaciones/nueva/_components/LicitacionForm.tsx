@@ -204,7 +204,7 @@ export default function LicitacionForm({
 
   function cambiarItem(id: string, campo: keyof ItemFila, valor: string) {
     setBannerInfo(null);
-    const newItems = items.map((item) => {
+    const newItems = items.map((item: any) => {
       if (item._id !== id) return item;
       if (campo === "productoId") {
         const prod = productos.find((p) => p.id === valor);
@@ -278,7 +278,7 @@ export default function LicitacionForm({
     if (totalUnidades <= 0) return;
     const precioUnit = costo / totalUnidades;
     setItems((prev) =>
-      prev.map((item) => ({
+      prev.map((item: any) => ({
         ...item,
         precioObjetivo:
           (parseFloat(item.cantidadSolicitada) || 0) > 0
@@ -298,7 +298,7 @@ export default function LicitacionForm({
     if (totalUnidades <= 0) return;
     const precioUnit = costo / totalUnidades;
     setItems((prev) =>
-      prev.map((item) => ({
+      prev.map((item: any) => ({
         ...item,
         precioObjetivo:
           (parseFloat(item.cantidadSolicitada) || 0) > 0
@@ -1092,7 +1092,7 @@ Asistente de Inteligencia Artificial`;
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {items.map((item) => {
+                {items.map((item: any) => {
                   const subtotal =
                     (parseFloat(item.cantidadSolicitada) || 0) *
                     (parseFloat(item.precioObjetivo) || 0);

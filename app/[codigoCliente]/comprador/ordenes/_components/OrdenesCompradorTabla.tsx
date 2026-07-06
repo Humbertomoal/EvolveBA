@@ -123,7 +123,7 @@ export default function OrdenesCompradorTabla({
   }
 
   const filasVisibles = q.trim()
-    ? filas.filter((o) => {
+    ? filas.filter((o: any) => {
         const qL = q.toLowerCase();
         return (
           o.numero.toLowerCase().includes(qL) ||
@@ -223,7 +223,7 @@ export default function OrdenesCompradorTabla({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filasVisibles.map((o) => (
+              {filasVisibles.map((o: any) => (
                 <tr key={o.id} className="transition-colors hover:bg-zinc-50/80">
                   <td className={`${CELL} font-semibold text-zinc-800`}>{o.numero}</td>
                   <td className={`${CELL} text-zinc-600`}>{o.licitacionNumero}</td>

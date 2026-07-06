@@ -30,7 +30,7 @@ export async function getMaterialesProveedor(
     where: { proveedorId },
     select: { productoId: true },
   });
-  return rows.map((r) => r.productoId);
+  return rows.map((r: any) => r.productoId);
 }
 
 export async function getMapaProveedorMateriales(): Promise<

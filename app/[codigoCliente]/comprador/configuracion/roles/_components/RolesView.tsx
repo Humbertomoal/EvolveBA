@@ -236,7 +236,7 @@ export default function RolesView({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {roles.map((r) => (
+              {roles.map((r: any) => (
                 <tr key={r.id} className="hover:bg-zinc-50/40">
                   <td className="px-4 py-3 font-medium text-zinc-800">{r.nombre}</td>
                   <td className="px-4 py-3 text-zinc-500">{r.descripcion ?? "—"}</td>

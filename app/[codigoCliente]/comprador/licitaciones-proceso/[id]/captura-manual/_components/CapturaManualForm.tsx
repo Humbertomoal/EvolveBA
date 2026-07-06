@@ -253,7 +253,7 @@ export default function CapturaManualForm({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
-                      {items.map((item) => {
+                      {items.map((item: any) => {
                         const celda = estado[proveedor.id]?.[item.licitacionItemId] ?? {
                           precioUnitario: "",
                           cantidadDisponible: "",

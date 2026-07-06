@@ -40,7 +40,7 @@ export default async function MisOrdenesPage({
   const batch = hasMore ? rawOrdenes.slice(0, LIMIT_ORDENES) : rawOrdenes;
   const initialCursor: string | null = hasMore ? batch[batch.length - 1].id : null;
 
-  const initialData: OrdenCompraRow[] = batch.map((o) => ({
+  const initialData: OrdenCompraRow[] = batch.map((o: any) => ({
     id: o.id,
     numero: o.numero,
     licitacionNumero: o.licitacion.numero,

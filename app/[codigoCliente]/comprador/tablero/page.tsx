@@ -242,7 +242,7 @@ export default async function TableroIndicadoresPage({
   }
   const ahorroMaterial: TableroData["ahorroMaterial"] = Array.from(matMap.values())
     .filter((m) => m.ahorroTotal > 0)
-    .sort((a, b) => b.ahorroTotal - a.ahorroTotal)
+    .sort((a: any, b: any) => b.ahorroTotal - a.ahorroTotal)
     .map((m) => ({
       productoNombre: m.productoNombre,
       familia: m.familia,
@@ -281,7 +281,7 @@ export default async function TableroIndicadoresPage({
       tardias: p.tardias,
       porcentaje: Math.round((p.aTiempo / p.total) * 100),
     }))
-    .sort((a, b) => b.porcentaje - a.porcentaje);
+    .sort((a: any, b: any) => b.porcentaje - a.porcentaje);
 
   // ── Graph 4: Adherencia por jerarquía ─────────────────────────────────────
   const jerMap = new Map<string, { licitaciones: number; dentro: number; fuera: number }>();
@@ -310,7 +310,7 @@ export default async function TableroIndicadoresPage({
           ? Math.round((d.dentro / (d.dentro + d.fuera)) * 100)
           : 0,
     }))
-    .sort((a, b) => b.licitaciones - a.licitaciones);
+    .sort((a: any, b: any) => b.licitaciones - a.licitaciones);
 
   // ── Compose and render ────────────────────────────────────────────────────
   const data: TableroData = {

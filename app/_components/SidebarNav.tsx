@@ -40,7 +40,7 @@ export default function SidebarNav({
   // Auto-open groups that contain the current path
   const initialOpen = items
     .filter((item) => item.children?.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`)))
-    .map((item) => item.label);
+    .map((item: any) => item.label);
 
   const [openGroups, setOpenGroups] = useState<string[]>(initialOpen);
 
@@ -97,7 +97,7 @@ export default function SidebarNav({
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-          {items.map((item) => {
+          {items.map((item: any) => {
             if (item.children) {
               const isGroupOpen = openGroups.includes(item.label);
               const hasActiveChild = item.children.some(

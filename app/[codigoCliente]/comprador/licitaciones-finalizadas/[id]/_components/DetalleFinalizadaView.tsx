@@ -93,7 +93,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
 
   return (
     <div className="space-y-6">
-      {items.map((item) => {
+      {items.map((item: any) => {
         const totalAsignado = item.asignaciones.reduce(
           (s, a) => s + a.cantidadAsignada,
           0
@@ -227,7 +227,7 @@ function HistorialPujasTab({
         </span>
       </div>
 
-      {items.map((item) => {
+      {items.map((item: any) => {
         // Compute minimum price per ronda
         const minPorRonda: Record<number, number> = {};
         for (const fila of item.filas) {

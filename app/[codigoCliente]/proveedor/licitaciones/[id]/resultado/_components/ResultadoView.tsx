@@ -175,7 +175,7 @@ export default function ResultadoView({
   const limitePendientesMs = pendientes
     .map((a) => (a.fechaLimiteConfirmacion ? new Date(a.fechaLimiteConfirmacion).getTime() : null))
     .filter((ms): ms is number => ms !== null)
-    .sort((a, b) => a - b)[0] ?? null;
+    .sort((a: any, b: any) => a - b)[0] ?? null;
 
   async function handleConfirmar(asignacionId: string) {
     setConfirmando(asignacionId);

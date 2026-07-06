@@ -73,7 +73,7 @@ export async function crearLicitacionAction(
   const itemsValidos = datos.items.filter((item) => item.productoId !== "");
   if (itemsValidos.length > 0) {
     await prisma.licitacionItem.createMany({
-      data: itemsValidos.map((item) => ({
+      data: itemsValidos.map((item: any) => ({
         licitacionId: licitacion.id,
         productoId: item.productoId,
         especificacion: item.especificacion || null,
@@ -143,7 +143,7 @@ export async function actualizarLicitacionAction(
   const itemsValidos = datos.items.filter((item) => item.productoId !== "");
   if (itemsValidos.length > 0) {
     await prisma.licitacionItem.createMany({
-      data: itemsValidos.map((item) => ({
+      data: itemsValidos.map((item: any) => ({
         licitacionId: id,
         productoId: item.productoId,
         especificacion: item.especificacion || null,

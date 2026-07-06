@@ -57,7 +57,7 @@ export default async function LicitacionesEnProcesoPage({
 
     mejoresOfertas[lic.id] = items
       .filter((item) => item.ofertas.length > 0)
-      .map((item) => {
+      .map((item: any) => {
         const best = item.ofertas[0];
         return {
           productoNombre: item.producto.nombre,

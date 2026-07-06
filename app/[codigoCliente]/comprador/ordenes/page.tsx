@@ -41,7 +41,7 @@ export default async function OrdenesCompradorPage({
   const batch = hasMore ? rawOrdenes.slice(0, LIMIT_ORDENES) : rawOrdenes;
   const initialCursor: string | null = hasMore ? batch[batch.length - 1].id : null;
 
-  const initialData: OrdenCompradorRow[] = batch.map((o) => ({
+  const initialData: OrdenCompradorRow[] = batch.map((o: any) => ({
     id: o.id,
     numero: o.numero,
     licitacionNumero: o.licitacion.numero,

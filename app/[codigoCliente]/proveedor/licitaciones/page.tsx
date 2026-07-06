@@ -183,7 +183,7 @@ export default async function MisLicitacionesPage({
       : [];
 
   const ofertaSet = new Set(
-    ofertasActuales.map((o) => `${o.licitacionItem.licitacionId}:${o.ronda}`)
+    ofertasActuales.map((o: any) => `${o.licitacionItem.licitacionId}:${o.ronda}`)
   );
 
   const programadas: LicitacionProgramada[] = programadasRaw.map((l) => ({

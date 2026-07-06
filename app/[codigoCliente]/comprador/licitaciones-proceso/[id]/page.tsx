@@ -66,7 +66,7 @@ export default async function DetalleLicitacionProcesoPage({
 
   // ── Participantes ────────────────────────────────────────────────────────────
   const participantes: ProveedorParticipante[] =
-    licitacion.proveedoresInvitados.map((lp) => {
+    licitacion.proveedoresInvitados.map((lp: any) => {
       const proveedorId = lp.proveedor.id;
       const ofertasProveedor = ofertasRondaActual.filter(
         (o) => o.proveedorId === proveedorId
@@ -87,7 +87,7 @@ export default async function DetalleLicitacionProcesoPage({
         razonSocial: lp.proveedor.razonSocial,
         cotizó,
         ultimaCotizacion,
-        ofertaDetalle: licitacion.items.map((item) => {
+        ofertaDetalle: licitacion.items.map((item: any) => {
           const oferta = ofertasProveedor.find(
             (o) => o.licitacionItemId === item.id
           );
@@ -112,7 +112,7 @@ export default async function DetalleLicitacionProcesoPage({
     orderBy: { precioUnitario: "asc" },
   });
 
-  const mejoresPrecioItems: MejorPrecioItem[] = licitacion.items.map((item) => {
+  const mejoresPrecioItems: MejorPrecioItem[] = licitacion.items.map((item: any) => {
     const itemOfertas = todasLasOfertas.filter(
       (o) => o.licitacionItemId === item.id
     );

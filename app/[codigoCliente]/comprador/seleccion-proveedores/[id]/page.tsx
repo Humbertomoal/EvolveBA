@@ -78,7 +78,7 @@ export default async function DetalleSeleccionPage({
   });
 
   // ── Construir items para la forma de asignación ──────────────────────────────
-  const items: ItemParaAsignacion[] = licitacion.items.map((item) => {
+  const items: ItemParaAsignacion[] = licitacion.items.map((item: any) => {
     const itemOfertas = todasLasOfertas.filter(
       (o) => o.licitacionItemId === item.id
     );
@@ -92,8 +92,8 @@ export default async function DetalleSeleccionPage({
     }
 
     const ofertas: OfertaParaDropdown[] = [...bestPerProveedor.values()]
-      .sort((a, b) => a.precioUnitario - b.precioUnitario)
-      .map((o) => ({
+      .sort((a: any, b: any) => a.precioUnitario - b.precioUnitario)
+      .map((o: any) => ({
         proveedorId: o.proveedorId,
         proveedorNombre: o.proveedor.razonSocial,
         precioUnitario: o.precioUnitario,
@@ -160,9 +160,9 @@ export default async function DetalleSeleccionPage({
         const ofertasAlternativas: OfertaParaDropdown[] = [
           ...bestPerProveedor.values(),
         ]
-          .filter((o) => o.proveedorId !== a.proveedorId)
-          .sort((a, b) => a.precioUnitario - b.precioUnitario)
-          .map((o) => ({
+          .filter((o: any) => o.proveedorId !== a.proveedorId)
+          .sort((a: any, b: any) => a.precioUnitario - b.precioUnitario)
+          .map((o: any) => ({
             proveedorId: o.proveedorId,
             proveedorNombre: o.proveedor.razonSocial,
             precioUnitario: o.precioUnitario,

@@ -138,7 +138,7 @@ export default function LicitacionCotizacion({
 
   // ── Per-row editable state ────────────────────────────────────────────────
   const [filas, setFilas] = useState<FilaState[]>(() =>
-    items.map((item) => ({
+    items.map((item: any) => ({
       // Prefill cantidadDisponible with requested qty; reduce only if needed
       cantidadDisponible: item.oferta
         ? String(item.oferta.cantidadDisponible)

@@ -55,7 +55,7 @@ export async function getLicitacionesByEstado(
     },
   });
 
-  return rows.map((r) => ({
+  return rows.map((r: any) => ({
     ...r,
     fechaCreacion: r.fechaCreacion.toISOString(),
     fechaEjecucion: r.fechaEjecucion?.toISOString() ?? null,

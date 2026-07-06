@@ -303,7 +303,7 @@ export default function UsuariosView({
                 <label className="mb-1 block text-sm font-medium text-zinc-700">Rol <span className="text-red-500">*</span></label>
                 <select value={formRolId} onChange={(e) => setFormRolId(e.target.value)} className={INPUT}>
                   <option value="">Seleccionar rol...</option>
-                  {roles.map((r) => (
+                  {roles.map((r: any) => (
                     <option key={r.id} value={r.id}>{r.nombre}</option>
                   ))}
                 </select>

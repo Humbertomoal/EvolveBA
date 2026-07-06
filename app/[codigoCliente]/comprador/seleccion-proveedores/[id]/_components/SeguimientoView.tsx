@@ -476,7 +476,7 @@ export default function SeguimientoView({
                     Selecciona el nuevo proveedor:
                   </p>
                   <div className="space-y-2">
-                    {modalReasignar.ofertasAlternativas.map((o) => (
+                    {modalReasignar.ofertasAlternativas.map((o: any) => (
                       <label
                         key={o.proveedorId}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
