@@ -51,7 +51,7 @@ export default async function SeleccionProveedoresPage({
     },
   });
 
-  const rows: LicitacionCerrada[] = licitaciones.map((l) => ({
+  const rows: LicitacionCerrada[] = licitaciones.map((l: any) => ({
     id: l.id,
     numero: l.numero,
     tipoLicitacion: l.tipoLicitacion,

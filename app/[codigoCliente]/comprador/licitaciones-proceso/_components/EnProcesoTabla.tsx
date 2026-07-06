@@ -444,7 +444,7 @@ export default function EnProcesoTabla({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filtradas.map((l) => (
+              {filtradas.map((l: any) => (
                 <EnProcesoFila
                   key={l.id}
                   l={l}

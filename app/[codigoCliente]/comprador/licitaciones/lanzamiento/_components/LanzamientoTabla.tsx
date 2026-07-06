@@ -288,7 +288,7 @@ export default function LanzamientoTabla({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filtradas.map((l) => (
+              {filtradas.map((l: any) => (
                 <LicitacionFila
                   key={l.id}
                   l={l}

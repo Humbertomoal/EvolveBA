@@ -147,7 +147,7 @@ export default function OrdenCompradorDetalle({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {orden.lineas.map((l) => (
+              {orden.lineas.map((l: any) => (
                 <tr key={l.id}>
                   <td className="px-5 py-3 font-medium text-zinc-800">{l.productoNombre}</td>
                   <td className="px-4 py-3 text-right text-zinc-600">

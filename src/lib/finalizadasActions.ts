@@ -111,7 +111,7 @@ export async function buscarFinalizadasAction(
   const nextCursor = hasMore ? batch[batch.length - 1].id : null;
 
   return {
-    licitaciones: batch.map((l) => ({
+    licitaciones: batch.map((l: any) => ({
       id: l.id,
       numero: l.numero,
       modoLicitacion: l.modoLicitacion,

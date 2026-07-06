@@ -167,7 +167,7 @@ export default async function MisLicitacionesPage({
   ]);
 
   // Fetch OfertaItems to determine "cotizó" badge per En Proceso row
-  const enProcesoIds = enProcesoRaw.map((l) => l.id);
+  const enProcesoIds = enProcesoRaw.map((l: any) => l.id);
   const ofertasActuales =
     proveedorId && enProcesoIds.length > 0
       ? await prisma.ofertaItem.findMany({
@@ -186,7 +186,7 @@ export default async function MisLicitacionesPage({
     ofertasActuales.map((o: any) => `${o.licitacionItem.licitacionId}:${o.ronda}`)
   );
 
-  const programadas: LicitacionProgramada[] = programadasRaw.map((l) => ({
+  const programadas: LicitacionProgramada[] = programadasRaw.map((l: any) => ({
     id: l.id,
     numero: l.numero,
     jerarquia: l.jerarquia,
@@ -197,7 +197,7 @@ export default async function MisLicitacionesPage({
     instrucciones: l.instrucciones,
   }));
 
-  const enProceso: LicitacionEnProceso[] = enProcesoRaw.map((l) => {
+  const enProceso: LicitacionEnProceso[] = enProcesoRaw.map((l: any) => {
     let rondaFinMs: number | null = null;
     if (l.rondaActual > 0 && !l.esperandoDecision && l.inicioRondaActual) {
       rondaFinMs = l.inicioRondaActual.getTime() + l.duracionRondaMinutos * 60 * 1000;
@@ -219,7 +219,7 @@ export default async function MisLicitacionesPage({
     };
   });
 
-  const finalizadas: LicitacionFinalizada[] = finalizadasRaw.map((l) => {
+  const finalizadas: LicitacionFinalizada[] = finalizadasRaw.map((l: any) => {
     const { subEstado, confirmacionDeadlineMs } = getSubEstadoYDeadline(l.asignaciones, proveedorId);
     return {
       id: l.id,

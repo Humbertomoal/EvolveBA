@@ -62,7 +62,7 @@ export default async function OrdenCompradorDetallePage({
     licitacionJerarquia: raw.licitacion.jerarquia,
     proveedorRazonSocial: raw.proveedor.razonSocial,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    lineas: (raw.lineas as any[]).map((l) => ({
+    lineas: (raw.lineas as any[]).map((l: any) => ({
       id: l.id,
       productoNombre: l.productoNombre,
       cantidad: l.cantidad,

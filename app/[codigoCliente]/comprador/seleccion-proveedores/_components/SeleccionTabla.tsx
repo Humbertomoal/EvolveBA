@@ -69,7 +69,7 @@ export default function SeleccionTabla({
   }
 
   const jerarquiasUnicas = [
-    ...new Set(licitaciones.map((l) => l.jerarquia).filter(Boolean)),
+    ...new Set(licitaciones.map((l: any) => l.jerarquia).filter(Boolean)),
   ] as string[];
 
   const filtradas = licitaciones.filter((l) => {
@@ -198,7 +198,7 @@ export default function SeleccionTabla({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filtradas.map((l) => {
+              {filtradas.map((l: any) => {
                 const costo = l.costoLicitacion;
                 const margenDolar =
                   l.importeVenta != null ? l.importeVenta - costo : null;

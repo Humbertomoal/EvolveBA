@@ -61,7 +61,7 @@ export default async function OrdenDetallePageWrapper({
     licitacionNumero: raw.licitacion.numero,
     licitacionJerarquia: raw.licitacion.jerarquia,
     proveedorRazonSocial: raw.proveedor.razonSocial,
-    lineas: (raw.lineas as any[]).map((l) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+    lineas: (raw.lineas as any[]).map((l: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
       id: l.id,
       productoNombre: l.productoNombre,
       cantidad: l.cantidad,

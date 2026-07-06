@@ -46,7 +46,7 @@ export async function crearOrdenesCompraParaLicitacion(
     const numero = `OC-${String(count + 1).padStart(4, "0")}`;
 
     const fechaMs = lineas
-      .map((l) => (l.fechaEstimadaProveedor ?? l.fechaObjetivo)?.getTime())
+      .map((l: any) => (l.fechaEstimadaProveedor ?? l.fechaObjetivo)?.getTime())
       .filter((t): t is number => t !== undefined);
     const fechaEstimadaEntrega = fechaMs.length > 0 ? new Date(Math.max(...fechaMs)) : null;
 

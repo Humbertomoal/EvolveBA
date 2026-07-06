@@ -170,7 +170,7 @@ export default async function ImprimirOrdenCompradorPage({
             </tr>
           </thead>
           <tbody>
-            {(orden.lineas as any[]).map((l) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
+            {(orden.lineas as any[]).map((l: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
               <tr key={l.id}>
                 <td>{l.productoNombre}</td>
                 <td className="text-right">{(l.cantidad as number).toLocaleString("es-MX")}</td>

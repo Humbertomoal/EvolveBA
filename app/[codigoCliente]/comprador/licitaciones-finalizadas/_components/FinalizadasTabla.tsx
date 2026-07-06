@@ -227,7 +227,7 @@ export default function FinalizadasTabla({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filasVisibles.map((l) => (
+              {filasVisibles.map((l: any) => (
                 <tr
                   key={l.id}
                   className="transition-colors hover:bg-zinc-50/60"

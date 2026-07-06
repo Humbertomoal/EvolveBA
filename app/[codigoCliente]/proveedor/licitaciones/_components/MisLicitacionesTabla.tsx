@@ -300,7 +300,7 @@ export default function MisLicitacionesTabla({
 
   // Jerarquías únicas de finalizadas para el panel de filtros
   const jerarquiasFin = useMemo(() => {
-    return [...new Set(finalizadas.map((l) => l.jerarquia).filter((j): j is string => !!j))].sort();
+    return [...new Set(finalizadas.map((l: any) => l.jerarquia).filter((j): j is string => !!j))].sort();
   }, [finalizadas]);
 
   // ── Filtrado de finalizadas ───────────────────────────────────────────────
@@ -380,7 +380,7 @@ export default function MisLicitacionesTabla({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {programadas.map((l) => (
+                  {programadas.map((l: any) => (
                     <ProgramadaRow key={l.id} l={l} basePath={basePath} onModal={setModal} />
                   ))}
                 </tbody>
@@ -412,7 +412,7 @@ export default function MisLicitacionesTabla({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {enProceso.map((l) => (
+                  {enProceso.map((l: any) => (
                     <tr
                       key={l.id}
                       onClick={() => router.push(`${basePath}/proveedor/licitaciones/${l.id}`)}
@@ -555,7 +555,7 @@ export default function MisLicitacionesTabla({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {finFiltradas.map((l) => {
+                  {finFiltradas.map((l: any) => {
                     const href =
                       l.subEstado === "ganador" ||
                       l.subEstado === "pendiente_confirmacion" ||

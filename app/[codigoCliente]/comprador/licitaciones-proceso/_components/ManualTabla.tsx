@@ -154,7 +154,7 @@ export default function ManualTabla({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filtradas.map((l) => (
+              {filtradas.map((l: any) => (
                 <tr key={l.id} className="transition-colors hover:bg-zinc-50/60">
                   <td className="px-3 py-3 font-medium text-zinc-800">{l.numero}</td>
                   <td className="px-3 py-3 text-zinc-600">{l.jerarquia ?? "—"}</td>
