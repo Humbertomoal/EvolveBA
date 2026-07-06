@@ -305,7 +305,7 @@ export default function AsignacionForm({
     toggleCancelar && textoCancelar.trim().toLowerCase() === "cancelar";
 
   // Totales por moneda
-  const totalesPorMoneda = items.reduce((acc, item) => {
+  const totalesPorMoneda = items.reduce((acc: any, item: any) => {
     const fila = asignacion[item.licitacionItemId];
     if (!fila) return acc;
     const sub1 = fila.primary.proveedorId

@@ -186,7 +186,7 @@ export default function SeguimientoView({
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
   );
 
-  const totalesPorMoneda = asignaciones.reduce((acc, a) => {
+  const totalesPorMoneda = asignaciones.reduce((acc: any, a: any) => {
     const moneda = a.moneda ?? "MXN";
     acc[moneda] = (acc[moneda] ?? 0) + a.cantidadAsignada * a.precioUnitario;
     return acc;

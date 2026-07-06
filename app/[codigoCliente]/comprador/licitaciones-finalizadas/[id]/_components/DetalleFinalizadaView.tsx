@@ -98,7 +98,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
           (s, a) => s + a.cantidadAsignada,
           0
         );
-        const totalesPorMoneda = item.asignaciones.reduce((acc, a) => {
+        const totalesPorMoneda = item.asignaciones.reduce((acc: any, a: any) => {
           acc[a.moneda] = (acc[a.moneda] ?? 0) + a.cantidadAsignada * a.precioUnitario;
           return acc;
         }, {} as Record<string, number>);
@@ -320,7 +320,7 @@ export default function DetalleFinalizadaView({
   const [tab, setTab] = useState<Tab>("ganadores");
   usePageTitle(licitacion.numero);
 
-  const totalesPorMoneda = items.reduce((acc, item) => {
+  const totalesPorMoneda = items.reduce((acc: any, item: any) => {
     for (const a of item.asignaciones) {
       acc[a.moneda] = (acc[a.moneda] ?? 0) + a.cantidadAsignada * a.precioUnitario;
     }
