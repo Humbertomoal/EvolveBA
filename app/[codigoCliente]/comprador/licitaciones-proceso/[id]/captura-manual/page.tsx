@@ -64,9 +64,9 @@ export default async function CapturaManualPage({
     },
   });
 
-  const proveedores = licitacion.proveedoresInvitados.map((lp) => lp.proveedor);
+  const proveedores = licitacion.proveedoresInvitados.map((lp: any) => lp.proveedor);
 
-  const items = licitacion.items.map((item) => ({
+  const items = licitacion.items.map((item: any) => ({
     licitacionItemId: item.id,
     productoNombre: item.producto.nombre,
     unidadMedida: item.producto.unidadMedida,
