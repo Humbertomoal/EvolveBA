@@ -177,9 +177,9 @@ export default function ProveedorForm({
 
   // ── Material modal helpers ────────────────────────────────────────────────────
   const familias = [
-    ...new Set(productos.map((p) => p.familia).filter(Boolean) as string[]),
+    ...new Set(productos.map((p: any)=> p.familia).filter(Boolean) as string[]),
   ].sort();
-  const unidades = [...new Set(productos.map((p) => p.unidadMedida))].sort();
+  const unidades = [...new Set(productos.map((p: any)=> p.unidadMedida))].sort();
 
   function abrirModalMateriales() {
     setSelTempMateriales([...materialesSeleccionados]);
@@ -190,7 +190,7 @@ export default function ProveedorForm({
     setModalMaterialesAbierto(true);
   }
 
-  const productosFiltrados = productos.filter((p) => {
+  const productosFiltrados = productos.filter((p: any) => {
     const q = busquedaMaterial.toLowerCase();
     const matchQ =
       !q ||
@@ -209,11 +209,11 @@ export default function ProveedorForm({
   }
 
   function seleccionarTodos() {
-    setSelTempMateriales(productosFiltrados.map((p) => p.id));
+    setSelTempMateriales(productosFiltrados.map((p: any)=> p.id));
   }
 
   function deseleccionarTodos() {
-    const filtradosIds = productosFiltrados.map((p) => p.id);
+    const filtradosIds = productosFiltrados.map((p: any)=> p.id);
     setSelTempMateriales((prev) => prev.filter((id) => !filtradosIds.includes(id)));
   }
 
@@ -504,7 +504,7 @@ export default function ProveedorForm({
           {materialesSeleccionados.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {materialesSeleccionados.map((id) => {
-                const prod = productos.find((p) => p.id === id);
+                const prod = productos.find((p: any)  => p.id === id);
                 if (!prod) return null;
                 return (
                   <span
@@ -639,7 +639,7 @@ export default function ProveedorForm({
                 </p>
               ) : (
                 <ul className="divide-y divide-zinc-100">
-                  {productosFiltrados.map((p) => (
+                  {productosFiltrados.map((p: any)=> (
                     <li key={p.id}>
                       <label className="flex cursor-pointer items-center gap-3 py-3 text-sm">
                         <input

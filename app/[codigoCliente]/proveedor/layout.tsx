@@ -41,7 +41,7 @@ export default async function ProveedorLayout({
 
   const cookieId = cookieStore.get(PROVEEDOR_COOKIE)?.value ?? "";
   const proveedorIdActual =
-    proveedoresLista.find((p) => p.id === cookieId)?.id ??
+    proveedoresLista.find((p: any)  => p.id === cookieId)?.id ??
     proveedoresLista[0]?.id ??
     "";
 

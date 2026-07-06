@@ -130,7 +130,7 @@ ${[...grupos.entries()]
     </tr></thead>
     <tbody>
       ${g.filas
-        .map((a) => {
+        .map((a: any)=> {
           const badgeCls =
             a.estatusProveedor === "Aprobado" || a.estatusProveedor === "Confirmado"
               ? "verde"

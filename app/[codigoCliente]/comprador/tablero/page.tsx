@@ -274,7 +274,7 @@ export default async function TableroIndicadoresPage({
     provMap.set(nombre, e);
   }
   const onTimeProveedor: TableroData["onTimeProveedor"] = Array.from(provMap.values())
-    .map((p) => ({
+    .map((p: any)=> ({
       proveedorNombre: p.nombre,
       totalOC: p.total,
       aTiempo: p.aTiempo,

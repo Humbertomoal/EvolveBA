@@ -40,7 +40,7 @@ export default async function MiCatalogoMiInformacionPage({
   }
 
   const materialesIds = await getMaterialesProveedor(proveedor.id);
-  const materialesAsignados = productos.filter((p) =>
+  const materialesAsignados = productos.filter((p: any) =>
     materialesIds.includes(p.id)
   );
 

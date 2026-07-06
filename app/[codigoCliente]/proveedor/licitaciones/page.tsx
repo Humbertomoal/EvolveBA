@@ -62,7 +62,7 @@ function getSubEstadoYDeadline(
   if (todasCompletadas) return { subEstado: "completado", confirmacionDeadlineMs: null };
   const deadlines = mias
     .filter((a) => a.estatusProveedor === "Pendiente" && a.fechaLimiteConfirmacion !== null)
-    .map((a) => a.fechaLimiteConfirmacion!.getTime());
+    .map((a: any)=> a.fechaLimiteConfirmacion!.getTime());
   if (deadlines.length > 0) {
     return { subEstado: "pendiente_confirmacion", confirmacionDeadlineMs: Math.min(...deadlines) };
   }

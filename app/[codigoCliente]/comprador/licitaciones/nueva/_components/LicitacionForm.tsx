@@ -207,7 +207,7 @@ export default function LicitacionForm({
     const newItems = items.map((item: any) => {
       if (item._id !== id) return item;
       if (campo === "productoId") {
-        const prod = productos.find((p) => p.id === valor);
+        const prod = productos.find((p: any)  => p.id === valor);
         return { ...item, productoId: valor, unidadMedida: prod?.unidadMedida ?? "" };
       }
       return { ...item, [campo]: valor };
@@ -229,7 +229,7 @@ export default function LicitacionForm({
     if (campo === "fechaEntrega" && valor && fechaFinRango && valor > fechaFinRango) {
       const currentItem = items.find((i) => i._id === id);
       const nombre = currentItem?.productoId
-        ? (productos.find((p) => p.id === currentItem.productoId)?.nombre ?? "el producto")
+        ? (productos.find((p: any)  => p.id === currentItem.productoId)?.nombre ?? "el producto")
         : "el producto";
       setFechaFinRango(valor);
       setBannerInfo(
@@ -321,7 +321,7 @@ export default function LicitacionForm({
 
   const productosEnLicitacion = items.map((i) => i.productoId).filter(Boolean);
 
-  const proveedoresFiltrados = proveedores.filter((p) => {
+  const proveedoresFiltrados = proveedores.filter((p: any) => {
     const q = busquedaProveedor.toLowerCase();
     const matchQ =
       !q ||
@@ -1113,7 +1113,7 @@ Asistente de Inteligencia Artificial`;
                           className={iClass(intentoGuardar && !item.productoId)}
                         >
                           <option value="">Seleccionar…</option>
-                          {productos.map((p) => (
+                          {productos.map((p: any)=> (
                             <option key={p.id} value={p.id}>
                               {p.nombre}
                             </option>
@@ -1464,12 +1464,12 @@ Asistente de Inteligencia Artificial`;
                     setFiltrarPorMateriales(turnOn);
                     if (turnOn) {
                       const idsToPreselect = proveedoresFiltrados
-                        .filter((p) =>
+                        .filter((p: any) =>
                           (proveedorMateriales[p.id] ?? []).some((matId) =>
                             productosEnLicitacion.includes(matId)
                           )
                         )
-                        .map((p) => p.id);
+                        .map((p: any)=> p.id);
                       setSelTemp((prev) => [...new Set([...prev, ...idsToPreselect])]);
                     }
                   }}
@@ -1501,7 +1501,7 @@ Asistente de Inteligencia Artificial`;
                 <p className="py-8 text-center text-sm text-zinc-400">Sin resultados</p>
               ) : (
                 <ul className="divide-y divide-zinc-100">
-                  {proveedoresFiltrados.map((p) => (
+                  {proveedoresFiltrados.map((p: any)=> (
                     <li key={p.id}>
                       <label className="flex cursor-pointer items-center gap-3 py-3 text-sm">
                         <input

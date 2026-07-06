@@ -23,7 +23,7 @@ type PermisoForm = {
 
 function buildPermisosForm(permisos: RolPermisoDTO[]): PermisoForm[] {
   return MODULOS.map((m) => {
-    const existing = permisos.find((p) => p.modulo === m.key);
+    const existing = permisos.find((p: any)  => p.modulo === m.key);
     return existing
       ? { modulo: m.key, ver: existing.ver, crear: existing.crear, editar: existing.editar, eliminar: existing.eliminar }
       : { modulo: m.key, ver: false, crear: false, editar: false, eliminar: false };
@@ -55,7 +55,7 @@ function MatrizPermisos({
         </thead>
         <tbody className="divide-y divide-zinc-100">
           {MODULOS.map((m) => {
-            const p = permisos.find((p) => p.modulo === m.key) ?? {
+            const p = permisos.find((p: any)  => p.modulo === m.key) ?? {
               modulo: m.key, ver: false, crear: false, editar: false, eliminar: false,
             };
             return (
@@ -140,7 +140,7 @@ export default function RolesView({
     valor: boolean
   ) {
     setFormPermisos((prev) =>
-      prev.map((p) => {
+      prev.map((p: any)=> {
         if (p.modulo !== modulo) return p;
         const updated = { ...p, [campo]: valor };
         // Checking crear/editar/eliminar auto-checks ver

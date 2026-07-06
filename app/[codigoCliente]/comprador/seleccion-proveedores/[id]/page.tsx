@@ -129,7 +129,7 @@ export default async function DetalleSeleccionPage({
   // ── Si ya hay asignaciones: vista de seguimiento ─────────────────────────────
   if (asignacionesExistentes.length > 0) {
     // Fetch OC numbers for each asignacion (post-migration, via OrdenCompraLinea)
-    const asignacionIds = asignacionesExistentes.map((a) => a.id);
+    const asignacionIds = asignacionesExistentes.map((a: any)=> a.id);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lineasOC: any[] = asignacionIds.length > 0
       ? await (prisma as any).ordenCompraLinea.findMany({

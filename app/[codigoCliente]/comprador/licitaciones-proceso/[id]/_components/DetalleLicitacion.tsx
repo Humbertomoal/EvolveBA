@@ -105,7 +105,7 @@ export default function DetalleLicitacion({
   const [chatProveedorId, setChatProveedorId] = useState<string | null>(null);
   const [forzando, setForzando] = useState(false);
 
-  const cotizaron = participantes.filter((p) => p.cotizó).length;
+  const cotizaron = participantes.filter((p: any) => p.cotizó).length;
 
   async function handleForzar() {
     const esUltima = rondaActual >= maxRondas;
@@ -127,7 +127,7 @@ export default function DetalleLicitacion({
     }`;
 
   const chatProveedor = chatProveedorId
-    ? participantes.find((p) => p.id === chatProveedorId) ?? null
+    ? participantes.find((p: any)  => p.id === chatProveedorId) ?? null
     : null;
 
   return (
@@ -225,7 +225,7 @@ export default function DetalleLicitacion({
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {participantes.map((p) => {
+                {participantes.map((p: any)=> {
                   const noLeidos = noLeidosPorProveedor[p.id] ?? 0;
                   return (
                     <tr key={p.id} className="hover:bg-zinc-50/60">

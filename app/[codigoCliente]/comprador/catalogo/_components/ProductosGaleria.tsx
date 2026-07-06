@@ -39,7 +39,7 @@ export default function ProductosGaleria({
   );
 
   const unidades = useMemo(
-    () => [...new Set(productos.map((p) => p.unidadMedida))].sort(),
+    () => [...new Set(productos.map((p: any)=> p.unidadMedida))].sort(),
     [productos]
   );
 

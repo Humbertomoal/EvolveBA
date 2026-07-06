@@ -48,8 +48,8 @@ export default function CatalogoView({
 
   const asignadosIds = materialesAsignados.map((m) => m.id);
 
-  const familias = [...new Set(productos.map((p) => p.familia).filter(Boolean) as string[])].sort();
-  const unidades = [...new Set(productos.map((p) => p.unidadMedida))].sort();
+  const familias = [...new Set(productos.map((p: any)=> p.familia).filter(Boolean) as string[])].sort();
+  const unidades = [...new Set(productos.map((p: any)=> p.unidadMedida))].sort();
 
   function abrirModal() {
     setSelTemp([...asignadosIds]);
@@ -60,7 +60,7 @@ export default function CatalogoView({
     setModalAbierto(true);
   }
 
-  const productosFiltrados = productos.filter((p) => {
+  const productosFiltrados = productos.filter((p: any) => {
     const q = busqueda.toLowerCase();
     const matchQ = !q || p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q);
     const matchFamilia = !filtroFamilia || p.familia === filtroFamilia;
@@ -76,11 +76,11 @@ export default function CatalogoView({
   }
 
   function seleccionarTodos() {
-    setSelTemp(productosFiltrados.map((p) => p.id));
+    setSelTemp(productosFiltrados.map((p: any)=> p.id));
   }
 
   function deseleccionarTodos() {
-    const filtradosIds = productosFiltrados.map((p) => p.id);
+    const filtradosIds = productosFiltrados.map((p: any)=> p.id);
     setSelTemp((prev) => prev.filter((id) => !filtradosIds.includes(id)));
   }
 
@@ -313,7 +313,7 @@ export default function CatalogoView({
                 </p>
               ) : (
                 <ul className="divide-y divide-zinc-100">
-                  {productosFiltrados.map((p) => (
+                  {productosFiltrados.map((p: any)=> (
                     <li key={p.id}>
                       <label className="flex cursor-pointer items-center gap-3 py-3 text-sm">
                         <input

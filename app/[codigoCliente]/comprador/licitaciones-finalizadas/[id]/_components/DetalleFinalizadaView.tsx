@@ -257,7 +257,7 @@ function HistorialPujasTab({
                 <thead>
                   <tr className="border-b border-zinc-100 text-left text-xs font-medium text-zinc-500">
                     <th className="min-w-[80px] px-4 py-2">Ronda</th>
-                    {proveedores.map((p) => (
+                    {proveedores.map((p: any)=> (
                       <th
                         key={p.id}
                         className="min-w-[150px] px-4 py-2 text-right"
@@ -273,7 +273,7 @@ function HistorialPujasTab({
                       <td className="px-4 py-2.5 font-medium text-zinc-600">
                         Ronda {fila.ronda}
                       </td>
-                      {proveedores.map((p) => {
+                      {proveedores.map((p: any)=> {
                         const precio = fila.ofertas[p.id];
                         const esGanador = item.ganadorIds.includes(p.id);
                         const esMinimo =

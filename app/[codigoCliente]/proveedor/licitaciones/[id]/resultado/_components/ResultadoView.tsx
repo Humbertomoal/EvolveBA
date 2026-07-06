@@ -292,7 +292,7 @@ export default function ResultadoView({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {asignaciones.map((a) => {
+            {asignaciones.map((a: any)=> {
               const limiteMs = a.fechaLimiteConfirmacion
                 ? new Date(a.fechaLimiteConfirmacion).getTime()
                 : null;

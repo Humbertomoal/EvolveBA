@@ -80,7 +80,7 @@ export default function TopBar({
                   ──────────────
                 </option>
               )}
-              {proveedores.map((p) => (
+              {proveedores.map((p: any)=> (
                 <option key={p.id} value={p.id}>
                   {p.razonSocial}
                 </option>

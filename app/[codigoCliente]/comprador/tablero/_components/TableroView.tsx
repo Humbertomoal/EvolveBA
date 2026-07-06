@@ -117,7 +117,7 @@ export default function TableroView({
           className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none"
         >
           <option value="">Todos los proveedores</option>
-          {data.proveedoresOpciones.map((p) => (
+          {data.proveedoresOpciones.map((p: any)=> (
             <option key={p.id} value={p.id}>{p.nombre}</option>
           ))}
         </select>
