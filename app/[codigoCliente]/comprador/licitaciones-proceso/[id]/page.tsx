@@ -76,7 +76,7 @@ export default async function DetalleLicitacionProcesoPage({
       const ultimaCotizacion = cotizó
         ? ofertasProveedor
             .reduce(
-              (latest, o) => (o.updatedAt > latest ? o.updatedAt : latest),
+              (latest: any, o: any) => (o.updatedAt > latest ? o.updatedAt : latest),
               ofertasProveedor[0].updatedAt
             )
             .toISOString()
