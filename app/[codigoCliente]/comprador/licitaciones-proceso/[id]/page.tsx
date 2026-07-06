@@ -89,7 +89,7 @@ export default async function DetalleLicitacionProcesoPage({
         ultimaCotizacion,
         ofertaDetalle: licitacion.items.map((item: any) => {
           const oferta = ofertasProveedor.find(
-            (o) => o.licitacionItemId === item.id
+            (o: any) => o.licitacionItemId === item.id
           );
           return {
             productoNombre: item.producto.nombre,
@@ -114,7 +114,7 @@ export default async function DetalleLicitacionProcesoPage({
 
   const mejoresPrecioItems: MejorPrecioItem[] = licitacion.items.map((item: any) => {
     const itemOfertas = todasLasOfertas.filter(
-      (o) => o.licitacionItemId === item.id
+      (o: any) => o.licitacionItemId === item.id
     );
 
     // Mejor oferta por proveedor (ya ordenadas por precio asc, primera por proveedor = la más barata)

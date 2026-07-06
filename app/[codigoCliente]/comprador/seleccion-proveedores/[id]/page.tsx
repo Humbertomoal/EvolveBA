@@ -80,7 +80,7 @@ export default async function DetalleSeleccionPage({
   // ── Construir items para la forma de asignación ──────────────────────────────
   const items: ItemParaAsignacion[] = licitacion.items.map((item: any) => {
     const itemOfertas = todasLasOfertas.filter(
-      (o) => o.licitacionItemId === item.id
+      (o: any) => o.licitacionItemId === item.id
     );
 
     // Mejor oferta por proveedor
@@ -149,7 +149,7 @@ export default async function DetalleSeleccionPage({
       (a) => {
         // Ofertas alternativas para reasignación (todos excepto el actual proveedor)
         const itemOfertas = todasLasOfertas.filter(
-          (o) => o.licitacionItemId === a.licitacionItemId
+          (o: any) => o.licitacionItemId === a.licitacionItemId
         );
         const bestPerProveedor = new Map<string, (typeof itemOfertas)[0]>();
         for (const o of itemOfertas) {
