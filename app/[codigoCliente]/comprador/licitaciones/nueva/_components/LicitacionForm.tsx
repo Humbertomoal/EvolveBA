@@ -352,7 +352,7 @@ export default function LicitacionForm({
   // ── Instrucciones modal helpers ──────────────────────────────────────────────
 
   function generarPlantilla(): string {
-    const numMat = items.filter((i) => i.productoId !== "").length;
+    const numMat = items.filter((i: any) => i.productoId !== "").length;
     const fmtDT = (val: string) => {
       if (!val) return "por definir";
       const [datePart, timePart = "00:00"] = val.split("T");

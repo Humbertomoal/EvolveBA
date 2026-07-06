@@ -56,7 +56,7 @@ export default async function DetalleLicitacionPage({
   const materialesIds = proveedorId ? await getMaterialesProveedor(proveedorId) : [];
   const itemsFiltrados = (() => {
     if (materialesIds.length === 0) return licitacion.items;
-    const matches = licitacion.items.filter((i) => materialesIds.includes(i.productoId));
+    const matches = licitacion.items.filter((i: any) => materialesIds.includes(i.productoId));
     return matches.length > 0 ? matches : licitacion.items;
   })();
 
