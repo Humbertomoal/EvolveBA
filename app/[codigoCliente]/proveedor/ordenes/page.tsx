@@ -1,6 +1,7 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 import OrdenesTabla from "./_components/OrdenesTabla";
 import {
   ESTADOS_ACTIVOS,
@@ -54,9 +55,7 @@ export default async function MisOrdenesPage({
 
   return (
     <div className="max-w-6xl space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Mis Órdenes de Compra
-      </h1>
+      <PageTitle title="Mis Órdenes de Compra" />
       <OrdenesTabla
         initialData={initialData}
         initialCursor={initialCursor}

@@ -6,6 +6,7 @@ import { getProductos } from "@/src/lib/productos";
 import { prisma } from "@/src/lib/prisma";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
 import type { Proveedor } from "@/src/data/proveedores";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 import CatalogoView from "./_components/CatalogoView";
 
 export default async function MiCatalogoMiInformacionPage({
@@ -30,9 +31,7 @@ export default async function MiCatalogoMiInformacionPage({
   if (!proveedor) {
     return (
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          Mi Catálogo y Mi Información
-        </h1>
+        <PageTitle title="Mi Catálogo y Mi Información" />
         <p className="text-sm text-zinc-500">
           No hay proveedores registrados aún.
         </p>

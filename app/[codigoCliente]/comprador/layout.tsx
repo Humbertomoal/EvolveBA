@@ -13,14 +13,15 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import SidebarNav from "@/app/_components/SidebarNav";
+import TopBar from "@/app/_components/TopBar";
+import { PageHeaderProvider } from "@/app/_components/PageHeaderContext";
 import {
   CODIGO_CLIENTE_SIN_ESPECIFICAR,
   getClienteByCodigo,
 } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
-import { auth } from "@/src/auth";
 import { logoutAction } from "@/src/lib/authActions";
-import AdminBanner from "./_components/AdminBanner";
+import { getUsuarioActual } from "@/src/lib/usuarioActual";
 
 const ICON_CLASSNAME = "h-4 w-4 shrink-0";
 
@@ -41,8 +42,8 @@ export default async function CompradorLayout({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [session, proveedores] = await Promise.all([
-    auth(),
+  const [usuarioActual, proveedores] = await Promise.all([
+    getUsuarioActual(),
     prisma.proveedor.findMany({
       where: { eliminado: false },
       select: { id: true, razonSocial: true },
@@ -114,17 +115,9 @@ export default async function CompradorLayout({
     },
   ];
 
-  const usuarioSidebar = session?.user
-    ? {
-        nombre: session.user.name ?? "Usuario",
-        rolNombre: (session.user as any).rolNombre ?? null,
-        logoutAction,
-      }
-    : undefined;
-
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className="flex min-h-screen"
       style={
         {
           "--color-primario": cliente.colorPrimario,
@@ -132,19 +125,29 @@ export default async function CompradorLayout({
         } as React.CSSProperties
       }
     >
-      <AdminBanner proveedores={proveedores} basePath={basePath} />
-      <div className="flex flex-1">
-        <SidebarNav
-          nombreEmpresa={cliente.nombreEmpresa}
-          logoUrl={cliente.logoUrl}
-          seccion="Comprador"
-          panelHref={`${basePath}/comprador`}
-          cambiarVistaHref={`${basePath}/inicio`}
-          items={NAV_ITEMS}
-          usuario={usuarioSidebar}
-        />
-        <main className="flex-1 bg-white p-8">{children}</main>
-      </div>
+      <SidebarNav
+        nombreEmpresa={cliente.nombreEmpresa}
+        logoUrl={cliente.logoUrl}
+        seccion="Comprador"
+        panelHref={`${basePath}/comprador`}
+        cambiarVistaHref={`${basePath}/inicio`}
+        items={NAV_ITEMS}
+      />
+      <PageHeaderProvider>
+        <div className="flex flex-1 flex-col">
+          {usuarioActual && (
+            <TopBar
+              esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
+              basePath={basePath}
+              proveedores={proveedores}
+              vistaActual="comprador"
+              usuario={usuarioActual}
+              logoutAction={logoutAction}
+            />
+          )}
+          <main className="flex-1 bg-[#FEFBFB] p-8">{children}</main>
+        </div>
+      </PageHeaderProvider>
     </div>
   );
 }

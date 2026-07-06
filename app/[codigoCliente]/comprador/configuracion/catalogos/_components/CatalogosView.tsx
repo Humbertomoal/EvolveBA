@@ -11,6 +11,7 @@ import {
   toggleActivoCatalogoValorAction,
   actualizarOrdenAction,
 } from "@/src/lib/catalogosActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 type TabKey = "JERARQUIA" | "TIPO_LICITACION" | "FAMILIA" | "UNIDAD_MEDIDA" | "MONEDA";
 
@@ -36,6 +37,7 @@ export default function CatalogosView({
   basePath: string;
 }) {
   const router = useRouter();
+  usePageTitle("Catálogo de Valores");
   const [tab, setTab] = useState<TabKey>("JERARQUIA");
   const [modal, setModal] = useState<ModalState>({ open: false });
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -155,7 +157,6 @@ export default function CatalogosView({
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Catálogo de Valores</h1>
         <p className="mt-0.5 text-sm text-zinc-500">
           Administra los valores de los campos de selección del sistema
         </p>
@@ -200,7 +201,7 @@ export default function CatalogosView({
       )}
 
       {/* Table card */}
-      <div className="overflow-hidden rounded-lg border border-zinc-200">
+      <div className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
         <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50 px-4 py-3">
           <span className="text-sm font-medium text-zinc-700">
             {TABS.find((t) => t.key === tab)?.label}

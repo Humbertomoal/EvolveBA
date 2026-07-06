@@ -44,7 +44,7 @@ export default async function DetalleSeleccionPage({
 
   if (!licitacion) {
     return (
-      <div className="flex max-w-lg flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-8">
+      <div className="flex max-w-lg flex-col gap-4 bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-8">
         <h1 className="text-xl font-semibold text-zinc-900">
           Licitación no encontrada
         </h1>

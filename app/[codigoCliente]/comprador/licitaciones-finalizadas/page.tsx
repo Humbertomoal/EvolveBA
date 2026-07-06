@@ -4,6 +4,7 @@ import { buscarFinalizadasAction } from "@/src/lib/finalizadasActions";
 import { FILTROS_DEFAULT } from "@/src/lib/finalizadasTypes";
 import { getCompradorSession } from "@/src/lib/compradorSession";
 import FinalizadasTabla from "./_components/FinalizadasTabla";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 
 export default async function LicitacionesFinalizadasPage({
   params,
@@ -35,9 +36,7 @@ export default async function LicitacionesFinalizadasPage({
 
   return (
     <div className="max-w-7xl space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Licitaciones Finalizadas
-      </h1>
+      <PageTitle title="Licitaciones Finalizadas" />
       <FinalizadasTabla
         initialData={initialResult.licitaciones}
         initialCursor={initialResult.nextCursor}

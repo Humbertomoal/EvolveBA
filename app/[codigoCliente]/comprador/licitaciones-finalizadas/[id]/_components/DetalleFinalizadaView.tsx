@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { formatImporte } from "@/src/lib/monedas";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -105,7 +106,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
         return (
           <div
             key={item.id}
-            className="overflow-hidden rounded-lg border border-zinc-200"
+            className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
           >
             {/* Item header */}
             <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3">
@@ -241,7 +242,7 @@ function HistorialPujasTab({
         return (
           <div
             key={item.id}
-            className="overflow-hidden rounded-lg border border-zinc-200"
+            className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
           >
             {/* Item header */}
             <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3">
@@ -317,6 +318,7 @@ export default function DetalleFinalizadaView({
   basePath,
 }: DetalleFinalizadaProps) {
   const [tab, setTab] = useState<Tab>("ganadores");
+  usePageTitle(licitacion.numero);
 
   const totalesPorMoneda = items.reduce((acc, item) => {
     for (const a of item.asignaciones) {
@@ -340,9 +342,6 @@ export default function DetalleFinalizadaView({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-zinc-900">
-              {licitacion.numero}
-            </h1>
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 ESTADO_LIC_BADGE[licitacion.estado] ??

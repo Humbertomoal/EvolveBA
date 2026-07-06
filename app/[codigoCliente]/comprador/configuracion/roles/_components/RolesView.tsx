@@ -9,6 +9,7 @@ import {
   actualizarRolAction,
   eliminarRolAction,
 } from "@/src/lib/usuariosActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Permission helpers ────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ function MatrizPermisos({
   onChange: (modulo: string, campo: "ver" | "crear" | "editar" | "eliminar", valor: boolean) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200">
+    <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-100 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -98,6 +99,7 @@ export default function RolesView({
   basePath: string;
 }) {
   const router = useRouter();
+  usePageTitle("Roles");
   const [modal, setModal] = useState<ModalState>({ open: false });
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
@@ -200,7 +202,6 @@ export default function RolesView({
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Roles</h1>
           <p className="mt-0.5 text-sm text-zinc-500">Define roles y sus permisos de acceso al sistema</p>
         </div>
         <button
@@ -220,7 +221,7 @@ export default function RolesView({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-zinc-200">
+      <div className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
         {roles.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-zinc-400">No hay roles configurados.</div>
         ) : (

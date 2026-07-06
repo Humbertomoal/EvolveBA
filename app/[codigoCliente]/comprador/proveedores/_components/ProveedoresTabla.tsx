@@ -10,6 +10,7 @@ import type {
 } from "@/src/data/proveedores";
 import PanelFiltros from "@/app/_components/PanelFiltros";
 import type { SeccionFiltroConfig } from "@/app/_components/PanelFiltros";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 const ETIQUETA_TIPO_PERSONA: Record<TipoPersona, string> = {
   Fisica: "Física",
@@ -37,6 +38,7 @@ export default function ProveedoresTabla({
   proveedores: Proveedor[];
   basePath: string;
 }) {
+  usePageTitle("Administración de Proveedores");
   const [busqueda, setBusqueda] = useState("");
   const [tiposPersona, setTiposPersona] = useState<string[]>([]);
   const [estados, setEstados] = useState<string[]>([]);
@@ -101,10 +103,7 @@ export default function ProveedoresTabla({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          Administración de Proveedores
-        </h1>
+      <div className="flex items-center justify-end">
         <Link
           href={`${basePath}/comprador/proveedores/nuevo`}
           className="flex items-center gap-2 rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)]"
@@ -128,7 +127,7 @@ export default function ProveedoresTabla({
         <PanelFiltros secciones={secciones} onLimpiar={limpiarFiltros} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200">
+      <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
             <tr>

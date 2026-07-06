@@ -2,6 +2,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { getCompradorSession } from "@/src/lib/compradorSession";
 import OrdenesCompradorTabla from "./_components/OrdenesCompradorTabla";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 import {
   ESTADOS_ACTIVOS,
   LIMIT_ORDENES,
@@ -68,9 +69,7 @@ export default async function OrdenesCompradorPage({
 
   return (
     <div className="max-w-7xl space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Órdenes de Compra
-      </h1>
+      <PageTitle title="Órdenes de Compra" />
       <OrdenesCompradorTabla
         initialData={initialData}
         initialCursor={initialCursor}

@@ -76,7 +76,7 @@ export default function TableroView({
     <div className={`space-y-6 transition-opacity ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
 
       {/* ── Filtros ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+      <div className="flex flex-wrap items-center gap-3 bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-4">
         <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400">
           <IconAdjustments className="h-4 w-4" />
           Filtros
@@ -350,7 +350,7 @@ function KpiCard({
   }[color];
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5">
+    <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium text-zinc-500">{label}</p>
@@ -377,7 +377,7 @@ function ChartSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5">
+    <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
         {hasData && (

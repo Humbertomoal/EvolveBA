@@ -2,6 +2,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 import MisLicitacionesTabla from "./_components/MisLicitacionesTabla";
 
 export type LicitacionProgramada = {
@@ -233,7 +234,7 @@ export default async function MisLicitacionesPage({
 
   return (
     <div className="max-w-6xl space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">Mis Licitaciones</h1>
+      <PageTitle title="Mis Licitaciones" />
       <MisLicitacionesTabla
         programadas={programadas}
         enProceso={enProceso}

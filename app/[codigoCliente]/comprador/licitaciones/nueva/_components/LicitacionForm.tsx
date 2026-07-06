@@ -25,6 +25,7 @@ import {
 } from "@/src/lib/licitacionesActions";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { MONEDAS } from "@/src/lib/monedas";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -126,6 +127,7 @@ export default function LicitacionForm({
   };
 }) {
   const modoEdicion = inicial !== undefined;
+  usePageTitle(modoEdicion ? `Editar Licitación ${inicial!.numero}` : "Nueva Licitación");
   const router = useRouter();
   const nombreEmpresa =
     getClienteByCodigo(basePath.replace(/^\//, "") || null)?.nombreEmpresa ?? "Evolve";
@@ -725,10 +727,7 @@ Asistente de Inteligencia Artificial`;
       )}
 
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          {modoEdicion ? `Editar Licitación ${inicial!.numero}` : "Nueva Licitación"}
-        </h1>
+      <div className="flex flex-wrap items-start justify-end gap-4">
         <div className="flex flex-wrap gap-2">
           {/* Paso 1: Proveedores — desbloqueado cuando hay ≥1 producto */}
           <span
@@ -1077,7 +1076,7 @@ Asistente de Inteligencia Artificial`;
             Sin productos. Usa el botón de abajo para agregar el primero.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

@@ -6,9 +6,10 @@ import {
 import { prisma } from "@/src/lib/prisma";
 import { PROVEEDOR_COOKIE } from "@/src/lib/proveedorSession";
 import { getTotalNoLeidosProveedor } from "@/src/lib/chatActions";
-import { auth } from "@/src/auth";
 import { logoutAction } from "@/src/lib/authActions";
-import ProveedorTestBanner from "./_components/ProveedorTestBanner";
+import { getUsuarioActual } from "@/src/lib/usuarioActual";
+import TopBar from "@/app/_components/TopBar";
+import { PageHeaderProvider } from "@/app/_components/PageHeaderContext";
 import ProveedorSidebarWrapper from "./_components/ProveedorSidebarWrapper";
 
 export default async function ProveedorLayout({
@@ -28,14 +29,14 @@ export default async function ProveedorLayout({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [cookieStore, proveedoresLista, session] = await Promise.all([
+  const [cookieStore, proveedoresLista, usuarioActual] = await Promise.all([
     cookies(),
     prisma.proveedor.findMany({
       where: { eliminado: false },
       select: { id: true, razonSocial: true },
       orderBy: { createdAt: "asc" },
     }),
-    auth(),
+    getUsuarioActual(),
   ]);
 
   const cookieId = cookieStore.get(PROVEEDOR_COOKIE)?.value ?? "";
@@ -67,24 +68,23 @@ export default async function ProveedorLayout({
         nombreEmpresa={cliente.nombreEmpresa}
         logoUrl={cliente.logoUrl}
         initialNoLeidos={noLeidosInicial}
-        usuario={
-          session?.user
-            ? {
-                nombre: session.user.name ?? "Usuario",
-                rolNombre: (session.user as any).rolNombre ?? null,
-                logoutAction,
-              }
-            : undefined
-        }
       />
-      <main className="flex flex-1 flex-col bg-white">
-        <ProveedorTestBanner
-          proveedores={proveedoresLista}
-          proveedorIdActual={proveedorIdActual}
-          basePath={basePath}
-        />
-        <div className="p-8">{children}</div>
-      </main>
+      <PageHeaderProvider>
+        <main className="flex flex-1 flex-col bg-[#FEFBFB]">
+          {usuarioActual && (
+            <TopBar
+              esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
+              basePath={basePath}
+              proveedores={proveedoresLista}
+              vistaActual="proveedor"
+              proveedorIdActual={proveedorIdActual}
+              usuario={usuarioActual}
+              logoutAction={logoutAction}
+            />
+          )}
+          <div className="p-8">{children}</div>
+        </main>
+      </PageHeaderProvider>
     </div>
   );
 }

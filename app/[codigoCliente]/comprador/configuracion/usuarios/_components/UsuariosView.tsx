@@ -9,6 +9,7 @@ import {
   actualizarUsuarioAction,
   toggleActivoUsuarioAction,
 } from "@/src/lib/usuariosActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export default function UsuariosView({
   basePath: string;
 }) {
   const router = useRouter();
+  usePageTitle("Usuarios");
   const [modal, setModal] = useState<ModalState>({ open: false });
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -152,7 +154,6 @@ export default function UsuariosView({
     <div className="max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Usuarios</h1>
           <p className="mt-0.5 text-sm text-zinc-500">Administra los usuarios del sistema</p>
         </div>
         <button
@@ -172,7 +173,7 @@ export default function UsuariosView({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-zinc-200">
+      <div className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
         {usuarios.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-zinc-400">
             No hay usuarios. Haz clic en <strong className="font-semibold">Agregar usuario</strong> para crear el primero.

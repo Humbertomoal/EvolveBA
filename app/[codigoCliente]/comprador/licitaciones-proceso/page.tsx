@@ -4,6 +4,7 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { getCompradorSession } from "@/src/lib/compradorSession";
 import { prisma } from "@/src/lib/prisma";
 import EnProcesoTabs from "./_components/EnProcesoTabs";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 
 export default async function LicitacionesEnProcesoPage({
   params,
@@ -69,9 +70,7 @@ export default async function LicitacionesEnProcesoPage({
 
   return (
     <div className="max-w-6xl space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Licitaciones en Proceso
-      </h1>
+      <PageTitle title="Licitaciones en Proceso" />
       <EnProcesoTabs
         proveedoresLics={proveedoresLics}
         manualLics={manualLics}

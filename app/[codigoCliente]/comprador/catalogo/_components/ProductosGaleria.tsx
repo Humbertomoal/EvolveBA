@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import type { Producto, TipoItem } from "@/src/data/productos";
 import PanelFiltros from "@/app/_components/PanelFiltros";
 import type { SeccionFiltroConfig } from "@/app/_components/PanelFiltros";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 type Vista = "galeria" | "tabla";
 
@@ -23,6 +24,7 @@ export default function ProductosGaleria({
   productos: Producto[];
   basePath: string;
 }) {
+  usePageTitle("Catálogo de Productos");
   const [vista, setVista] = useState<Vista>("galeria");
   const [busqueda, setBusqueda] = useState("");
 
@@ -112,10 +114,6 @@ export default function ProductosGaleria({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Catálogo de Productos
-      </h1>
-
       {/* Barra superior */}
       <div className="flex items-center gap-3">
         {/* Buscador */}
@@ -203,7 +201,7 @@ function TarjetaProducto({
   basePath: string;
 }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white transition-shadow hover:shadow-md">
+    <div className="flex flex-col overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] transition-shadow hover:shadow-md">
       <div className="relative aspect-square bg-zinc-50">
         {producto.imagenUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -254,7 +252,7 @@ function TablaProductos({
   basePath: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200">
+    <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
       <table className="w-full text-left text-sm">
         <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
           <tr>

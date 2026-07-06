@@ -12,26 +12,18 @@ import { getTotalNoLeidosProveedor } from "@/src/lib/chatActions";
 
 const ICON_CLASSNAME = "h-4 w-4 shrink-0";
 
-type UsuarioInfo = {
-  nombre: string;
-  rolNombre: string | null;
-  logoutAction: () => Promise<void>;
-};
-
 export default function ProveedorSidebarWrapper({
   basePath,
   proveedorId,
   nombreEmpresa,
   logoUrl,
   initialNoLeidos,
-  usuario,
 }: {
   basePath: string;
   proveedorId: string;
   nombreEmpresa: string;
   logoUrl: string;
   initialNoLeidos: number;
-  usuario?: UsuarioInfo;
 }) {
   const [noLeidos, setNoLeidos] = useState(initialNoLeidos);
 
@@ -77,7 +69,6 @@ export default function ProveedorSidebarWrapper({
       panelHref={`${basePath}/proveedor`}
       cambiarVistaHref={`${basePath}/inicio`}
       items={NAV_ITEMS}
-      usuario={usuario}
     />
   );
 }

@@ -6,6 +6,7 @@ import { useTransition, useState } from "react";
 import type { OrdenCompradorDetalle } from "../page";
 import { actualizarEstatusOrdenAction } from "@/src/lib/ordenesActions";
 import { formatImporte } from "@/src/lib/monedas";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 const ESTADOS = ["Pendiente", "En tránsito", "Entregada", "Recibida", "Cancelada"];
 
@@ -41,6 +42,7 @@ export default function OrdenCompradorDetalle({
   basePath: string;
 }) {
   const router = useRouter();
+  usePageTitle(orden.numero);
   const [isPending, startTransition] = useTransition();
   const [estadoLocal, setEstadoLocal] = useState(orden.estado);
 
@@ -71,11 +73,10 @@ export default function OrdenCompradorDetalle({
       </button>
 
       {/* Header card */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-zinc-900">{orden.numero}</h1>
               <EstatusBadge estado={estadoLocal} />
             </div>
             <p className="text-sm text-zinc-500">
@@ -127,7 +128,7 @@ export default function OrdenCompradorDetalle({
       </div>
 
       {/* Lines table */}
-      <div className="rounded-xl border border-zinc-200 shadow-sm">
+      <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
         <div className="border-b border-zinc-200 px-5 py-4">
           <h2 className="text-base font-semibold text-zinc-900">Materiales</h2>
         </div>

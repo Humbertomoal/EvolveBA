@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/src/lib/prisma";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { getCompradorSession } from "@/src/lib/compradorSession";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 
 export default async function CompradorHomePage({
   params,
@@ -63,9 +64,7 @@ export default async function CompradorHomePage({
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Panel de Comprador
-      </h1>
+      <PageTitle title="Panel de Comprador" />
       <p className="mt-1 text-sm text-zinc-500">
         Resumen general de tu actividad de compras
       </p>
@@ -90,7 +89,7 @@ export default async function CompradorHomePage({
           <Link
             key={a.href}
             href={a.href}
-            className="flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+            className="flex items-center gap-3 bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
           >
             <span className="text-[var(--color-primario)]">{a.icon}</span>
             {a.label}

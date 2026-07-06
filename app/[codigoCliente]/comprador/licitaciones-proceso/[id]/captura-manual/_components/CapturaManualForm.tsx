@@ -9,6 +9,7 @@ import {
   finalizarCapturaManualAction,
   type OfertaManual,
 } from "@/src/lib/capturaManualActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -129,6 +130,7 @@ export default function CapturaManualForm({
   basePath: string;
 }) {
   const router = useRouter();
+  usePageTitle(`Captura de Cotización — Licitación ${licitacion.numero}`);
   const [estado, setEstado] = useState<Record<string, Record<string, CeldaState>>>(
     () => initEstado(proveedores, items, ofertasExistentes)
   );
@@ -189,9 +191,6 @@ export default function CapturaManualForm({
         >
           ← Licitaciones en Proceso
         </Link>
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          Captura de Cotización — Licitación {licitacion.numero}
-        </h1>
         <p className="text-sm text-zinc-500">
           {[licitacion.jerarquia, licitacion.tipoLicitacion, "Comprador 1"]
             .filter(Boolean)
@@ -207,7 +206,7 @@ export default function CapturaManualForm({
           return (
             <div
               key={proveedor.id}
-              className="overflow-hidden rounded-lg border border-zinc-200"
+              className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
             >
               {/* Accordion header */}
               <button

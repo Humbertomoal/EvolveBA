@@ -16,6 +16,7 @@ import {
   confirmarAsignacionProveedorAction,
   rechazarAsignacionProveedorAction,
 } from "@/src/lib/proveedorAsignacionActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import type { AsignacionProveedor, LicitacionResultado } from "../page";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -153,6 +154,7 @@ export default function ResultadoView({
   basePath: string;
 }) {
   const router = useRouter();
+  usePageTitle(licitacion.numero);
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [rechazando, setRechazando] = useState<{ id: string; nombre: string } | null>(null);
   const [motivo, setMotivo] = useState("");
@@ -243,7 +245,6 @@ export default function ResultadoView({
             Mis Licitaciones
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-zinc-900">{licitacion.numero}</h1>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
               <IconTrophy className="h-4 w-4" />
               Ganador
@@ -275,7 +276,7 @@ export default function ResultadoView({
       </div>
 
       {/* Tabla de materiales */}
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+      <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

@@ -12,6 +12,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import { enviarOfertaAction } from "@/src/lib/ofertasActions";
 import { formatImporte } from "@/src/lib/monedas";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,7 @@ export default function LicitacionCotizacion({
   nombreComprador?: string;
 }) {
   const router = useRouter();
+  usePageTitle(`Licitación ${numero}`);
   const [chatAbierto, setChatAbierto] = useState(false);
   const [noLeidos, setNoLeidos] = useState(noLeidosInicial);
 
@@ -305,9 +307,6 @@ export default function LicitacionCotizacion({
               ← Mis Licitaciones
             </Link>
           </div>
-          <h1 className="text-2xl font-semibold text-zinc-900">
-            Licitación {numero}
-          </h1>
           <p className="text-sm text-zinc-500">
             Ronda {rondaActual === 0 ? "—" : rondaActual} de {maxRondas}
           </p>
@@ -403,7 +402,7 @@ export default function LicitacionCotizacion({
         )}
 
         {items.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

@@ -9,6 +9,7 @@ import {
   crearProductoAction,
   verificarCodigoDisponibleAction,
 } from "@/src/lib/productosActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ export default function ProductoForm({
     unidadesMedida: { codigo: string; nombre: string }[];
   };
 }) {
+  usePageTitle(productoExistente ? "Editar producto" : "Agregar producto");
+
   // ── Image state ───────────────────────────────────────────────────────────────
   const [previewUrl, setPreviewUrl] = useState<string | null>(
     productoExistente?.imagenUrl ?? null
@@ -150,10 +153,6 @@ export default function ProductoForm({
 
   return (
     <div className="max-w-3xl space-y-8">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        {productoExistente ? "Editar producto" : "Agregar producto"}
-      </h1>
-
       <form onSubmit={handleSubmit} className="space-y-10">
         <fieldset className="space-y-4">
           <legend className="text-sm font-semibold text-zinc-900">

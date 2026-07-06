@@ -14,6 +14,7 @@ import {
   actualizarProveedorAction,
   crearProveedorAction,
 } from "@/src/lib/proveedoresActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ export default function ProveedorForm({
   productos?: Producto[];
   materialesIniciales?: string[];
 }) {
+  usePageTitle(proveedorExistente ? "Editar proveedor" : "Agregar proveedor");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [archivos, setArchivos] = useState<File[]>([]);
 
@@ -228,10 +230,6 @@ export default function ProveedorForm({
 
   return (
     <div className="max-w-3xl space-y-8">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        {proveedorExistente ? "Editar proveedor" : "Agregar proveedor"}
-      </h1>
-
       <form onSubmit={handleSubmit} className="space-y-10">
         {/* Hidden inputs for selected materials */}
         {materialesSeleccionados.map((id) => (

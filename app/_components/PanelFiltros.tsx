@@ -91,7 +91,7 @@ export default function PanelFiltros({
       {abierto && (
         <div
           ref={panelRef}
-          className="absolute top-full right-0 z-20 mt-1 w-[300px] rounded-lg border border-zinc-200 bg-white p-4 shadow-lg"
+          className="absolute top-full right-0 z-20 mt-1 w-[300px] rounded-[10px] border border-[#ede8e8] bg-white p-4 shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
         >
           {secciones.map((seccion) =>
             seccion.tipo === "select" ? (

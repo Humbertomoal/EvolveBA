@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import {
   quitarMaterialProveedorAction,
   sincronizarMaterialesAction,
@@ -35,6 +36,7 @@ export default function CatalogoView({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  usePageTitle("Mi Catálogo y Mi Información");
 
   // ── Modal state ───────────────────────────────────────────────────────────────
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -99,15 +101,11 @@ export default function CatalogoView({
 
   return (
     <div className="max-w-4xl space-y-10">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Mi Catálogo y Mi Información
-      </h1>
-
       {/* ── Sección A: Mi Información ─────────────────────────────────────────── */}
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-zinc-900">Mi Información</h2>
 
-        <div className="rounded-xl border border-zinc-200 bg-white">
+        <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
           <div className="grid divide-y divide-zinc-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
             {/* Columna izquierda */}
             <div className="divide-y divide-zinc-100">
@@ -185,7 +183,7 @@ export default function CatalogoView({
             Aún no tienes materiales en tu catálogo. Usa el botón para agregar.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-200">
+          <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

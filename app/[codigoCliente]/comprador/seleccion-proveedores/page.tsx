@@ -2,6 +2,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { getCompradorSession } from "@/src/lib/compradorSession";
 import SeleccionTabla from "./_components/SeleccionTabla";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 
 export type LicitacionCerrada = {
   id: string;
@@ -68,9 +69,7 @@ export default async function SeleccionProveedoresPage({
 
   return (
     <div className="max-w-7xl space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">
-        Selección de Proveedores
-      </h1>
+      <PageTitle title="Selección de Proveedores" />
       <SeleccionTabla licitaciones={rows} basePath={basePath} />
     </div>
   );

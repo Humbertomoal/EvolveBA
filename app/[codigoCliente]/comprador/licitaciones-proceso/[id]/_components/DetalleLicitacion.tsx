@@ -12,6 +12,7 @@ import { Fragment, useState } from "react";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
 import { forzarAvanceRondaAction } from "@/src/lib/rondasActions";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types (exported for use in server page) ───────────────────────────────────
 
@@ -97,6 +98,7 @@ export default function DetalleLicitacion({
   noLeidosPorProveedor?: Record<string, number>;
 }) {
   const router = useRouter();
+  usePageTitle(`Licitación ${numero}`);
   const [tab, setTab] = useState<"participantes" | "mejores">("participantes");
   const [modalProveedor, setModalProveedor] =
     useState<ProveedorParticipante | null>(null);
@@ -132,7 +134,7 @@ export default function DetalleLicitacion({
     <div className="flex max-w-6xl flex-col gap-6">
 
       {/* ── Encabezado ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-zinc-200 bg-white px-6 py-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] px-6 py-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Link
@@ -143,9 +145,6 @@ export default function DetalleLicitacion({
             </Link>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-zinc-900">
-              Licitación {numero}
-            </h1>
             <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
               {estado}
             </span>
@@ -215,7 +214,7 @@ export default function DetalleLicitacion({
 
         {/* ── Tab: Participantes ─────────────────────────────────────────── */}
         {tab === "participantes" && (
-          <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
@@ -289,7 +288,7 @@ export default function DetalleLicitacion({
 
         {/* ── Tab: Mejores Precios ───────────────────────────────────────── */}
         {tab === "mejores" && (
-          <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

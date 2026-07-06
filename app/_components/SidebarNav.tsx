@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconArrowLeft, IconChevronDown, IconChevronRight, IconLogout } from "@tabler/icons-react";
+import { IconArrowLeft, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -20,12 +20,6 @@ type NavItem = {
   children?: NavChild[];
 };
 
-type UsuarioInfo = {
-  nombre: string;
-  rolNombre: string | null;
-  logoutAction: () => Promise<void>;
-};
-
 export default function SidebarNav({
   nombreEmpresa,
   logoUrl,
@@ -33,7 +27,6 @@ export default function SidebarNav({
   panelHref,
   cambiarVistaHref,
   items,
-  usuario,
 }: {
   nombreEmpresa: string;
   logoUrl: string;
@@ -41,7 +34,6 @@ export default function SidebarNav({
   panelHref: string;
   cambiarVistaHref: string;
   items: NavItem[];
-  usuario?: UsuarioInfo;
 }) {
   const pathname = usePathname();
 
@@ -190,40 +182,6 @@ export default function SidebarNav({
             );
           })}
         </nav>
-
-        {usuario && (
-          <div className="border-t border-white/15 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-bold text-white">
-                {usuario.nombre
-                  .split(" ")
-                  .slice(0, 2)
-                  .map((w) => w[0])
-                  .join("")
-                  .toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-white">
-                  {usuario.nombre}
-                </p>
-                {usuario.rolNombre && (
-                  <p className="truncate text-[10px] text-white/60">
-                    {usuario.rolNombre}
-                  </p>
-                )}
-              </div>
-              <form action={usuario.logoutAction}>
-                <button
-                  type="submit"
-                  title="Cerrar sesión"
-                  className="shrink-0 rounded p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  <IconLogout className="h-4 w-4" />
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </aside>
   );

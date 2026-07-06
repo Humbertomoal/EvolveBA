@@ -9,7 +9,7 @@ export default function CambiarPasswordForm({ nombre }: { nombre: string }) {
   const [show, setShow] = useState(false);
 
   return (
-    <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl ring-1 ring-zinc-200">
+    <div className="w-full max-w-sm rounded-[10px] border border-[#ede8e8] bg-white p-8 shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-zinc-900">Cambia tu contraseña</h1>
         <p className="mt-1 text-sm text-zinc-500">

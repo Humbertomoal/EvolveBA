@@ -15,6 +15,7 @@ import {
   reasignarProveedorAction,
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import type {
   AsignacionDetalle,
   LicitacionInfo,
@@ -176,6 +177,7 @@ export default function SeguimientoView({
   basePath: string;
 }) {
   const router = useRouter();
+  usePageTitle(`Licitación ${licitacion.numero} — Seguimiento`);
   const [modalReasignar, setModalReasignar] = useState<AsignacionDetalle | null>(null);
   const [nuevoProveedorId, setNuevoProveedorId] = useState<string>("");
   const [ejecutando, setEjecutando] = useState(false);
@@ -252,9 +254,6 @@ export default function SeguimientoView({
           >
             ← Selección de Proveedores
           </Link>
-          <h1 className="text-2xl font-semibold text-zinc-900">
-            Licitación {licitacion.numero} — Seguimiento
-          </h1>
           <p className="text-sm text-zinc-500">
             {[licitacion.jerarquia, licitacion.tipoLicitacion, "Comprador 1"]
               .filter(Boolean)
@@ -292,7 +291,7 @@ export default function SeguimientoView({
       </div>
 
       {/* Tabla de seguimiento */}
-      <div className="overflow-x-auto rounded-lg border border-zinc-200">
+      <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

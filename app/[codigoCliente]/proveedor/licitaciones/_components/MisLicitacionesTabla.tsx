@@ -363,7 +363,7 @@ export default function MisLicitacionesTabla({
           {programadas.length === 0 ? (
             <Vacio mensaje="No tienes licitaciones programadas" />
           ) : (
-            <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+            <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
@@ -396,7 +396,7 @@ export default function MisLicitacionesTabla({
           {enProceso.length === 0 ? (
             <Vacio mensaje="No tienes licitaciones en proceso" />
           ) : (
-            <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+            <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
@@ -542,7 +542,7 @@ export default function MisLicitacionesTabla({
               }
             />
           ) : (
-            <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+            <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { Fragment, useState } from "react";
+import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ export default function ResumenOfertasView({
   basePath: string;
 }) {
   const [historialVisible, setHistorialVisible] = useState(false);
+  usePageTitle(licitacion.numero);
 
   const hayOfertas = resumen.some((r) => r.mejorPrecio !== null);
 
@@ -109,7 +111,6 @@ export default function ResumenOfertasView({
           Mis Licitaciones
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-zinc-900">{licitacion.numero}</h1>
           {subEstado === "en_espera" ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-500">
               <IconClock className="h-4 w-4" />
@@ -147,11 +148,11 @@ export default function ResumenOfertasView({
         </h2>
 
         {!hayOfertas ? (
-          <p className="rounded-lg border border-zinc-200 bg-white py-8 text-center text-sm text-zinc-400">
+          <p className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] py-8 text-center text-sm text-zinc-400">
             No enviaste ofertas en esta licitación.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
@@ -250,7 +251,7 @@ export default function ResumenOfertasView({
           </button>
 
           {historialVisible && (
-            <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+            <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">

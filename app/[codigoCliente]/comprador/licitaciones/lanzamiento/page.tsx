@@ -6,6 +6,7 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { getCompradorSession } from "@/src/lib/compradorSession";
 import { prisma } from "@/src/lib/prisma";
 import LanzamientoTabla from "./_components/LanzamientoTabla";
+import { PageTitle } from "@/app/_components/PageHeaderContext";
 
 export default async function LanzamientoLicitacionesPage({
   params,
@@ -36,10 +37,8 @@ export default async function LanzamientoLicitacionesPage({
 
   return (
     <div className="max-w-6xl space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          Lanzamiento de Licitaciones
-        </h1>
+      <PageTitle title="Lanzamiento de Licitaciones" />
+      <div className="flex items-center justify-end gap-4">
         <Link
           href={`${basePath}/comprador/licitaciones/nueva`}
           className="flex items-center gap-2 rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)]"
