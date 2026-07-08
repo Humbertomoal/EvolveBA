@@ -42,41 +42,43 @@ function MatrizPermisos({
   onChange: (modulo: string, campo: "ver" | "crear" | "editar" | "eliminar", valor: boolean) => void;
 }) {
   return (
-    <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-zinc-100 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-            <th className="px-3 py-2.5">Módulo</th>
-            <th className="px-3 py-2.5 text-center">Ver</th>
-            <th className="px-3 py-2.5 text-center">Crear</th>
-            <th className="px-3 py-2.5 text-center">Editar</th>
-            <th className="px-3 py-2.5 text-center">Eliminar</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {MODULOS.map((m) => {
-            const p = permisos.find((p: any)  => p.modulo === m.key) ?? {
-              modulo: m.key, ver: false, crear: false, editar: false, eliminar: false,
-            };
-            return (
-              <tr key={m.key} className="hover:bg-zinc-50/40">
-                <td className="px-3 py-2 text-zinc-700">{m.label}</td>
-                {(["ver", "crear", "editar", "eliminar"] as const).map((campo) => (
-                  <td key={campo} className="px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={disabled ? true : p[campo]}
-                      disabled={disabled}
-                      onChange={(e) => onChange(m.key, campo, e.target.checked)}
-                      className="accent-[var(--color-primario)] disabled:opacity-60"
-                    />
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+              <th className="px-3 py-2.5">Módulo</th>
+              <th className="px-3 py-2.5 text-center">Ver</th>
+              <th className="px-3 py-2.5 text-center">Crear</th>
+              <th className="px-3 py-2.5 text-center">Editar</th>
+              <th className="px-3 py-2.5 text-center">Eliminar</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {MODULOS.map((m) => {
+              const p = permisos.find((p: any)  => p.modulo === m.key) ?? {
+                modulo: m.key, ver: false, crear: false, editar: false, eliminar: false,
+              };
+              return (
+                <tr key={m.key} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                  <td className="px-3 py-2 text-zinc-700">{m.label}</td>
+                  {(["ver", "crear", "editar", "eliminar"] as const).map((campo) => (
+                    <td key={campo} className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={disabled ? true : p[campo]}
+                        disabled={disabled}
+                        onChange={(e) => onChange(m.key, campo, e.target.checked)}
+                        className="accent-[var(--color-primario)] disabled:opacity-60"
+                      />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -196,7 +198,7 @@ export default function RolesView({
   }
 
   const INPUT =
-    "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:border-zinc-400";
+    "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-zinc-400";
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -207,7 +209,7 @@ export default function RolesView({
         <button
           type="button"
           onClick={abrirCrear}
-          className="flex items-center gap-1.5 rounded-md bg-[var(--color-primario)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)]"
+          className="flex items-center gap-1.5 rounded-md bg-[var(--color-primario)] px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)]"
         >
           <IconPlus className="h-4 w-4" />
           Crear rol
@@ -221,13 +223,14 @@ export default function RolesView({
         </div>
       )}
 
-      <div className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+      <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
         {roles.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-zinc-400">No hay roles configurados.</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-100 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+              <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="px-4 py-3">Nombre</th>
                 <th className="px-4 py-3">Descripción</th>
                 <th className="px-4 py-3 text-center">Usuarios</th>
@@ -237,7 +240,7 @@ export default function RolesView({
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {roles.map((r: any) => (
-                <tr key={r.id} className="hover:bg-zinc-50/40">
+                <tr key={r.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                   <td className="px-4 py-3 font-medium text-zinc-800">{r.nombre}</td>
                   <td className="px-4 py-3 text-zinc-500">{r.descripcion ?? "—"}</td>
                   <td className="px-4 py-3 text-center">
@@ -267,11 +270,11 @@ export default function RolesView({
                       </div>
                     ) : (
                       <div className="flex items-center justify-end gap-1">
-                        <button type="button" onClick={() => abrirEditar(r)} title="Editar permisos" className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700">
+                        <button type="button" onClick={() => abrirEditar(r)} title="Editar permisos" className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors duration-150">
                           <IconPencil className="h-3.5 w-3.5" />
                         </button>
                         {!r.esAdmin && !r.esSupervisor && (
-                          <button type="button" onClick={() => setConfirmandoId(r.id)} title="Eliminar" className="rounded p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600">
+                          <button type="button" onClick={() => setConfirmandoId(r.id)} title="Eliminar" className="rounded p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600 transition-colors duration-150">
                             <IconTrash className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -282,6 +285,7 @@ export default function RolesView({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -350,7 +354,7 @@ export default function RolesView({
                   Cancelar
                 </button>
                 {!(modal.modo === "editar" && modal.rol.esAdmin) && (
-                  <button type="button" onClick={handleGuardar} disabled={cargando} className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)] disabled:opacity-50">
+                  <button type="button" onClick={handleGuardar} disabled={cargando} className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:opacity-50">
                     {cargando ? "Guardando…" : "Guardar"}
                   </button>
                 )}

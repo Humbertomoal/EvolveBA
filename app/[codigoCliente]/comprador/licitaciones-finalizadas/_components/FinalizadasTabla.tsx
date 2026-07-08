@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import PanelFiltros from "@/app/_components/PanelFiltros";
+import Badge from "@/src/components/Badge";
 import { buscarFinalizadasAction } from "@/src/lib/finalizadasActions";
 import {
   FILTROS_DEFAULT,
@@ -25,16 +26,6 @@ function formatPeso(n: number): string {
   if (n === 0) return "—";
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
-
-const ESTADO_BADGE: Record<string, string> = {
-  Finalizada: "bg-emerald-100 text-emerald-700",
-  Cancelada: "bg-red-100 text-red-600",
-};
-
-const MODO_BADGE: Record<string, string> = {
-  Proveedores: "bg-blue-50 text-blue-700",
-  Manual: "bg-amber-50 text-amber-700",
-};
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -121,7 +112,7 @@ export default function FinalizadasTabla({
           placeholder="Buscar por número o jerarquía..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <PanelFiltros
           onLimpiar={limpiarFiltros}
@@ -210,10 +201,11 @@ export default function FinalizadasTabla({
             : "Sin resultados para tu búsqueda."}
         </p>
       ) : (
-        <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+        <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+              <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="min-w-[130px] px-3 py-3">Número</th>
                 <th className="min-w-[110px] px-3 py-3">Modo</th>
                 <th className="min-w-[130px] px-3 py-3">Jerarquía</th>
@@ -230,7 +222,7 @@ export default function FinalizadasTabla({
               {filasVisibles.map((l: any) => (
                 <tr
                   key={l.id}
-                  className="transition-colors hover:bg-zinc-50/60"
+                  className="hover:bg-zinc-50/50 transition-colors duration-150"
                 >
                   <td className="px-3 py-3 font-medium text-zinc-800">
                     <Link
@@ -241,13 +233,9 @@ export default function FinalizadasTabla({
                     </Link>
                   </td>
                   <td className="px-3 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        MODO_BADGE[l.modoLicitacion] ?? "bg-zinc-100 text-zinc-600"
-                      }`}
-                    >
+                    <Badge variant={l.modoLicitacion === "Manual" ? "warning" : "info"}>
                       {l.modoLicitacion}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-3 py-3 text-zinc-600">
                     {l.jerarquia ?? "—"}
@@ -271,18 +259,15 @@ export default function FinalizadasTabla({
                     {formatPeso(l.costoFinal)}
                   </td>
                   <td className="px-3 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        ESTADO_BADGE[l.estado] ?? "bg-zinc-100 text-zinc-500"
-                      }`}
-                    >
+                    <Badge variant={l.estado === "Cancelada" ? "cancelada" : "finalizada"}>
                       {l.estado}
-                    </span>
+                    </Badge>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

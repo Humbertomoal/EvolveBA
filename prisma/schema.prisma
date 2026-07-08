@@ -18,6 +18,7 @@ model Proveedor {
   tipoPersona           String
   rfc                   String   @unique
   domicilio             String
+  domicilioComercial    String?
   estado                String   @default("Activo")
   eliminado             Boolean  @default(false)
   eliminadoEn           DateTime?
@@ -44,6 +45,9 @@ model Producto {
   unidadMedida String
   descripcion  String?
   imagenUrl    String?
+  especificacionesTecnicas String?
+  archivosEspecificaciones String? // JSON con lista de URLs cuando conectemos Supabase Storage
+  monedaPredeterminada     String? // TODO: una vez migrada, agregar @default("MXN") vía migración separada (ver nota en el chat)
   eliminado    Boolean  @default(false)
   eliminadoEn  DateTime?
   clienteId    String
@@ -192,6 +196,7 @@ model ProveedorMaterial {
   proveedor   Proveedor @relation(fields: [proveedorId], references: [id])
   productoId  String
   producto    Producto  @relation(fields: [productoId], references: [id])
+  familias    String?  // JSON con lista de familias asignadas al proveedor
   createdAt   DateTime @default(now())
 
   @@unique([proveedorId, productoId])

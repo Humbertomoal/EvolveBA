@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconClipboardOff,
   IconDownload,
   IconEye,
 } from "@tabler/icons-react";
@@ -18,6 +17,8 @@ import {
 } from "@/src/lib/ordenesActions";
 import PanelFiltros from "@/app/_components/PanelFiltros";
 import CountdownTimer from "@/src/components/CountdownTimer";
+import Badge, { type BadgeVariant } from "@/src/components/Badge";
+import EmptyState from "@/src/components/EmptyState";
 
 const TODOS_ESTADOS = ["Pendiente", "En tránsito", "Entregada", "Recibida", "Cancelada"];
 
@@ -30,19 +31,16 @@ function formatFecha(iso: string | null): string {
   });
 }
 
+const ESTATUS_VARIANT: Record<string, BadgeVariant> = {
+  Pendiente: "pendiente",
+  "En tránsito": "en-transito",
+  Entregada: "entregada",
+  Recibida: "recibida",
+  Cancelada: "cancelada",
+};
+
 function EstatusBadge({ estado }: { estado: string }) {
-  const cfg: Record<string, string> = {
-    Pendiente:     "bg-zinc-100 text-zinc-600",
-    "En tránsito": "bg-blue-100 text-blue-700",
-    Entregada:     "bg-emerald-100 text-emerald-700",
-    Recibida:      "bg-emerald-200 text-emerald-900",
-    Cancelada:     "bg-red-100 text-red-500",
-  };
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg[estado] ?? "bg-zinc-100 text-zinc-600"}`}>
-      {estado}
-    </span>
-  );
+  return <Badge variant={ESTATUS_VARIANT[estado] ?? "neutral"}>{estado}</Badge>;
 }
 
 export default function OrdenesCompradorTabla({
@@ -145,7 +143,7 @@ export default function OrdenesCompradorTabla({
           placeholder="Buscar por número de OC o licitación…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <PanelFiltros
           onLimpiar={limpiarFiltros}
@@ -196,96 +194,99 @@ export default function OrdenesCompradorTabla({
 
       {/* Tabla */}
       {filasVisibles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 text-zinc-400">
-          <IconClipboardOff className="h-14 w-14 opacity-35" />
-          <p className="text-sm font-medium">
-            {filas.length === 0
-              ? "No hay órdenes de compra para los filtros seleccionados"
-              : "Sin resultados para tu búsqueda"}
-          </p>
-        </div>
+        <EmptyState
+          icon="IconClipboardOff"
+          title={filas.length === 0 ? "Sin órdenes de compra" : "Sin resultados"}
+          description={
+            filas.length === 0
+              ? "No hay órdenes de compra para los filtros seleccionados."
+              : "Sin resultados para tu búsqueda."
+          }
+        />
       ) : (
-        <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
-                <th className="min-w-[110px] px-4 py-3">Número OC</th>
-                <th className="min-w-[120px] px-4 py-3">Licitación</th>
-                <th className="min-w-[110px] px-4 py-3">Jerarquía</th>
-                <th className="min-w-[160px] px-4 py-3">Proveedor</th>
-                <th className="min-w-[80px] px-4 py-3 text-center">Materiales</th>
-                <th className="min-w-[110px] px-4 py-3">Fecha OC</th>
-                <th className="min-w-[110px] px-4 py-3">ETD</th>
-                <th className="min-w-[130px] px-4 py-3">Tiempo restante</th>
-                <th className="min-w-[110px] px-4 py-3">Estatus</th>
-                <th className="min-w-[170px] px-4 py-3">Actualizar estatus</th>
-                <th className="w-20 px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {filasVisibles.map((o: any) => (
-                <tr key={o.id} className="transition-colors hover:bg-zinc-50/80">
-                  <td className={`${CELL} font-semibold text-zinc-800`}>{o.numero}</td>
-                  <td className={`${CELL} text-zinc-600`}>{o.licitacionNumero}</td>
-                  <td className={`${CELL} text-zinc-600`}>{o.jerarquia ?? "—"}</td>
-                  <td className={`${CELL} text-zinc-700`}>{o.proveedorNombre}</td>
-                  <td className={`${CELL} text-center`}>
-                    <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600">
-                      {o.totalLineas}
-                    </span>
-                  </td>
-                  <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaCreacion)}</td>
-                  <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaEstimadaEntrega)}</td>
-                  <td className={CELL}>
-                    {o.fechaEstimadaEntrega ? (
-                      <CountdownTimer
-                        fechaFin={new Date(o.fechaEstimadaEntrega)}
-                        precision="minutes"
-                      />
-                    ) : (
-                      <span className="text-zinc-300">—</span>
-                    )}
-                  </td>
-                  <td className={CELL}>
-                    <EstatusBadge estado={o.estado} />
-                  </td>
-                  <td className={CELL}>
-                    <select
-                      defaultValue={o.estado}
-                      disabled={isPending}
-                      onChange={(e) => handleCambioEstatus(o.id, e.target.value)}
-                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:opacity-50"
-                    >
-                      {TODOS_ESTADOS.map((e) => (
-                        <option key={e} value={e}>{e}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className={`${CELL} whitespace-nowrap`}>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        title="Ver detalle"
-                        onClick={() => router.push(`${basePath}/comprador/ordenes/${o.id}`)}
-                        className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-                      >
-                        <IconEye className="h-4 w-4" />
-                      </button>
-                      <a
-                        href={`${basePath}/comprador/ordenes/${o.id}/imprimir`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Descargar PDF"
-                        className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-                      >
-                        <IconDownload className="h-4 w-4" />
-                      </a>
-                    </div>
-                  </td>
+        <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="min-w-[110px] px-4 py-3">Número OC</th>
+                  <th className="min-w-[120px] px-4 py-3">Licitación</th>
+                  <th className="min-w-[110px] px-4 py-3">Jerarquía</th>
+                  <th className="min-w-[160px] px-4 py-3">Proveedor</th>
+                  <th className="min-w-[80px] px-4 py-3 text-center">Materiales</th>
+                  <th className="min-w-[110px] px-4 py-3">Fecha OC</th>
+                  <th className="min-w-[110px] px-4 py-3">ETD</th>
+                  <th className="min-w-[130px] px-4 py-3">Tiempo restante</th>
+                  <th className="min-w-[110px] px-4 py-3">Estatus</th>
+                  <th className="min-w-[170px] px-4 py-3">Actualizar estatus</th>
+                  <th className="w-20 px-4 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {filasVisibles.map((o: any) => (
+                  <tr key={o.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className={`${CELL} font-semibold text-zinc-800`}>{o.numero}</td>
+                    <td className={`${CELL} text-zinc-600`}>{o.licitacionNumero}</td>
+                    <td className={`${CELL} text-zinc-600`}>{o.jerarquia ?? "—"}</td>
+                    <td className={`${CELL} text-zinc-700`}>{o.proveedorNombre}</td>
+                    <td className={`${CELL} text-center`}>
+                      <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600">
+                        {o.totalLineas}
+                      </span>
+                    </td>
+                    <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaCreacion)}</td>
+                    <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaEstimadaEntrega)}</td>
+                    <td className={CELL}>
+                      {o.fechaEstimadaEntrega ? (
+                        <CountdownTimer
+                          fechaFin={new Date(o.fechaEstimadaEntrega)}
+                          precision="minutes"
+                        />
+                      ) : (
+                        <span className="text-zinc-300">—</span>
+                      )}
+                    </td>
+                    <td className={CELL}>
+                      <EstatusBadge estado={o.estado} />
+                    </td>
+                    <td className={CELL}>
+                      <select
+                        defaultValue={o.estado}
+                        disabled={isPending}
+                        onChange={(e) => handleCambioEstatus(o.id, e.target.value)}
+                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                      >
+                        {TODOS_ESTADOS.map((e) => (
+                          <option key={e} value={e}>{e}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className={`${CELL} whitespace-nowrap`}>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          title="Ver detalle"
+                          onClick={() => router.push(`${basePath}/comprador/ordenes/${o.id}`)}
+                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
+                        >
+                          <IconEye className="h-4 w-4" />
+                        </button>
+                        <a
+                          href={`${basePath}/comprador/ordenes/${o.id}/imprimir`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Descargar PDF"
+                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
+                        >
+                          <IconDownload className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

@@ -325,7 +325,7 @@ export default function AsignacionForm({
   const pctMargen = margen != null && licitacion.importeVenta ? (margen / licitacion.importeVenta) * 100 : null;
 
   const CELL = "px-3 py-2 text-sm";
-  const INPUT_CLS = "w-full rounded border border-zinc-200 bg-white px-2 py-1 text-sm focus:border-zinc-400 focus:outline-none";
+  const INPUT_CLS = "w-full rounded border border-zinc-200 bg-white px-2 py-1 text-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
   return (
     <div className="flex max-w-7xl flex-col gap-6">
@@ -356,7 +356,7 @@ export default function AsignacionForm({
               max={720}
               value={tiempoHoras}
               onChange={(e) => setTiempoHoras(Math.max(1, Number(e.target.value)))}
-              className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm text-center focus:outline-none"
+              className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <span className="text-sm text-zinc-500">horas</span>
           </div>
@@ -364,10 +364,11 @@ export default function AsignacionForm({
       </div>
 
       {/* Tabla de asignación */}
-      <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+      <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+            <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
               <th className="min-w-[160px] px-3 py-3">Material</th>
               <th className="min-w-[80px] px-3 py-3 text-right">Cant. / Unidad</th>
               <th className="min-w-[280px] px-3 py-3">Proveedor asignado</th>
@@ -402,7 +403,7 @@ export default function AsignacionForm({
               return (
                 <Fragment key={item.licitacionItemId}>
                   {/* Fila principal */}
-                  <tr className="hover:bg-zinc-50/50">
+                  <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                     <td className={`${CELL} font-medium text-zinc-800`}>
                       {item.productoNombre}
                     </td>
@@ -481,7 +482,7 @@ export default function AsignacionForm({
 
                   {/* Fila secundaria */}
                   {fila.secondary && (
-                    <tr className="bg-amber-50/40 hover:bg-amber-50/60">
+                    <tr className="bg-amber-50/40 hover:bg-amber-50/60 transition-colors duration-150">
                       <td className={`${CELL} pl-8 text-zinc-500`}>
                         <span className="text-xs">↳ {item.productoNombre} (resto)</span>
                       </td>
@@ -597,6 +598,7 @@ export default function AsignacionForm({
             )}
           </tfoot>
         </table>
+        </div>
       </div>
 
       {/* Botones */}
@@ -605,7 +607,7 @@ export default function AsignacionForm({
           type="button"
           onClick={handleConfirmar}
           disabled={!!guardando}
-          className="rounded-md bg-[var(--color-primario)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)] disabled:opacity-50"
+          className="rounded-md bg-[var(--color-primario)] px-5 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:opacity-50"
         >
           {guardando === "confirmar" ? "Guardando…" : "Confirmar y notificar ganadores"}
         </button>
@@ -680,7 +682,7 @@ export default function AsignacionForm({
                   value={textoCancelar}
                   onChange={(e) => setTextoCancelar(e.target.value)}
                   placeholder="CANCELAR"
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-red-400 focus:outline-none"
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
             </div>

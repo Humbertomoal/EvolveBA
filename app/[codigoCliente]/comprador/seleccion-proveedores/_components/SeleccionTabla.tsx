@@ -4,6 +4,7 @@ import { IconChartBar, IconEye } from "@tabler/icons-react";
 import Link from "next/link";
 import { useState } from "react";
 import PanelFiltros from "@/app/_components/PanelFiltros";
+import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import type { LicitacionCerrada } from "../page";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -27,10 +28,10 @@ function formatPct(n: number | null): string {
   return `${n.toFixed(1)}%`;
 }
 
-const ESTADO_BADGE: Record<string, string> = {
-  Cerrada: "bg-zinc-100 text-zinc-600",
-  Finalizada: "bg-emerald-100 text-emerald-700",
-  Cancelada: "bg-red-100 text-red-600",
+const ESTADO_VARIANT: Record<string, BadgeVariant> = {
+  Cerrada: "neutral",
+  Finalizada: "finalizada",
+  Cancelada: "cancelada",
 };
 
 // ── Filter state ───────────────────────────────────────────────────────────────
@@ -126,7 +127,7 @@ export default function SeleccionTabla({
           placeholder="Buscar por número o jerarquía..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <PanelFiltros
           secciones={[
@@ -169,10 +170,11 @@ export default function SeleccionTabla({
           Sin licitaciones.
         </p>
       ) : (
-        <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+        <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+              <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="min-w-[130px] px-3 py-3">Número</th>
                 <th className="min-w-[130px] px-3 py-3">Tipo de Compra</th>
                 <th className="min-w-[120px] px-3 py-3">Fecha Licitación</th>
@@ -214,7 +216,7 @@ export default function SeleccionTabla({
                 return (
                   <tr
                     key={l.id}
-                    className="transition-colors hover:bg-zinc-50/60"
+                    className="hover:bg-zinc-50/50 transition-colors duration-150"
                   >
                     <td className="px-3 py-3 font-medium text-zinc-800">
                       <Link
@@ -274,20 +276,14 @@ export default function SeleccionTabla({
                       )}
                     </td>
                     <td className="px-3 py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          ESTADO_BADGE[l.estado] ?? "bg-zinc-100 text-zinc-500"
-                        }`}
-                      >
-                        {l.estado}
-                      </span>
+                      <Badge variant={ESTADO_VARIANT[l.estado] ?? "neutral"}>{l.estado}</Badge>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1">
                         <Link
                           href={`${basePath}/comprador/seleccion-proveedores/${l.id}`}
                           title="Ver resultados"
-                          className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
                         >
                           <IconEye className="h-4 w-4" />
                         </Link>
@@ -306,6 +302,7 @@ export default function SeleccionTabla({
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

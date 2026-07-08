@@ -9,17 +9,17 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   forzarCierreSeleccionAction,
   reasignarProveedorAction,
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import type {
   AsignacionDetalle,
   LicitacionInfo,
-  OfertaParaDropdown,
 } from "./types";
 
 function formatFecha(iso: string | null): string {
@@ -31,11 +31,14 @@ function formatFecha(iso: string | null): string {
   });
 }
 
-const ESTATUS_BADGE: Record<string, string> = {
-  Pendiente: "bg-zinc-100 text-zinc-600",
-  Aprobado: "bg-emerald-100 text-emerald-700",
-  Rechazado: "bg-red-100 text-red-700",
-  Confirmado: "bg-emerald-100 text-emerald-700",
+// Mapeo de estatus de proveedor -> variante de Badge más cercana.
+// No existe una variante de negocio específica para "Aprobado"/"Confirmado",
+// así que se usa la genérica "success" (mismo verde que tenían ambos antes).
+const ESTATUS_VARIANT: Record<string, BadgeVariant> = {
+  Pendiente: "pendiente",
+  Aprobado: "success",
+  Rechazado: "danger",
+  Confirmado: "success",
 };
 
 // ── Countdown ─────────────────────────────────────────────────────────────────
@@ -291,10 +294,11 @@ export default function SeguimientoView({
       </div>
 
       {/* Tabla de seguimiento */}
-      <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+      <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+            <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
               <th className="min-w-[150px] px-3 py-3">Material</th>
               <th className="min-w-[160px] px-3 py-3">Proveedor</th>
               <th className="min-w-[80px] px-3 py-3 text-right">Cantidad</th>
@@ -311,7 +315,7 @@ export default function SeguimientoView({
             {asignaciones.map((a: any) => (
               <tr
                 key={a.id}
-                className={`transition-colors hover:bg-zinc-50/60 ${
+                className={`transition-colors duration-150 hover:bg-zinc-50/50 ${
                   a.orden > 1 ? "bg-amber-50/30" : ""
                 }`}
               >
@@ -350,14 +354,9 @@ export default function SeguimientoView({
                   )}
                 </td>
                 <td className={CELL}>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      ESTATUS_BADGE[a.estatusProveedor] ??
-                      "bg-zinc-100 text-zinc-600"
-                    }`}
-                  >
+                  <Badge variant={ESTATUS_VARIANT[a.estatusProveedor] ?? "neutral"}>
                     {a.estatusProveedor}
-                  </span>
+                  </Badge>
                   {a.motivoRechazo && (
                     <p className="mt-0.5 text-xs text-red-500">{a.motivoRechazo}</p>
                   )}
@@ -440,6 +439,7 @@ export default function SeguimientoView({
             )}
           </tfoot>
         </table>
+        </div>
       </div>
 
       {/* Modal: Reasignar */}
@@ -528,7 +528,7 @@ export default function SeguimientoView({
                 type="button"
                 onClick={handleReasignar}
                 disabled={!nuevoProveedorId || ejecutando}
-                className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)] disabled:opacity-50"
+                className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:opacity-50"
               >
                 {ejecutando ? "Reasignando…" : "Confirmar reasignación"}
               </button>

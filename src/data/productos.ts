@@ -9,6 +9,9 @@ export type Producto = {
   unidadMedida: string;
   descripcion?: string;
   imagenUrl?: string;
+  especificacionesTecnicas?: string;
+  archivosEspecificaciones?: string;
+  monedaPredeterminada?: string;
   createdAt?: Date;
 };
 

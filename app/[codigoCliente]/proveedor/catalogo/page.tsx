@@ -1,11 +1,12 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import {
   getMaterialesProveedor,
+  getFamiliasProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getProductos } from "@/src/lib/productos";
-import { prisma } from "@/src/lib/prisma";
+import { getProveedorById } from "@/src/lib/proveedores";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
-import type { Proveedor } from "@/src/data/proveedores";
+import { getCatalogosActivos } from "@/src/lib/getCatalogos";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import CatalogoView from "./_components/CatalogoView";
 
@@ -23,10 +24,7 @@ export default async function MiCatalogoMiInformacionPage({
     getProductos(),
   ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const proveedor: Proveedor | null = proveedorId
-    ? (await prisma.proveedor.findUnique({ where: { id: proveedorId } })) as any
-    : null;
+  const proveedor = proveedorId ? await getProveedorById(proveedorId) : null;
 
   if (!proveedor) {
     return (
@@ -39,7 +37,11 @@ export default async function MiCatalogoMiInformacionPage({
     );
   }
 
-  const materialesIds = await getMaterialesProveedor(proveedor.id);
+  const [materialesIds, familiasCatalogo, familiasProveedor] = await Promise.all([
+    getMaterialesProveedor(proveedor.id),
+    getCatalogosActivos("FAMILIA"),
+    getFamiliasProveedor(proveedor.id),
+  ]);
   const materialesAsignados = productos.filter((p: any) =>
     materialesIds.includes(p.id)
   );
@@ -50,6 +52,8 @@ export default async function MiCatalogoMiInformacionPage({
       proveedor={proveedor}
       productos={productos}
       materialesAsignados={materialesAsignados}
+      familiasCatalogo={familiasCatalogo}
+      familiasProveedor={familiasProveedor}
     />
   );
 }

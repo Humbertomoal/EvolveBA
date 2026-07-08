@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
 import {
@@ -65,17 +66,17 @@ export type PreDatos = {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BTN_PRIMARIO =
-  "rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors";
+  "rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150";
 
 const BTN_SECUNDARIO =
   "rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors";
 
 const INPUT =
-  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none";
+  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 function iClass(hasError: boolean) {
   return hasError
-    ? "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none"
+    ? "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-primary/30"
     : INPUT;
 }
 
@@ -208,7 +209,12 @@ export default function LicitacionForm({
       if (item._id !== id) return item;
       if (campo === "productoId") {
         const prod = productos.find((p: any)  => p.id === valor);
-        return { ...item, productoId: valor, unidadMedida: prod?.unidadMedida ?? "" };
+        return {
+          ...item,
+          productoId: valor,
+          unidadMedida: prod?.unidadMedida ?? "",
+          moneda: prod?.monedaPredeterminada || item.moneda,
+        };
       }
       return { ...item, [campo]: valor };
     });
@@ -430,11 +436,13 @@ Asistente de Inteligencia Artificial`;
           basePath,
           buildDatos(estado ?? inicial!.estado)
         );
+        toast.success("Licitación guardada correctamente");
         router.push(destino);
       } catch (err) {
         setGuardando(null);
         const msg = err instanceof Error ? err.message : String(err);
         setBannerError(`Error al guardar la licitación: ${msg}`);
+        toast.error("No se pudo guardar la licitación. Intenta de nuevo.");
         setTimeout(
           () => bannerServerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
           50
@@ -446,11 +454,13 @@ Asistente de Inteligencia Artificial`;
       );
       try {
         const destino = await crearLicitacionAction(basePath, buildDatos(estado!));
+        toast.success("Licitación guardada correctamente");
         router.push(destino);
       } catch (err) {
         setGuardando(null);
         const msg = err instanceof Error ? err.message : String(err);
         setBannerError(`Error al guardar la licitación: ${msg}`);
+        toast.error("No se pudo guardar la licitación. Intenta de nuevo.");
         setTimeout(
           () => bannerServerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
           50
@@ -540,9 +550,9 @@ Asistente de Inteligencia Artificial`;
   })();
   const diasDisponibles = minDisponibles !== null ? minDisponibles / (60 * 24) : null;
   const maxRondasNum = parseInt(maxRondas) || 1;
-  const duracionSugeridaHoras =
+  const duracionSugeridaMin =
     minDisponibles !== null
-      ? Math.max(1, Math.round(minDisponibles / 60 / maxRondasNum))
+      ? Math.max(1, Math.round(minDisponibles / maxRondasNum))
       : null;
   const ventanaLabel = (() => {
     if (minDisponibles === null) return "";
@@ -551,9 +561,10 @@ Asistente de Inteligencia Artificial`;
     return `${Math.round(diasDisponibles!)} días de licitación`;
   })();
   const sugeridaLabel = (() => {
-    if (duracionSugeridaHoras === null) return "";
-    const mins = duracionSugeridaHoras * 60;
-    return mins < 60 ? `${mins} min por ronda` : `${duracionSugeridaHoras} horas por ronda`;
+    if (duracionSugeridaMin === null) return "";
+    if (duracionSugeridaMin < 60) return `${duracionSugeridaMin} min por ronda`;
+    if (duracionSugeridaMin < 60 * 24) return `${Math.round(duracionSugeridaMin / 60)} horas por ronda`;
+    return `${Math.round(duracionSugeridaMin / 1440)} días por ronda`;
   })();
   const durMinutosActual = duracionEnMinutos(duracionValor, duracionUnidad);
   const duracionExcede =
@@ -793,7 +804,7 @@ Asistente de Inteligencia Artificial`;
                 key={modo}
                 type="button"
                 onClick={() => setModoLicitacion(modo)}
-                className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-all duration-150 ${
                   modoLicitacion === modo
                     ? "bg-[var(--color-primario)] text-white shadow-sm"
                     : "text-zinc-500 hover:text-zinc-800"
@@ -986,7 +997,7 @@ Asistente de Inteligencia Artificial`;
                   <select
                     value={duracionUnidad}
                     onChange={(e) => setDuracionUnidad(e.target.value as UnidadDuracion)}
-                    className="rounded-md border border-zinc-300 px-2 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                    className="rounded-md border border-zinc-300 px-2 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                   >
                     <option value="minutos">min</option>
                     <option value="horas">hrs</option>
@@ -1015,9 +1026,9 @@ Asistente de Inteligencia Artificial`;
           )}
 
           {/* Duration hints — full-width row */}
-          {!esManual && (duracionSugeridaHoras !== null || duracionExcede || duracionBajoMinimo) && (
+          {!esManual && (duracionSugeridaMin !== null || duracionExcede || duracionBajoMinimo) && (
             <div className="sm:col-span-3 space-y-2">
-              {duracionSugeridaHoras !== null && !duracionExcede && (
+              {duracionSugeridaMin !== null && !duracionExcede && (
                 <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
                   <IconInfoCircle className="h-3.5 w-3.5 shrink-0" />
                   <span>
@@ -1033,7 +1044,7 @@ Asistente de Inteligencia Artificial`;
                   <IconAlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   <span>
                     Con esta duración, las rondas exceden el rango de entrega
-                    {duracionSugeridaHoras !== null && (
+                    {duracionSugeridaMin !== null && (
                       <span className="ml-1">(sugerido: {sugeridaLabel})</span>
                     )}
                   </span>
@@ -1076,10 +1087,11 @@ Asistente de Inteligencia Artificial`;
             Sin productos. Usa el botón de abajo para agregar el primero.
           </p>
         ) : (
-          <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+          <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="px-3 py-2.5 min-w-[200px]">Producto</th>
                   <th className="px-3 py-2.5 min-w-[180px]">Especificación</th>
                   <th className="px-3 py-2.5 min-w-[150px]">Fecha de entrega</th>
@@ -1103,7 +1115,7 @@ Asistente de Inteligencia Artificial`;
                       !item.cantidadSolicitada ||
                       item.precioObjetivo === "");
                   return (
-                    <tr key={item._id} className={rowHasError ? "bg-red-50/40" : ""}>
+                    <tr key={item._id} className={`hover:bg-zinc-50/50 transition-colors duration-150 ${rowHasError ? "bg-red-50/40" : ""}`}>
                       <td className="px-3 py-2">
                         <select
                           value={item.productoId}
@@ -1202,7 +1214,7 @@ Asistente de Inteligencia Artificial`;
                           type="button"
                           onClick={() => eliminarItem(item._id)}
                           aria-label="Eliminar fila"
-                          className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500"
                         >
                           <IconTrash className="h-4 w-4" />
                         </button>
@@ -1212,6 +1224,7 @@ Asistente de Inteligencia Artificial`;
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
@@ -1388,7 +1401,7 @@ Asistente de Inteligencia Artificial`;
                 placeholder="Buscar por razón social o RFC…"
                 value={busquedaProveedor}
                 onChange={(e) => setBusquedaProveedor(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
 
               {/* Filter chips */}
@@ -1629,7 +1642,7 @@ Asistente de Inteligencia Artificial`;
                   value={instruccionesTemp}
                   onChange={(e) => setInstruccionesTemp(e.target.value)}
                   placeholder="Escribe las instrucciones, condiciones y detalles que recibirán los proveedores al ser invitados…"
-                  className="w-full resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                  className="w-full resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
 

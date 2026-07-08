@@ -152,10 +152,11 @@ export default function ResumenOfertasView({
             No enviaste ofertas en esta licitación.
           </p>
         ) : (
-          <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+          <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="min-w-[180px] px-4 py-3">Material</th>
                   <th className="min-w-[80px] px-4 py-3">U.M.</th>
                   <th className="min-w-[100px] px-4 py-3 text-right">Cant. solicitada</th>
@@ -168,7 +169,7 @@ export default function ResumenOfertasView({
               <tbody className="divide-y divide-zinc-100">
                 {resumen.map((item: any) =>
                   item.mejorPrecio === null ? (
-                    <tr key={item.licitacionItemId} className="bg-zinc-50/40">
+                    <tr key={item.licitacionItemId} className="bg-zinc-50/40 hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className={`${CELL} font-medium text-zinc-500`}>
                         {item.productoNombre}
                       </td>
@@ -185,7 +186,7 @@ export default function ResumenOfertasView({
                     </tr>
                   ) : (
                     <Fragment key={item.licitacionItemId}>
-                      <tr className="hover:bg-zinc-50/40">
+                      <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                         <td className={`${CELL} font-medium text-zinc-800`}>
                           {item.productoNombre}
                         </td>
@@ -230,6 +231,7 @@ export default function ResumenOfertasView({
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
@@ -251,10 +253,11 @@ export default function ResumenOfertasView({
           </button>
 
           {historialVisible && (
-            <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+            <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="min-w-[180px] px-4 py-3">Material</th>
                     <th className="min-w-[80px] px-4 py-3 text-center">Ronda</th>
                     <th className="min-w-[120px] px-4 py-3 text-right">Precio unit.</th>
@@ -266,7 +269,7 @@ export default function ResumenOfertasView({
                   {historialFlat.map((row, idx) => (
                     <tr
                       key={`${row.licitacionItemId}-${row.ronda}`}
-                      className={row.esFirstRow && idx > 0 ? "border-t-2 border-zinc-200" : ""}
+                      className={`hover:bg-zinc-50/50 transition-colors duration-150 ${row.esFirstRow && idx > 0 ? "border-t-2 border-zinc-200" : ""}`}
                     >
                       <td className={`${CELL} ${row.esFirstRow ? "font-medium text-zinc-800" : "text-zinc-400"}`}>
                         {row.esFirstRow ? row.productoNombre : ""}
@@ -303,6 +306,7 @@ export default function ResumenOfertasView({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>

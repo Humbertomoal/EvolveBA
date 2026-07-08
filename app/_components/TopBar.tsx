@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconEye, IconLogout } from "@tabler/icons-react";
+import { IconChevronDown, IconEye, IconLogout, IconMenu2 } from "@tabler/icons-react";
 import { usePageHeaderTitle } from "./PageHeaderContext";
+import { useSidebarState } from "./SidebarStateContext";
 
 const PROVEEDOR_COOKIE = "cyrgo_proveedor_id";
 const VISTA_COMPRADOR = "__comprador__";
@@ -34,6 +35,7 @@ export default function TopBar({
 }) {
   const router = useRouter();
   const titulo = usePageHeaderTitle();
+  const { toggleMobileOpen } = useSidebarState();
 
   function handleChangeVista(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value;
@@ -61,18 +63,28 @@ export default function TopBar({
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#ede8e8] bg-white px-6">
-      <h1 className="truncate text-lg font-semibold text-zinc-900">{titulo}</h1>
+    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-border bg-white px-4 shadow-card sm:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={toggleMobileOpen}
+          title="Abrir menú"
+          className="shrink-0 rounded-md p-1.5 text-zinc-500 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 md:hidden"
+        >
+          <IconMenu2 className="h-5 w-5" />
+        </button>
+        <h1 className="truncate text-lg font-semibold text-zinc-900">{titulo}</h1>
+      </div>
 
       <div className="flex items-center gap-3">
         {esAdmin && (
-          <div className="flex items-center gap-1.5 rounded-[20px] border border-[#7dd3fc] bg-[#e0f2fe] py-1 pl-2.5 pr-1.5 text-sm text-[#0369a1]">
+          <div className="flex items-center gap-1.5 rounded-[20px] border border-blue-200 bg-blue-50 py-1 pl-2.5 pr-1.5 text-sm text-blue-700">
             <IconEye className="h-4 w-4 shrink-0" />
             <span>Viendo como:</span>
             <select
               value={vistaActual === "proveedor" ? proveedorIdActual ?? "" : VISTA_COMPRADOR}
               onChange={handleChangeVista}
-              className="cursor-pointer appearance-none bg-transparent pr-1 font-medium text-[#0369a1] focus:outline-none"
+              className="cursor-pointer appearance-none bg-transparent pr-1 font-medium text-blue-700 focus:outline-none"
             >
               <option value={VISTA_COMPRADOR}>Comprador</option>
               {proveedores.length > 0 && (
@@ -91,13 +103,13 @@ export default function TopBar({
         )}
 
         {usuario.rolNombre && (
-          <span className="rounded-full border border-[#bbf7d0] bg-[#f0fdf4] px-3 py-1 text-sm font-medium text-[#166534]">
+          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-700">
             {usuario.rolNombre}
           </span>
         )}
 
         <div className="flex items-center gap-2.5 pl-1">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#004439] text-xs font-bold text-white">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
             {iniciales}
           </div>
           <div className="min-w-0">

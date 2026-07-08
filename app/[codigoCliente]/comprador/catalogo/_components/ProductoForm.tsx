@@ -1,22 +1,25 @@
 "use client";
 
-import { IconPackage, IconUpload, IconX } from "@tabler/icons-react";
+import { IconFile, IconPackage, IconUpload, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import type { Producto } from "@/src/data/productos";
 import {
   actualizarProductoAction,
   crearProductoAction,
   verificarCodigoDisponibleAction,
 } from "@/src/lib/productosActions";
+import { isNextRedirectError } from "@/src/lib/isNextRedirectError";
+import { MONEDAS } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const INPUT =
-  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none";
+  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 const INPUT_ERR =
-  "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none";
+  "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 function iCls(hasErr: boolean) {
   return hasErr ? INPUT_ERR : INPUT;
@@ -34,6 +37,7 @@ export default function ProductoForm({
   catalogos?: {
     familias: { codigo: string; nombre: string }[];
     unidadesMedida: { codigo: string; nombre: string }[];
+    monedas: { codigo: string; nombre: string; simbolo?: string | null }[];
   };
 }) {
   usePageTitle(productoExistente ? "Editar producto" : "Agregar producto");
@@ -57,6 +61,14 @@ export default function ProductoForm({
   const [descripcion, setDescripcion] = useState(
     productoExistente?.descripcion ?? ""
   );
+  const [monedaPredeterminada, setMonedaPredeterminada] = useState(
+    productoExistente?.monedaPredeterminada ?? "MXN"
+  );
+  const [especificacionesTecnicas, setEspecificacionesTecnicas] = useState(
+    productoExistente?.especificacionesTecnicas ?? ""
+  );
+  const [archivosEspecificaciones, setArchivosEspecificaciones] = useState<File[]>([]);
+  const especificacionesFileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Validation state ──────────────────────────────────────────────────────────
   const [tocados, setTocados] = useState<Set<string>>(new Set());
@@ -134,6 +146,20 @@ export default function ProductoForm({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  // ── Especificaciones técnicas: file handlers ─────────────────────────────────
+  // `nuevos` must already be a materialized array (not the live FileList) — by
+  // the time React invokes this functional updater, the input's value reset
+  // (done right after picking files, to allow re-selecting the same file) has
+  // already cleared the live FileList.
+  function agregarArchivosEspecificaciones(nuevos: File[]) {
+    if (nuevos.length === 0) return;
+    setArchivosEspecificaciones((actuales) => [...actuales, ...nuevos]);
+  }
+
+  function quitarArchivoEspecificaciones(indice: number) {
+    setArchivosEspecificaciones((actuales) => actuales.filter((_, i) => i !== indice));
+  }
+
   // ── Action ────────────────────────────────────────────────────────────────────
   const accion = productoExistente
     ? actualizarProductoAction.bind(null, productoExistente.id, basePath)
@@ -145,8 +171,17 @@ export default function ProductoForm({
     if (hayErrores) return;
     setGuardando(true);
     const fd = new FormData(e.currentTarget);
-    await accion(fd);
-    setGuardando(false);
+    try {
+      await accion(fd);
+    } catch (error) {
+      if (isNextRedirectError(error)) {
+        toast.success("Producto guardado correctamente");
+        throw error;
+      }
+      toast.error("No se pudo guardar el producto. Intenta de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -261,6 +296,22 @@ export default function ProductoForm({
               </div>
             </Campo>
 
+            <Campo label="Moneda predeterminada" required>
+              <select
+                name="monedaPredeterminada"
+                value={monedaPredeterminada}
+                onChange={(e) => setMonedaPredeterminada(e.target.value)}
+                className={INPUT}
+              >
+                {(catalogos?.monedas && catalogos.monedas.length > 0
+                  ? catalogos.monedas
+                  : MONEDAS
+                ).map((m) => (
+                  <option key={m.codigo} value={m.codigo}>{m.codigo}</option>
+                ))}
+              </select>
+            </Campo>
+
             <Campo
               label="Descripción del Item"
               className="sm:col-span-2"
@@ -322,11 +373,78 @@ export default function ProductoForm({
           </button>
         </fieldset>
 
+        <fieldset className="space-y-4">
+          <legend className="text-sm font-semibold text-zinc-900">
+            Especificaciones Técnicas
+          </legend>
+
+          <Campo label="Descripción de especificaciones técnicas">
+            <textarea
+              name="especificacionesTecnicas"
+              rows={4}
+              value={especificacionesTecnicas}
+              onChange={(e) => setEspecificacionesTecnicas(e.target.value)}
+              className={INPUT}
+            />
+          </Campo>
+
+          <div className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-zinc-700">
+              Subir especificaciones técnicas (planos, fichas, etc.)
+            </span>
+
+            <input
+              ref={especificacionesFileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+              onChange={(event) => {
+                const nuevos = Array.from(event.target.files ?? []);
+                event.target.value = "";
+                agregarArchivosEspecificaciones(nuevos);
+              }}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => especificacionesFileInputRef.current?.click()}
+              className="flex w-fit items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              <IconUpload className="h-4 w-4" />
+              Seleccionar archivos
+            </button>
+
+            {archivosEspecificaciones.length > 0 && (
+              <ul className="space-y-2">
+                {archivosEspecificaciones.map((archivo, indice) => (
+                  <li
+                    key={`${archivo.name}-${indice}`}
+                    className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 text-sm"
+                  >
+                    <span className="flex items-center gap-2 text-zinc-700">
+                      <IconFile className="h-4 w-4 text-zinc-400" />
+                      {archivo.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarArchivoEspecificaciones(indice)}
+                      aria-label={`Quitar ${archivo.name}`}
+                      className="text-zinc-400 hover:text-zinc-700"
+                    >
+                      <IconX className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </fieldset>
+
         <div className="flex items-center gap-3 border-t border-zinc-200 pt-6">
           <button
             type="submit"
             disabled={hayErrores || guardando}
-            className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {guardando ? "Guardando…" : "Guardar"}
           </button>

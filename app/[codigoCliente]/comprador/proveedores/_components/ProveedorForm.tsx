@@ -1,34 +1,37 @@
 "use client";
 
 import {
+  IconChevronDown,
   IconFile,
   IconPackage,
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
 import {
   actualizarProveedorAction,
   crearProveedorAction,
 } from "@/src/lib/proveedoresActions";
+import { isNextRedirectError } from "@/src/lib/isNextRedirectError";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const INPUT =
-  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none";
+  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 const INPUT_ERR =
-  "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none";
+  "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 function iCls(hasErr: boolean) {
   return hasErr ? INPUT_ERR : INPUT;
 }
 
 const BTN_PRIMARIO =
-  "rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors";
+  "rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150";
 const BTN_SECUNDARIO =
   "rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors";
 
@@ -49,9 +52,10 @@ function formatTel(raw: string): string {
   return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`;
 }
 
-function errCelular(val: string): string | null {
-  if (!soloDigitos(val)) return "Campo requerido";
-  if (soloDigitos(val).length !== 10) return "El teléfono debe tener 10 dígitos";
+function errCelular(val: string, requerido: boolean): string | null {
+  const digitos = soloDigitos(val);
+  if (!digitos) return requerido ? "Campo requerido" : null;
+  if (digitos.length !== 10) return "El teléfono debe tener 10 dígitos";
   return null;
 }
 
@@ -76,11 +80,15 @@ export default function ProveedorForm({
   proveedorExistente,
   productos = [],
   materialesIniciales = [],
+  familiasCatalogo = [],
+  familiasIniciales = [],
 }: {
   basePath: string;
   proveedorExistente?: Proveedor;
   productos?: Producto[];
   materialesIniciales?: string[];
+  familiasCatalogo?: { codigo: string; nombre: string }[];
+  familiasIniciales?: string[];
 }) {
   usePageTitle(proveedorExistente ? "Editar proveedor" : "Agregar proveedor");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -110,6 +118,13 @@ export default function ProveedorForm({
   );
   const [rfc, setRfc] = useState(proveedorExistente?.rfc ?? "");
   const [domicilio, setDomicilio] = useState(proveedorExistente?.domicilio ?? "");
+  const [domicilioComercialEsIgual, setDomicilioComercialEsIgual] = useState(
+    !proveedorExistente?.domicilioComercial ||
+      proveedorExistente.domicilioComercial === proveedorExistente.domicilio
+  );
+  const [domicilioComercial, setDomicilioComercial] = useState(
+    proveedorExistente?.domicilioComercial ?? ""
+  );
 
   // ── Validation UI ─────────────────────────────────────────────────────────────
   const [tocados, setTocados] = useState<Set<string>>(new Set());
@@ -121,22 +136,46 @@ export default function ProveedorForm({
     useState<string[]>(materialesIniciales);
   const [modalMaterialesAbierto, setModalMaterialesAbierto] = useState(false);
   const [busquedaMaterial, setBusquedaMaterial] = useState("");
-  const [filtroFamilia, setFiltroFamilia] = useState("");
+  const [filtroFamilias, setFiltroFamilias] = useState<string[]>([]);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroUnidad, setFiltroUnidad] = useState("");
   const [selTempMateriales, setSelTempMateriales] = useState<string[]>([]);
+  const [familiasAsignadas, setFamiliasAsignadas] = useState<string[]>(familiasIniciales);
+  const [familiaDropdownAbierto, setFamiliaDropdownAbierto] = useState(false);
+  const [familiaDropdownTemp, setFamiliaDropdownTemp] = useState<string[]>([]);
+  const familiaDropdownRef = useRef<HTMLDivElement>(null);
+  const familiaBotonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!familiaDropdownAbierto) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        familiaDropdownRef.current &&
+        !familiaDropdownRef.current.contains(e.target as Node) &&
+        familiaBotonRef.current &&
+        !familiaBotonRef.current.contains(e.target as Node)
+      ) {
+        setFamiliaDropdownAbierto(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [familiaDropdownAbierto]);
 
   // ── Derived errors ────────────────────────────────────────────────────────────
   const errores = {
     razonSocial: !razonSocial.trim() ? "Campo requerido" : null,
-    vendedorNombre: !vendedorNombre.trim() ? "Campo requerido" : null,
-    vendedorCelular: errCelular(vendedorCelular),
+    vendedorCelular: errCelular(vendedorCelular, false),
     vendedorCorreo: errCorreo(vendedorCorreo, false),
     contactoAdminNombre: !contactoAdminNombre.trim() ? "Campo requerido" : null,
-    contactoAdminTelefono: errCelular(contactoAdminTelefono),
+    contactoAdminTelefono: errCelular(contactoAdminTelefono, false),
     contactoAdminCorreo: errCorreo(contactoAdminCorreo, true),
     rfc: errRfc(rfc, tipoPersona),
     domicilio: !domicilio.trim() ? "Campo requerido" : null,
+    domicilioComercial:
+      !domicilioComercialEsIgual && !domicilioComercial.trim()
+        ? "Campo requerido"
+        : null,
   };
 
   const hayErrores = Object.values(errores).some(Boolean);
@@ -161,14 +200,27 @@ export default function ProveedorForm({
     if (hayErrores) return;
     setGuardando(true);
     const fd = new FormData(e.currentTarget);
-    await accion(fd);
-    setGuardando(false);
+    try {
+      await accion(fd);
+    } catch (error) {
+      if (isNextRedirectError(error)) {
+        toast.success("Proveedor guardado correctamente");
+        throw error;
+      }
+      toast.error("No se pudo guardar el proveedor. Intenta de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
   }
 
   // ── File helpers ──────────────────────────────────────────────────────────────
-  function agregarArchivos(nuevos: FileList | null) {
-    if (!nuevos) return;
-    setArchivos((actuales) => [...actuales, ...Array.from(nuevos)]);
+  // `nuevos` must already be a materialized array (not the live FileList) — by
+  // the time React invokes this functional updater, the input's value reset
+  // (done right after picking files, to allow re-selecting the same file) has
+  // already cleared the live FileList.
+  function agregarArchivos(nuevos: File[]) {
+    if (nuevos.length === 0) return;
+    setArchivos((actuales) => [...actuales, ...nuevos]);
   }
 
   function quitarArchivo(indice: number) {
@@ -176,17 +228,15 @@ export default function ProveedorForm({
   }
 
   // ── Material modal helpers ────────────────────────────────────────────────────
-  const familias = [
-    ...new Set(productos.map((p: any)=> p.familia).filter(Boolean) as string[]),
-  ].sort();
   const unidades = [...new Set(productos.map((p: any)=> p.unidadMedida))].sort();
 
   function abrirModalMateriales() {
     setSelTempMateriales([...materialesSeleccionados]);
     setBusquedaMaterial("");
-    setFiltroFamilia("");
+    setFiltroFamilias([]);
     setFiltroTipo("");
     setFiltroUnidad("");
+    setFamiliaDropdownAbierto(false);
     setModalMaterialesAbierto(true);
   }
 
@@ -196,16 +246,73 @@ export default function ProveedorForm({
       !q ||
       p.nombre.toLowerCase().includes(q) ||
       p.codigo.toLowerCase().includes(q);
-    const matchFamilia = !filtroFamilia || p.familia === filtroFamilia;
+    const matchFamilia = filtroFamilias.length === 0 || filtroFamilias.includes(p.familia);
     const matchTipo = !filtroTipo || p.tipoItem === filtroTipo;
     const matchUnidad = !filtroUnidad || p.unidadMedida === filtroUnidad;
     return matchQ && matchFamilia && matchTipo && matchUnidad;
   });
 
+  // Families with at least one currently-selected material — drives the
+  // compact chips row below the family filter dropdown.
+  const familiasConSeleccion = (() => {
+    const conteos = new Map<string, number>();
+    for (const id of selTempMateriales) {
+      const prod = productos.find((p: any) => p.id === id);
+      if (prod?.familia) conteos.set(prod.familia, (conteos.get(prod.familia) ?? 0) + 1);
+    }
+    return [...conteos.entries()].map(([familia, count]) => ({ familia, count }));
+  })();
+
+  const resumenFiltroFamilias =
+    filtroFamilias.length === 0
+      ? "Filtrar por familia…"
+      : filtroFamilias.length <= 2
+        ? filtroFamilias.join(", ")
+        : `${filtroFamilias.slice(0, 2).join(", ")} (+${filtroFamilias.length - 2} más)`;
+
   function toggleMaterialTemp(id: string) {
     setSelTempMateriales((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  }
+
+  function abrirDropdownFamilias() {
+    setFamiliaDropdownTemp([...filtroFamilias]);
+    setFamiliaDropdownAbierto((v) => !v);
+  }
+
+  function toggleFamiliaDropdownTemp(nombre: string) {
+    setFamiliaDropdownTemp((prev) =>
+      prev.includes(nombre) ? prev.filter((f) => f !== nombre) : [...prev, nombre]
+    );
+  }
+
+  function seleccionarTodasFamiliasDropdown() {
+    setFamiliaDropdownTemp(familiasCatalogo.map((f) => f.nombre));
+  }
+
+  function deseleccionarTodasFamiliasDropdown() {
+    setFamiliaDropdownTemp([]);
+  }
+
+  function aplicarFiltroFamilias() {
+    setFiltroFamilias([...familiaDropdownTemp]);
+    const idsFiltradas = productos
+      .filter((p: any) => familiaDropdownTemp.includes(p.familia))
+      .map((p: any) => p.id);
+    setSelTempMateriales((prev) => [...new Set([...prev, ...idsFiltradas])]);
+    setFamiliaDropdownAbierto(false);
+  }
+
+  function verTodosMateriales() {
+    setFiltroFamilias([]);
+  }
+
+  function quitarFamiliaDeSeleccion(familia: string) {
+    const ids = productos.filter((p: any) => p.familia === familia).map((p: any) => p.id);
+    setSelTempMateriales((prev) => prev.filter((id) => !ids.includes(id)));
+    setFiltroFamilias((prev) => prev.filter((f) => f !== familia));
+    setFamiliaDropdownTemp((prev) => prev.filter((f) => f !== familia));
   }
 
   function seleccionarTodos() {
@@ -219,6 +326,7 @@ export default function ProveedorForm({
 
   function confirmarMateriales() {
     setMaterialesSeleccionados([...selTempMateriales]);
+    setFamiliasAsignadas(familiasConSeleccion.map((f) => f.familia));
     setModalMaterialesAbierto(false);
   }
 
@@ -234,6 +342,9 @@ export default function ProveedorForm({
         {/* Hidden inputs for selected materials */}
         {materialesSeleccionados.map((id) => (
           <input key={id} type="hidden" name="materialId" value={id} />
+        ))}
+        {familiasAsignadas.map((f) => (
+          <input key={f} type="hidden" name="familia" value={f} />
         ))}
 
         {/* ── Datos del proveedor y vendedor ───────────────────────────────── */}
@@ -267,23 +378,17 @@ export default function ProveedorForm({
                 <option value="Inactivo">Inactivo</option>
               </select>
             </Campo>
-            <Campo
-              label="Vendedor del Proveedor"
-              required
-              error={verError("vendedorNombre")}
-            >
+            <Campo label="Nombre del Vendedor">
               <input
                 name="vendedorNombre"
                 type="text"
                 value={vendedorNombre}
                 onChange={(e) => setVendedorNombre(e.target.value)}
-                onBlur={() => tocar("vendedorNombre")}
-                className={iCls(!!verError("vendedorNombre"))}
+                className={INPUT}
               />
             </Campo>
             <Campo
               label="Celular del Vendedor"
-              required
               error={verError("vendedorCelular")}
             >
               <input
@@ -336,7 +441,6 @@ export default function ProveedorForm({
             </Campo>
             <Campo
               label="Teléfono Contacto Admin"
-              required
               error={verError("contactoAdminTelefono")}
             >
               <input
@@ -364,17 +468,6 @@ export default function ProveedorForm({
                 onBlur={() => tocar("contactoAdminCorreo")}
                 className={iCls(!!verError("contactoAdminCorreo"))}
               />
-            </Campo>
-            <Campo label="Tipo de Persona" required>
-              <select
-                name="tipoPersona"
-                value={tipoPersona}
-                onChange={(e) => setTipoPersona(e.target.value as "Fisica" | "Moral")}
-                className={INPUT}
-              >
-                <option value="Fisica">Física</option>
-                <option value="Moral">Moral</option>
-              </select>
             </Campo>
           </div>
         </fieldset>
@@ -405,8 +498,19 @@ export default function ProveedorForm({
                 className={iCls(!!verError("rfc"))}
               />
             </Campo>
+            <Campo label="Tipo de Persona" required>
+              <select
+                name="tipoPersona"
+                value={tipoPersona}
+                onChange={(e) => setTipoPersona(e.target.value as "Fisica" | "Moral")}
+                className={INPUT}
+              >
+                <option value="Fisica">Física</option>
+                <option value="Moral">Moral</option>
+              </select>
+            </Campo>
             <Campo
-              label="Domicilio"
+              label="Domicilio Fiscal"
               required
               className="sm:col-span-2"
               error={verError("domicilio")}
@@ -420,6 +524,34 @@ export default function ProveedorForm({
                 className={iCls(!!verError("domicilio"))}
               />
             </Campo>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={domicilioComercialEsIgual}
+                onChange={(e) => setDomicilioComercialEsIgual(e.target.checked)}
+                className="h-4 w-4 rounded border-zinc-300"
+              />
+              El domicilio comercial es el mismo que el fiscal
+            </label>
+            {domicilioComercialEsIgual ? (
+              <input type="hidden" name="domicilioComercial" value={domicilio} />
+            ) : (
+              <Campo
+                label="Domicilio Comercial"
+                required
+                className="sm:col-span-2"
+                error={verError("domicilioComercial")}
+              >
+                <textarea
+                  name="domicilioComercial"
+                  rows={3}
+                  value={domicilioComercial}
+                  onChange={(e) => setDomicilioComercial(e.target.value)}
+                  onBlur={() => tocar("domicilioComercial")}
+                  className={iCls(!!verError("domicilioComercial"))}
+                />
+              </Campo>
+            )}
           </div>
         </fieldset>
 
@@ -438,8 +570,9 @@ export default function ProveedorForm({
             type="file"
             multiple
             onChange={(event) => {
-              agregarArchivos(event.target.files);
+              const nuevos = Array.from(event.target.files ?? []);
               event.target.value = "";
+              agregarArchivos(nuevos);
             }}
             className="hidden"
           />
@@ -573,25 +706,13 @@ export default function ProveedorForm({
                 placeholder="Buscar por nombre o código…"
                 value={busquedaMaterial}
                 onChange={(e) => setBusquedaMaterial(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
               <div className="flex gap-2">
                 <select
-                  value={filtroFamilia}
-                  onChange={(e) => setFiltroFamilia(e.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none"
-                >
-                  <option value="">Familia: Todas</option>
-                  {familias.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-                <select
                   value={filtroTipo}
                   onChange={(e) => setFiltroTipo(e.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none"
+                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   <option value="">Tipo: Todos</option>
                   <option value="Producto">Producto</option>
@@ -600,7 +721,7 @@ export default function ProveedorForm({
                 <select
                   value={filtroUnidad}
                   onChange={(e) => setFiltroUnidad(e.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none"
+                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   <option value="">Unidad: Todas</option>
                   {unidades.map((u) => (
@@ -611,6 +732,109 @@ export default function ProveedorForm({
                 </select>
               </div>
             </div>
+
+            {/* Filtrar por familia */}
+            {familiasCatalogo.length > 0 && (
+              <div className="shrink-0 space-y-2 border-b border-zinc-100 px-5 py-3">
+                <div className="relative">
+                  <button
+                    ref={familiaBotonRef}
+                    type="button"
+                    onClick={abrirDropdownFamilias}
+                    className="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-left text-xs focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <span className={filtroFamilias.length === 0 ? "text-zinc-400" : "text-zinc-700"}>
+                      {resumenFiltroFamilias}
+                    </span>
+                    <IconChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                  </button>
+
+                  {familiaDropdownAbierto && (
+                    <div
+                      ref={familiaDropdownRef}
+                      className="absolute z-20 mt-1 w-full rounded-md border border-zinc-200 bg-white shadow-lg"
+                    >
+                      <div className="flex items-center gap-3 border-b border-zinc-100 px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={seleccionarTodasFamiliasDropdown}
+                          className="text-xs font-medium text-[var(--color-primario)] hover:underline"
+                        >
+                          Seleccionar todas
+                        </button>
+                        <span className="text-zinc-300">|</span>
+                        <button
+                          type="button"
+                          onClick={deseleccionarTodasFamiliasDropdown}
+                          className="text-xs font-medium text-zinc-500 hover:underline"
+                        >
+                          Deseleccionar todas
+                        </button>
+                      </div>
+                      <div className="max-h-44 overflow-y-auto p-2">
+                        {familiasCatalogo.map((f) => (
+                          <label
+                            key={f.codigo}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={familiaDropdownTemp.includes(f.nombre)}
+                              onChange={() => toggleFamiliaDropdownTemp(f.nombre)}
+                              className="h-4 w-4 rounded border-zinc-300"
+                            />
+                            {f.nombre}
+                          </label>
+                        ))}
+                      </div>
+                      <div className="border-t border-zinc-100 p-2">
+                        <button
+                          type="button"
+                          onClick={aplicarFiltroFamilias}
+                          className="w-full rounded-md bg-[var(--color-primario)] py-1.5 text-xs font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150"
+                        >
+                          Aplicar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {filtroFamilias.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={verTodosMateriales}
+                    className="text-xs font-medium text-zinc-500 hover:underline"
+                  >
+                    Ver todos los materiales
+                  </button>
+                )}
+
+                {familiasConSeleccion.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {familiasConSeleccion.map(({ familia, count }) => (
+                      <span
+                        key={familia}
+                        className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700"
+                      >
+                        {familia}
+                        <span className="text-zinc-400">
+                          ({count} material{count !== 1 ? "es" : ""})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => quitarFamiliaDeSeleccion(familia)}
+                          aria-label={`Quitar familia ${familia}`}
+                          className="text-zinc-400 hover:text-zinc-700"
+                        >
+                          <IconX className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Select all / Deselect all */}
             <div className="flex shrink-0 items-center gap-3 border-b border-zinc-100 px-5 py-2">

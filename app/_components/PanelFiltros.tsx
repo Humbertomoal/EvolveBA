@@ -102,7 +102,7 @@ export default function PanelFiltros({
                 <select
                   value={seccion.valor}
                   onChange={(e) => seccion.onCambio(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none"
+                  className="w-full rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   {seccion.opciones.map((op) => (
                     <option key={op.value} value={op.value}>
@@ -120,7 +120,7 @@ export default function PanelFiltros({
                         type="date"
                         value={seccion.fechaDesde}
                         onChange={(e) => seccion.onFechaDesde?.(e.target.value)}
-                        className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                        className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -129,7 +129,7 @@ export default function PanelFiltros({
                         type="date"
                         value={seccion.fechaHasta ?? ""}
                         onChange={(e) => seccion.onFechaHasta?.(e.target.value)}
-                        className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                        className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                       />
                     </div>
                   </div>
@@ -171,7 +171,7 @@ export default function PanelFiltros({
             <button
               type="button"
               onClick={() => { onAplicar?.(); setAbierto(false); }}
-              className="flex-1 rounded-md bg-[var(--color-primario)] py-1.5 text-sm font-medium text-white hover:bg-[var(--color-secundario)]"
+              className="flex-1 rounded-md bg-[var(--color-primario)] py-1.5 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150"
             >
               Aplicar filtros
             </button>

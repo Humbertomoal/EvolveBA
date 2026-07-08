@@ -11,10 +11,11 @@ export default async function EditarProductoPage({
   const { codigoCliente, id } = await params;
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
-  const [producto, familias, unidadesMedida] = await Promise.all([
+  const [producto, familias, unidadesMedida, monedas] = await Promise.all([
     getProductoById(id),
     getCatalogosActivos("FAMILIA"),
     getCatalogosActivos("UNIDAD_MEDIDA"),
+    getCatalogosActivos("MONEDA"),
   ]);
 
   if (!producto) {
@@ -34,7 +35,7 @@ export default async function EditarProductoPage({
     <ProductoForm
       basePath={basePath}
       productoExistente={producto}
-      catalogos={{ familias, unidadesMedida }}
+      catalogos={{ familias, unidadesMedida, monedas }}
     />
   );
 }

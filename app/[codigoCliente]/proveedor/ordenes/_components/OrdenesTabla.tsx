@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconClipboardOff,
   IconDownload,
   IconEye,
 } from "@tabler/icons-react";
@@ -17,6 +16,8 @@ import {
   buscarOrdenesProveedorAction,
 } from "@/src/lib/ordenesActions";
 import PanelFiltros from "@/app/_components/PanelFiltros";
+import Badge, { type BadgeVariant } from "@/src/components/Badge";
+import EmptyState from "@/src/components/EmptyState";
 
 const ESTADOS_PROVEEDOR = ["Pendiente", "En tránsito", "Entregada", "Cancelada"];
 
@@ -33,18 +34,15 @@ function formatMoneda(n: number): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
 
+const ESTATUS_VARIANT: Record<string, BadgeVariant> = {
+  Pendiente: "pendiente",
+  "En tránsito": "en-transito",
+  Entregada: "entregada",
+  Cancelada: "cancelada",
+};
+
 function EstatusBadge({ estado }: { estado: string }) {
-  const cfg: Record<string, string> = {
-    Pendiente:     "bg-zinc-100 text-zinc-600",
-    "En tránsito": "bg-blue-100 text-blue-700",
-    Entregada:     "bg-emerald-100 text-emerald-700",
-    Cancelada:     "bg-red-100 text-red-500",
-  };
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg[estado] ?? "bg-zinc-100 text-zinc-600"}`}>
-      {estado}
-    </span>
-  );
+  return <Badge variant={ESTATUS_VARIANT[estado] ?? "neutral"}>{estado}</Badge>;
 }
 
 export default function OrdenesTabla({
@@ -141,7 +139,7 @@ export default function OrdenesTabla({
           placeholder="Buscar por número de OC o licitación…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <PanelFiltros
           onLimpiar={limpiarFiltros}
@@ -182,19 +180,21 @@ export default function OrdenesTabla({
 
       {/* Tabla */}
       {filasVisibles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 text-zinc-400">
-          <IconClipboardOff className="h-14 w-14 opacity-35" />
-          <p className="text-sm font-medium">
-            {filas.length === 0
-              ? "No tienes órdenes de compra para los filtros seleccionados"
-              : "Sin resultados para tu búsqueda"}
-          </p>
-        </div>
+        <EmptyState
+          icon="IconClipboardOff"
+          title={filas.length === 0 ? "Sin órdenes de compra" : "Sin resultados"}
+          description={
+            filas.length === 0
+              ? "No tienes órdenes de compra para los filtros seleccionados."
+              : "Sin resultados para tu búsqueda."
+          }
+        />
       ) : (
-        <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+        <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+              <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="min-w-[110px] px-4 py-3">Número OC</th>
                 <th className="min-w-[120px] px-4 py-3">Licitación</th>
                 <th className="min-w-[110px] px-4 py-3">Jerarquía</th>
@@ -208,7 +208,7 @@ export default function OrdenesTabla({
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {filasVisibles.map((o: any) => (
-                <tr key={o.id} className="transition-colors hover:bg-zinc-50/80">
+                <tr key={o.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                   <td className={`${CELL} font-semibold text-zinc-800`}>{o.numero}</td>
                   <td className={`${CELL} text-zinc-600`}>{o.licitacionNumero}</td>
                   <td className={`${CELL} text-zinc-600`}>{o.jerarquia ?? "—"}</td>
@@ -225,7 +225,7 @@ export default function OrdenesTabla({
                       defaultValue={o.estado}
                       disabled={isPending}
                       onChange={(e) => handleCambioEstatus(o.id, e.target.value)}
-                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:opacity-50"
+                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
                     >
                       {ESTADOS_PROVEEDOR.map((e) => (
                         <option key={e} value={e}>{e}</option>
@@ -238,7 +238,7 @@ export default function OrdenesTabla({
                         type="button"
                         title="Ver detalle"
                         onClick={() => router.push(`${basePath}/proveedor/ordenes/${o.id}`)}
-                        className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                        className="rounded-md p-1.5 text-zinc-400 hover:text-zinc-600 transition-colors duration-150"
                       >
                         <IconEye className="h-4 w-4" />
                       </button>
@@ -247,7 +247,7 @@ export default function OrdenesTabla({
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Descargar PDF"
-                        className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                        className="rounded-md p-1.5 text-zinc-400 hover:text-zinc-600 transition-colors duration-150"
                       >
                         <IconDownload className="h-4 w-4" />
                       </a>
@@ -257,6 +257,7 @@ export default function OrdenesTabla({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

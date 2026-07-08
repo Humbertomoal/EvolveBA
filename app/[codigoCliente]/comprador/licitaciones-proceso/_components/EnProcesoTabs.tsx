@@ -25,7 +25,7 @@ export default function EnProcesoTabs({
         <button
           type="button"
           onClick={() => setTab("proveedores")}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+          className={`px-4 py-2 text-sm font-medium transition-all duration-150 border-b-2 -mb-px ${
             tab === "proveedores"
               ? "border-[var(--color-primario)] text-[var(--color-primario)]"
               : "border-transparent text-zinc-500 hover:text-zinc-800"
@@ -41,7 +41,7 @@ export default function EnProcesoTabs({
         <button
           type="button"
           onClick={() => setTab("manual")}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+          className={`px-4 py-2 text-sm font-medium transition-all duration-150 border-b-2 -mb-px ${
             tab === "manual"
               ? "border-[var(--color-primario)] text-[var(--color-primario)]"
               : "border-transparent text-zinc-500 hover:text-zinc-800"

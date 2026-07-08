@@ -14,6 +14,7 @@ export type Proveedor = {
   tipoPersona: TipoPersona;
   rfc: string;
   domicilio: string;
+  domicilioComercial: string;
   estado: EstadoProveedor;
 };
 
@@ -32,6 +33,7 @@ export const proveedoresMock: Proveedor[] = [
     tipoPersona: "Moral",
     rfc: "DAN180523AB1",
     domicilio: "Av. Insurgentes Sur 1234, Col. Del Valle, CDMX, CP 03100",
+    domicilioComercial: "",
     estado: "Activo",
   },
   {
@@ -46,6 +48,7 @@ export const proveedoresMock: Proveedor[] = [
     tipoPersona: "Fisica",
     rfc: "TORJ850214XY2",
     domicilio: "Av. Patria 800, Zapopan, Jalisco, CP 45040",
+    domicilioComercial: "",
     estado: "Activo",
   },
   {
@@ -60,6 +63,7 @@ export const proveedoresMock: Proveedor[] = [
     tipoPersona: "Moral",
     rfc: "GIP990101QW3",
     domicilio: "Blvd. Díaz Ordaz 500, Monterrey, NL, CP 64000",
+    domicilioComercial: "",
     estado: "Activo",
   },
   {
@@ -74,6 +78,7 @@ export const proveedoresMock: Proveedor[] = [
     tipoPersona: "Fisica",
     rfc: "RICM920731LK5",
     domicilio: "Calle 60 #220, Mérida, Yucatán, CP 97000",
+    domicilioComercial: "",
     estado: "Inactivo",
   },
   {
@@ -88,6 +93,7 @@ export const proveedoresMock: Proveedor[] = [
     tipoPersona: "Moral",
     rfc: "SBA050912ZT8",
     domicilio: "Carretera Panamericana km 5, León, Gto, CP 37000",
+    domicilioComercial: "",
     estado: "Activo",
   },
   {
@@ -102,6 +108,7 @@ export const proveedoresMock: Proveedor[] = [
     tipoPersona: "Fisica",
     rfc: "DOVP880405MN9",
     domicilio: "Privada de las Flores 12, Puebla, Pue, CP 72000",
+    domicilioComercial: "",
     estado: "Inactivo",
   },
 ];

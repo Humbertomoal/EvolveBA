@@ -11,10 +11,13 @@ export default async function NuevoProductoPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [familias, unidadesMedida] = await Promise.all([
+  const [familias, unidadesMedida, monedas] = await Promise.all([
     getCatalogosActivos("FAMILIA"),
     getCatalogosActivos("UNIDAD_MEDIDA"),
+    getCatalogosActivos("MONEDA"),
   ]);
 
-  return <ProductoForm basePath={basePath} catalogos={{ familias, unidadesMedida }} />;
+  return (
+    <ProductoForm basePath={basePath} catalogos={{ familias, unidadesMedida, monedas }} />
+  );
 }

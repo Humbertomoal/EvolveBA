@@ -42,13 +42,13 @@ type FilaState = {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const INPUT =
-  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none";
+  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 const INPUT_WARN =
-  "w-full rounded-md border border-amber-400 bg-amber-50/40 px-3 py-2 text-sm text-zinc-900 focus:border-amber-500 focus:outline-none";
+  "w-full rounded-md border border-amber-400 bg-amber-50/40 px-3 py-2 text-sm text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 const INPUT_ERR =
-  "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none";
+  "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -402,10 +402,11 @@ export default function LicitacionCotizacion({
         )}
 
         {items.length > 0 && (
-          <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+          <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="min-w-[180px] px-3 py-2.5">Producto</th>
                   <th className="min-w-[90px] px-3 py-2.5 text-right">Cant. Solic.</th>
                   <th className="min-w-[80px] px-3 py-2.5">Unidad</th>
@@ -423,7 +424,7 @@ export default function LicitacionCotizacion({
                     const o = item.oferta;
                     return (
                       <Fragment key={item.licitacionItemId}>
-                        <tr className="border-b border-zinc-100 last:border-0">
+                        <tr className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors duration-150">
                           <td className="px-3 py-2.5">
                             <p className="font-medium text-zinc-800">{item.nombre}</p>
                             {item.especificacion && (
@@ -467,7 +468,7 @@ export default function LicitacionCotizacion({
                           )}
                         </tr>
                         {o && !o.puedeCumplirFecha && o.fechaEstimadaEntrega && (
-                          <tr className="border-b border-zinc-100 last:border-0 bg-amber-50/30">
+                          <tr className="border-b border-zinc-100 last:border-0 bg-amber-50/30 hover:bg-zinc-50/50 transition-colors duration-150">
                             <td colSpan={8} className="px-3 pb-2.5 pt-0 text-xs text-amber-700 pl-5">
                               Fecha estimada de entrega: {formatFecha(o.fechaEstimadaEntrega)}
                             </td>
@@ -489,7 +490,7 @@ export default function LicitacionCotizacion({
 
                   return (
                     <Fragment key={item.licitacionItemId}>
-                      <tr className="border-b border-zinc-100 last:border-0">
+                      <tr className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors duration-150">
                         {/* Producto */}
                         <td className="px-3 py-2.5">
                           <p className="font-medium text-zinc-800">{item.nombre}</p>
@@ -649,7 +650,7 @@ export default function LicitacionCotizacion({
 
                       {/* Error row — cantidad excede máximo */}
                       {rowError && (
-                        <tr className="border-b border-zinc-100 last:border-0 bg-red-50/40">
+                        <tr className="border-b border-zinc-100 last:border-0 bg-red-50/40 hover:bg-zinc-50/50 transition-colors duration-150">
                           <td colSpan={8} className="px-3 pb-2.5 pt-0 text-xs text-red-600">
                             ✕ {rowError}
                           </td>
@@ -658,7 +659,7 @@ export default function LicitacionCotizacion({
 
                       {/* Warning row — cantidad parcial */}
                       {cantParcial && (
-                        <tr className="border-b border-zinc-100 last:border-0 bg-amber-50/30">
+                        <tr className="border-b border-zinc-100 last:border-0 bg-amber-50/30 hover:bg-zinc-50/50 transition-colors duration-150">
                           <td colSpan={8} className="px-3 pb-2.5 pt-0 text-xs text-amber-700">
                             ⚠ Disponible menor a lo solicitado — se completará con otro proveedor
                           </td>
@@ -667,7 +668,7 @@ export default function LicitacionCotizacion({
 
                       {/* Fecha estimada entrega row — when "No" selected */}
                       {!fila.puedeCumplirFecha && rondaAbierta && (
-                        <tr className="border-b border-zinc-100 last:border-0 bg-zinc-50/60">
+                        <tr className="border-b border-zinc-100 last:border-0 bg-zinc-50/60 hover:bg-zinc-50/50 transition-colors duration-150">
                           <td colSpan={8} className="px-3 pb-2.5 pt-0">
                             <div className="flex items-center gap-2 pl-2">
                               <label className="text-xs font-medium text-zinc-600 whitespace-nowrap">
@@ -680,7 +681,7 @@ export default function LicitacionCotizacion({
                                 onChange={(e) =>
                                   setFila(idx, "fechaEstimadaEntrega", e.target.value)
                                 }
-                                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+                                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                               />
                             </div>
                           </td>
@@ -689,7 +690,7 @@ export default function LicitacionCotizacion({
 
                       {/* Read-only fecha estimada when closed */}
                       {!fila.puedeCumplirFecha && !rondaAbierta && fila.fechaEstimadaEntrega && (
-                        <tr className="border-b border-zinc-100 last:border-0 bg-zinc-50/60">
+                        <tr className="border-b border-zinc-100 last:border-0 bg-zinc-50/60 hover:bg-zinc-50/50 transition-colors duration-150">
                           <td colSpan={8} className="px-3 pb-2.5 pt-0 text-xs text-zinc-500 pl-5">
                             Fecha estimada de entrega: {formatFecha(fila.fechaEstimadaEntrega)}
                           </td>
@@ -700,6 +701,7 @@ export default function LicitacionCotizacion({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
@@ -725,7 +727,7 @@ export default function LicitacionCotizacion({
                 type="button"
                 onClick={() => setModalConfirm(true)}
                 disabled={hayErroresCantidad}
-                className="rounded-md bg-[var(--color-primario)] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md bg-[var(--color-primario)] px-6 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {tieneOfertaPrevia ? "Actualizar Oferta" : "Enviar Oferta"}
               </button>
@@ -777,7 +779,7 @@ export default function LicitacionCotizacion({
                 type="button"
                 onClick={confirmarEnvio}
                 disabled={enviando}
-                className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)] disabled:opacity-60"
+                className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:opacity-60"
               >
                 {enviando ? "Enviando…" : "Confirmar y Enviar"}
               </button>

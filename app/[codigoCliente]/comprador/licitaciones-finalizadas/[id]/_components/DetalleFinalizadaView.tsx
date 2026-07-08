@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { IconArrowLeft } from "@tabler/icons-react";
+import Badge from "@/src/components/Badge";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
@@ -69,16 +70,18 @@ function formatFecha(iso: string): string {
   });
 }
 
-const ESTATUS_BADGE: Record<string, string> = {
-  Pendiente: "bg-amber-50 text-amber-700",
-  Aprobado: "bg-emerald-100 text-emerald-700",
-  Rechazado: "bg-red-100 text-red-600",
-};
+function estatusProveedorVariant(estatus: string): "pendiente" | "success" | "danger" | "neutral" {
+  if (estatus === "Pendiente") return "pendiente";
+  if (estatus === "Aprobado") return "success";
+  if (estatus === "Rechazado") return "danger";
+  return "neutral";
+}
 
-const ESTADO_LIC_BADGE: Record<string, string> = {
-  Finalizada: "bg-emerald-100 text-emerald-700",
-  Cancelada: "bg-red-100 text-red-600",
-};
+function estadoLicitacionVariant(estado: string): "finalizada" | "cancelada" | "neutral" {
+  if (estado === "Finalizada") return "finalizada";
+  if (estado === "Cancelada") return "cancelada";
+  return "neutral";
+}
 
 // ── Tab 1: Ganadores ──────────────────────────────────────────────────────────
 
@@ -106,7 +109,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
         return (
           <div
             key={item.id}
-            className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
+            className="rounded-card border border-border bg-white shadow-card overflow-hidden"
           >
             {/* Item header */}
             <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3">
@@ -121,9 +124,10 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
                 Sin asignación.
               </p>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-100 text-left text-xs font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="px-4 py-2">Proveedor</th>
                     <th className="px-4 py-2 text-right">Cantidad</th>
                     <th className="px-4 py-2 text-right">Precio Unit.</th>
@@ -134,7 +138,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {item.asignaciones.map((a: any) => (
-                    <tr key={a.id} className="hover:bg-zinc-50/50">
+                    <tr key={a.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="px-4 py-2.5 text-zinc-700">
                         {a.proveedorNombre}
                       </td>
@@ -148,14 +152,9 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
                         {formatImporte(a.cantidadAsignada * a.precioUnitario, a.moneda)}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            ESTATUS_BADGE[a.estatusProveedor] ??
-                            "bg-zinc-100 text-zinc-500"
-                          }`}
-                        >
+                        <Badge variant={estatusProveedorVariant(a.estatusProveedor)}>
                           {a.estatusProveedor}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-4 py-2.5 text-zinc-500">
                         {a.ordenNumero ?? "—"}
@@ -164,7 +163,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
                   ))}
                   {/* Totals row */}
                   {Object.entries(totalesPorMoneda).map(([moneda, total], i) => (
-                    <tr key={moneda} className={`${i === 0 ? "border-t border-zinc-200" : "border-t border-zinc-100"} bg-zinc-50 text-xs font-semibold text-zinc-700`}>
+                    <tr key={moneda} className={`${i === 0 ? "border-t border-zinc-200" : "border-t border-zinc-100"} bg-zinc-50 text-xs font-semibold text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150`}>
                       <td className="px-4 py-2">{i === 0 ? "Total" : ""}</td>
                       <td className="px-4 py-2 text-right">
                         {i === 0 ? `${totalAsignado} ${item.unidadMedida}` : ""}
@@ -177,6 +176,7 @@ function GanadoresTab({ items }: { items: ItemAsignado[] }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         );
@@ -242,7 +242,7 @@ function HistorialPujasTab({
         return (
           <div
             key={item.id}
-            className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
+            className="rounded-card border border-border bg-white shadow-card overflow-hidden"
           >
             {/* Item header */}
             <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3">
@@ -255,7 +255,7 @@ function HistorialPujasTab({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-100 text-left text-xs font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="min-w-[80px] px-4 py-2">Ronda</th>
                     {proveedores.map((p: any)=> (
                       <th
@@ -269,7 +269,7 @@ function HistorialPujasTab({
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {item.filas.map((fila: any) => (
-                    <tr key={fila.ronda} className="hover:bg-zinc-50/40">
+                    <tr key={fila.ronda} className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="px-4 py-2.5 font-medium text-zinc-600">
                         Ronda {fila.ronda}
                       </td>
@@ -342,14 +342,9 @@ export default function DetalleFinalizadaView({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                ESTADO_LIC_BADGE[licitacion.estado] ??
-                "bg-zinc-100 text-zinc-500"
-              }`}
-            >
+            <Badge variant={estadoLicitacionVariant(licitacion.estado)}>
               {licitacion.estado}
-            </span>
+            </Badge>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500">
             {licitacion.jerarquia && <span>{licitacion.jerarquia}</span>}

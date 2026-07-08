@@ -214,10 +214,11 @@ export default function DetalleLicitacion({
 
         {/* ── Tab: Participantes ─────────────────────────────────────────── */}
         {tab === "participantes" && (
-          <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+          <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="px-4 py-3">Proveedor</th>
                   <th className="px-4 py-3">Estado en ronda</th>
                   <th className="min-w-[160px] px-4 py-3">Última cotización</th>
@@ -228,7 +229,7 @@ export default function DetalleLicitacion({
                 {participantes.map((p: any)=> {
                   const noLeidos = noLeidosPorProveedor[p.id] ?? 0;
                   return (
-                    <tr key={p.id} className="hover:bg-zinc-50/60">
+                    <tr key={p.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="px-4 py-3 font-medium text-zinc-800">
                         {p.razonSocial}
                       </td>
@@ -256,7 +257,7 @@ export default function DetalleLicitacion({
                               type="button"
                               onClick={() => setChatProveedorId(p.id)}
                               title={`Chat con ${p.razonSocial}`}
-                              className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                              className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
                             >
                               <IconMessageCircle className="h-4 w-4" />
                             </button>
@@ -272,7 +273,7 @@ export default function DetalleLicitacion({
                             onClick={() => setModalProveedor(p)}
                             disabled={!p.cotizó}
                             title={p.cotizó ? "Ver oferta" : "Sin oferta registrada"}
-                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-30"
+                            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             <IconReceipt className="h-4 w-4" />
                           </button>
@@ -283,15 +284,17 @@ export default function DetalleLicitacion({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
         {/* ── Tab: Mejores Precios ───────────────────────────────────────── */}
         {tab === "mejores" && (
-          <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+          <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="min-w-[180px] px-4 py-3">Producto</th>
                   <th className="px-4 py-3 text-right">Cant. Solic.</th>
                   <th className="px-4 py-3">Unidad</th>
@@ -307,7 +310,7 @@ export default function DetalleLicitacion({
                 {mejoresPrecioItems.map((item, i) => (
                   <Fragment key={i}>
                     {/* Fila principal — mejor precio */}
-                    <tr className="hover:bg-zinc-50/60">
+                    <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="px-4 py-3 font-medium text-zinc-800">
                         {item.productoNombre}
                       </td>
@@ -352,7 +355,7 @@ export default function DetalleLicitacion({
 
                     {/* Fila secundaria — segundo mejor (cantidad parcial) */}
                     {item.segundo && (
-                      <tr className="bg-amber-50/40 hover:bg-amber-50/60">
+                      <tr className="bg-amber-50/40 hover:bg-amber-50/60 transition-colors duration-150">
                         <td className="py-2 pl-10 pr-4">
                           <span className="text-xs text-amber-700">
                             ↳ Complemento (
@@ -383,6 +386,7 @@ export default function DetalleLicitacion({
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
@@ -417,7 +421,7 @@ export default function DetalleLicitacion({
             <div className="overflow-x-auto px-5 py-4">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-100 text-left text-xs font-medium text-zinc-400">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="pb-2">Producto</th>
                     <th className="pb-2 text-right">Cant. Solic.</th>
                     <th className="pb-2 text-right">Cant. Disponible</th>
@@ -427,7 +431,7 @@ export default function DetalleLicitacion({
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
                   {modalProveedor.ofertaDetalle.map((d, i) => (
-                    <tr key={i}>
+                    <tr key={i} className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="py-2 font-medium text-zinc-800">
                         {d.productoNombre}
                         <span className="ml-1 text-xs text-zinc-400">

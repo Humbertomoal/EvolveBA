@@ -26,6 +26,7 @@ function extraerDatos(formData: FormData): ProveedorInput {
       .trim()
       .toUpperCase(),
     domicilio: String(formData.get("domicilio") ?? "").trim(),
+    domicilioComercial: String(formData.get("domicilioComercial") ?? "").trim(),
     estado: formData.get("estado") === "Inactivo" ? "Inactivo" : "Activo",
   };
 }
@@ -36,8 +37,9 @@ export async function crearProveedorAction(
 ) {
   const proveedor = await crearProveedor(extraerDatos(formData));
   const materialIds = formData.getAll("materialId") as string[];
-  if (materialIds.length > 0) {
-    await sincronizarMaterialesDB(proveedor.id, materialIds);
+  const familias = formData.getAll("familia") as string[];
+  if (materialIds.length > 0 || familias.length > 0) {
+    await sincronizarMaterialesDB(proveedor.id, materialIds, familias);
   }
   revalidatePath(`${basePath}/comprador/proveedores`);
   redirect(`${basePath}/comprador/proveedores`);
@@ -50,7 +52,8 @@ export async function actualizarProveedorAction(
 ) {
   await actualizarProveedor(id, extraerDatos(formData));
   const materialIds = formData.getAll("materialId") as string[];
-  await sincronizarMaterialesDB(id, materialIds);
+  const familias = formData.getAll("familia") as string[];
+  await sincronizarMaterialesDB(id, materialIds, familias);
   revalidatePath(`${basePath}/comprador/proveedores`);
   redirect(`${basePath}/comprador/proveedores`);
 }

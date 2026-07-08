@@ -152,7 +152,7 @@ export default function CatalogosView({
   }
 
   const INPUT_MODAL =
-    "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:border-zinc-400";
+    "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-zinc-400";
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -174,7 +174,7 @@ export default function CatalogosView({
                 setBannerError(null);
                 setConfirmandoId(null);
               }}
-              className={`whitespace-nowrap border-b-2 px-5 py-3 text-sm font-medium transition-colors ${
+              className={`whitespace-nowrap border-b-2 px-5 py-3 text-sm font-medium transition-all duration-150 ${
                 tab === key
                   ? "border-[var(--color-primario)] text-[var(--color-primario)]"
                   : "border-transparent text-zinc-500 hover:text-zinc-800"
@@ -201,7 +201,7 @@ export default function CatalogosView({
       )}
 
       {/* Table card */}
-      <div className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+      <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50 px-4 py-3">
           <span className="text-sm font-medium text-zinc-700">
             {TABS.find((t) => t.key === tab)?.label}
@@ -212,7 +212,7 @@ export default function CatalogosView({
           <button
             type="button"
             onClick={abrirCrear}
-            className="flex items-center gap-1.5 rounded-md bg-[var(--color-primario)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)]"
+            className="flex items-center gap-1.5 rounded-md bg-[var(--color-primario)] px-3 py-1.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)]"
           >
             <IconPlus className="h-4 w-4" />
             Agregar
@@ -228,7 +228,7 @@ export default function CatalogosView({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-100 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="w-24 px-4 py-2.5">Orden</th>
                   <th className="px-4 py-2.5">Código</th>
                   <th className="px-4 py-2.5">Nombre</th>
@@ -239,7 +239,7 @@ export default function CatalogosView({
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {tabValores.map((v) => (
-                  <tr key={v.id} className="hover:bg-zinc-50/40">
+                  <tr key={v.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                     <td className="px-4 py-2.5">
                       <input
                         type="number"
@@ -248,7 +248,7 @@ export default function CatalogosView({
                           if (e.target.value !== String(v.orden))
                             handleOrden(v.id, e.target.value);
                         }}
-                        className="w-16 rounded border border-zinc-200 px-2 py-1 text-center text-xs focus:border-zinc-400 focus:outline-none"
+                        className="w-16 rounded border border-zinc-200 px-2 py-1 text-center text-xs focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                       />
                     </td>
                     <td className="px-4 py-2.5 font-mono text-xs text-zinc-500">{v.codigo}</td>
@@ -295,7 +295,7 @@ export default function CatalogosView({
                             type="button"
                             onClick={() => abrirEditar(v)}
                             title="Editar"
-                            className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                            className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors duration-150"
                           >
                             <IconPencil className="h-3.5 w-3.5" />
                           </button>
@@ -303,7 +303,7 @@ export default function CatalogosView({
                             type="button"
                             onClick={() => setConfirmandoId(v.id)}
                             title="Eliminar"
-                            className="rounded p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                            className="rounded p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600 transition-colors duration-150"
                           >
                             <IconTrash className="h-3.5 w-3.5" />
                           </button>
@@ -419,7 +419,7 @@ export default function CatalogosView({
                 type="button"
                 onClick={handleGuardar}
                 disabled={cargando}
-                className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)] disabled:opacity-50"
+                className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:opacity-50"
               >
                 {cargando ? "Guardando…" : "Guardar"}
               </button>

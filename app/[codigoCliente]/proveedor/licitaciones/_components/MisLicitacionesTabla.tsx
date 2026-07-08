@@ -5,7 +5,6 @@ import {
   IconCircleCheck,
   IconCircleDotFilled,
   IconClock,
-  IconClipboardOff,
   IconFileText,
   IconTrophy,
   IconUsers,
@@ -21,6 +20,7 @@ import type {
 } from "../page";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import PanelFiltros from "@/app/_components/PanelFiltros";
+import EmptyState from "@/src/components/EmptyState";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -108,7 +108,7 @@ function ProgramadaRow({
   return (
     <tr
       onClick={() => router.push(`${basePath}/proveedor/licitaciones/${l.id}`)}
-      className="cursor-pointer transition-colors hover:bg-zinc-50/80"
+      className="cursor-pointer hover:bg-zinc-50/50 transition-colors duration-150"
     >
       <td className="pl-3 pr-0 py-3 w-6">
         {urgencia === "red" && <IconCircleDotFilled className="h-3.5 w-3.5 text-red-500" />}
@@ -205,7 +205,7 @@ function TabBtn({ active, count, label, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none ${
+      className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors duration-150 focus:outline-none ${
         active
           ? "border-b-2 border-[var(--color-primario)] text-[var(--color-primario)]"
           : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-800"
@@ -229,10 +229,7 @@ function TabBtn({ active, count, label, onClick }: {
 
 function Vacio({ mensaje }: { mensaje: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-20 text-zinc-400">
-      <IconClipboardOff className="h-14 w-14 opacity-35" />
-      <p className="text-sm font-medium">{mensaje}</p>
-    </div>
+    <EmptyState icon="IconClipboardOff" title="Sin licitaciones" description={mensaje} />
   );
 }
 
@@ -363,10 +360,11 @@ export default function MisLicitacionesTabla({
           {programadas.length === 0 ? (
             <Vacio mensaje="No tienes licitaciones programadas" />
           ) : (
-            <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+            <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="w-6 px-3 py-3" />
                     <th className="min-w-[130px] px-4 py-3">Número</th>
                     <th className="min-w-[110px] px-4 py-3">Fecha Licitación</th>
@@ -385,6 +383,7 @@ export default function MisLicitacionesTabla({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
@@ -396,10 +395,11 @@ export default function MisLicitacionesTabla({
           {enProceso.length === 0 ? (
             <Vacio mensaje="No tienes licitaciones en proceso" />
           ) : (
-            <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+            <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="min-w-[130px] px-4 py-3">Número</th>
                     <th className="min-w-[110px] px-4 py-3">Fecha</th>
                     <th className="min-w-[150px] px-4 py-3">Inicio de Licitación</th>
@@ -416,7 +416,7 @@ export default function MisLicitacionesTabla({
                     <tr
                       key={l.id}
                       onClick={() => router.push(`${basePath}/proveedor/licitaciones/${l.id}`)}
-                      className="cursor-pointer transition-colors hover:bg-zinc-50/80"
+                      className="cursor-pointer hover:bg-zinc-50/50 transition-colors duration-150"
                     >
                       <td className={`${CELL} font-medium text-zinc-800`}>{l.numero}</td>
                       <td className={`${CELL} text-zinc-600`}>{formatFecha(l.fechaCreacion)}</td>
@@ -468,6 +468,7 @@ export default function MisLicitacionesTabla({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
@@ -483,7 +484,7 @@ export default function MisLicitacionesTabla({
               placeholder="Buscar por número o jerarquía…"
               value={filtroTextFin}
               onChange={(e) => setFiltroTextFin(e.target.value)}
-              className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+              className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <PanelFiltros
               secciones={[
@@ -542,10 +543,11 @@ export default function MisLicitacionesTabla({
               }
             />
           ) : (
-            <div className="mt-4 overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+            <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="min-w-[130px] px-4 py-3">Número</th>
                     <th className="min-w-[110px] px-4 py-3">Fecha</th>
                     <th className="min-w-[120px] px-4 py-3">Jerarquía</th>
@@ -566,7 +568,7 @@ export default function MisLicitacionesTabla({
                       <tr
                         key={l.id}
                         onClick={() => router.push(href)}
-                        className="cursor-pointer transition-colors hover:bg-zinc-50/80"
+                        className="cursor-pointer hover:bg-zinc-50/50 transition-colors duration-150"
                       >
                         <td className={`${CELL} font-medium text-zinc-800`}>{l.numero}</td>
                         <td className={`${CELL} text-zinc-600`}>{formatFecha(l.fechaEjecucion)}</td>
@@ -588,6 +590,7 @@ export default function MisLicitacionesTabla({
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>

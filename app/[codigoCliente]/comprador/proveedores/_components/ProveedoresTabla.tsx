@@ -11,6 +11,7 @@ import type {
 import PanelFiltros from "@/app/_components/PanelFiltros";
 import type { SeccionFiltroConfig } from "@/app/_components/PanelFiltros";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import EmptyState from "@/src/components/EmptyState";
 
 const ETIQUETA_TIPO_PERSONA: Record<TipoPersona, string> = {
   Fisica: "Física",
@@ -106,7 +107,7 @@ export default function ProveedoresTabla({
       <div className="flex items-center justify-end">
         <Link
           href={`${basePath}/comprador/proveedores/nuevo`}
-          className="flex items-center gap-2 rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)]"
+          className="flex items-center gap-2 rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150"
         >
           <IconPlus className="h-4 w-4" />
           Agregar proveedor
@@ -121,68 +122,79 @@ export default function ProveedoresTabla({
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
             placeholder="Buscar por razón social, RFC o contacto"
-            className="w-full rounded-md border border-zinc-300 py-2 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            className="w-full rounded-md border border-zinc-300 py-2 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
         <PanelFiltros secciones={secciones} onLimpiar={limpiarFiltros} />
       </div>
 
-      <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
-            <tr>
-              <th className="px-4 py-3 font-medium">Razón Social</th>
-              <th className="px-4 py-3 font-medium">Nombre Contacto Admin</th>
-              <th className="px-4 py-3 font-medium">Correo Contacto Admin</th>
-              <th className="px-4 py-3 font-medium">Tipo de Persona</th>
-              <th className="px-4 py-3 font-medium">RFC</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 text-right font-medium">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {proveedoresFiltrados.map((proveedor) => (
-              <tr key={proveedor.id} className="hover:bg-zinc-50">
-                <td className="px-4 py-3 font-medium text-zinc-900">
-                  {proveedor.razonSocial}
-                </td>
-                <td className="px-4 py-3 text-zinc-700">
-                  {proveedor.contactoAdminNombre}
-                </td>
-                <td className="px-4 py-3 text-zinc-700">
-                  {proveedor.contactoAdminCorreo}
-                </td>
-                <td className="px-4 py-3 text-zinc-700">
-                  {ETIQUETA_TIPO_PERSONA[proveedor.tipoPersona]}
-                </td>
-                <td className="px-4 py-3 text-zinc-700">{proveedor.rfc}</td>
-                <td className="px-4 py-3">
-                  <BadgeEstado estado={proveedor.estado} />
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`${basePath}/comprador/proveedores/${proveedor.id}/editar`}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100"
-                    aria-label={`Editar ${proveedor.razonSocial}`}
-                  >
-                    <IconPencil className="h-4 w-4" />
-                    Editar
-                  </Link>
-                </td>
+      <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                <th className="px-4 py-3 font-medium">Razón Social</th>
+                <th className="px-4 py-3 font-medium">Nombre Contacto Admin</th>
+                <th className="px-4 py-3 font-medium">Correo Contacto Admin</th>
+                <th className="px-4 py-3 font-medium">Tipo de Persona</th>
+                <th className="px-4 py-3 font-medium">RFC</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
+                <th className="px-4 py-3 text-right font-medium">Acciones</th>
               </tr>
-            ))}
-            {proveedoresFiltrados.length === 0 && (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-sm text-zinc-400"
-                >
-                  No se encontraron proveedores con los filtros aplicados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {proveedoresFiltrados.map((proveedor) => (
+                <tr key={proveedor.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                  <td className="px-4 py-3 font-medium text-zinc-900">
+                    {proveedor.razonSocial}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-700">
+                    {proveedor.contactoAdminNombre}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-700">
+                    {proveedor.contactoAdminCorreo}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-700">
+                    {ETIQUETA_TIPO_PERSONA[proveedor.tipoPersona]}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-700">{proveedor.rfc}</td>
+                  <td className="px-4 py-3">
+                    <BadgeEstado estado={proveedor.estado} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      href={`${basePath}/comprador/proveedores/${proveedor.id}/editar`}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100"
+                      aria-label={`Editar ${proveedor.razonSocial}`}
+                    >
+                      <IconPencil className="h-4 w-4" />
+                      Editar
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {proveedoresFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-2">
+                    {proveedores.length === 0 ? (
+                      <EmptyState
+                        icon="IconUsers"
+                        title="Aún no tienes proveedores registrados"
+                        description="Agrega tu primer proveedor para comenzar a asignarle licitaciones."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon="IconSearchOff"
+                        title="Sin resultados"
+                        description="No se encontraron proveedores con los filtros aplicados."
+                      />
+                    )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

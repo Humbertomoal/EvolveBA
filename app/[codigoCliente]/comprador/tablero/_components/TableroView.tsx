@@ -85,7 +85,7 @@ export default function TableroView({
         <select
           value={filtros.period}
           onChange={(e) => updateFilter("period", e.target.value)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="last_week">Última semana</option>
           <option value="last_month">Último mes</option>
@@ -99,14 +99,14 @@ export default function TableroView({
               type="date"
               value={filtros.dateFrom}
               onChange={(e) => updateFilter("dateFrom", e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <span className="text-xs text-zinc-400">hasta</span>
             <input
               type="date"
               value={filtros.dateTo}
               onChange={(e) => updateFilter("dateTo", e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none"
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </>
         )}
@@ -114,7 +114,7 @@ export default function TableroView({
         <select
           value={filtros.proveedorId}
           onChange={(e) => updateFilter("proveedor", e.target.value)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="">Todos los proveedores</option>
           {data.proveedoresOpciones.map((p: any)=> (
@@ -125,7 +125,7 @@ export default function TableroView({
         <select
           value={filtros.jerarquia}
           onChange={(e) => updateFilter("jerarquia", e.target.value)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="">Todas las categorías</option>
           {data.jerarquiasOpciones.map((j) => (
@@ -183,7 +183,7 @@ export default function TableroView({
           <div className="mt-5 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-100 text-left text-xs font-medium text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="pb-2 pr-4">Licitación</th>
                   <th className="pb-2 pr-4">Jerarquía</th>
                   <th className="pb-2 pr-4 text-right">Precio inicial</th>
@@ -194,7 +194,7 @@ export default function TableroView({
               </thead>
               <tbody className="divide-y divide-zinc-50">
                 {precioChart.map((row) => (
-                  <tr key={row.numero} className="text-zinc-700">
+                  <tr key={row.numero} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
                     <td className="py-2 pr-4 font-medium">{row.numero}</td>
                     <td className="py-2 pr-4 text-zinc-500">{row.jerarquia ?? "—"}</td>
                     <td className="py-2 pr-4 text-right">${fmt(row.precioInicial)}</td>
@@ -221,7 +221,7 @@ export default function TableroView({
           <div className="mt-5 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-100 text-left text-xs font-medium text-zinc-500">
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="pb-2 pr-4">Material</th>
                   <th className="pb-2 pr-4">Categoría</th>
                   <th className="pb-2 pr-4 text-right">Cantidad total</th>
@@ -232,7 +232,7 @@ export default function TableroView({
               </thead>
               <tbody className="divide-y divide-zinc-50">
                 {ahorroMaterial.map((row) => (
-                  <tr key={row.productoNombre} className="text-zinc-700">
+                  <tr key={row.productoNombre} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
                     <td className="py-2 pr-4 font-medium">{row.productoNombre}</td>
                     <td className="py-2 pr-4 text-zinc-500">{row.familia ?? "—"}</td>
                     <td className="py-2 pr-4 text-right">{row.cantidadTotal.toLocaleString("es-MX")}</td>
@@ -260,7 +260,7 @@ export default function TableroView({
             <div className="mt-5 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-zinc-100 text-left font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="pb-2 pr-3">Proveedor</th>
                     <th className="pb-2 pr-3 text-right">Total OC</th>
                     <th className="pb-2 pr-3 text-right">A tiempo</th>
@@ -270,7 +270,7 @@ export default function TableroView({
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
                   {onTimeProveedor.map((row) => (
-                    <tr key={row.proveedorNombre} className="text-zinc-700">
+                    <tr key={row.proveedorNombre} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="py-1.5 pr-3 font-medium">{row.proveedorNombre}</td>
                       <td className="py-1.5 pr-3 text-right">{row.totalOC}</td>
                       <td className="py-1.5 pr-3 text-right text-green-600">{row.aTiempo}</td>
@@ -297,7 +297,7 @@ export default function TableroView({
             <div className="mt-5 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-zinc-100 text-left font-medium text-zinc-500">
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="pb-2 pr-3">Categoría</th>
                     <th className="pb-2 pr-3 text-right">Licitaciones</th>
                     <th className="pb-2 pr-3 text-right">Dentro obj.</th>
@@ -307,7 +307,7 @@ export default function TableroView({
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
                   {adherenciaJerarquia.map((row) => (
-                    <tr key={row.jerarquia} className="text-zinc-700">
+                    <tr key={row.jerarquia} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="py-1.5 pr-3 font-medium">{row.jerarquia}</td>
                       <td className="py-1.5 pr-3 text-right">{row.licitaciones}</td>
                       <td className="py-1.5 pr-3 text-right text-green-600">{row.itemsDentro}</td>

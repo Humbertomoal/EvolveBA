@@ -51,7 +51,7 @@ export default async function EditarLicitacionPage({
         </p>
         <Link
           href={`${basePath}/comprador/licitaciones/lanzamiento`}
-          className="w-fit rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)]"
+          className="w-fit rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)]"
         >
           Volver a Lanzamiento
         </Link>

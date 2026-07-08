@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Toaster } from "react-hot-toast";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 
 export async function generateMetadata({
@@ -34,5 +35,23 @@ export default async function ClienteLayout({
     notFound();
   }
 
-  return children;
+  return (
+    <>
+      {children}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            borderRadius: "10px",
+            fontSize: "13px",
+            fontFamily: "inherit",
+            boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
+            padding: "10px 14px",
+          },
+          success: { iconTheme: { primary: "#22c55e", secondary: "#fff" } },
+          error: { iconTheme: { primary: "#ef4444", secondary: "#fff" } },
+        }}
+      />
+    </>
+  );
 }

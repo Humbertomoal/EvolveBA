@@ -10,6 +10,33 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ── Brand ────────────────────────────────────────────────────────────
+     Mirrors the per-client --color-primario/--color-secundario vars set
+     inline by the comprador/proveedor layouts (see src/config/clientes.ts),
+     so bg-primary etc. follow whichever client is active. Falls back to
+     Evolve BA's green outside a client-scoped layout (e.g. /login). */
+  --color-primary: var(--color-primario, #004439);
+  --color-primary-dark: var(--color-secundario, #003433);
+  --color-primary-light: color-mix(in srgb, var(--color-primario, #004439) 12%, white);
+
+  /* ── Neutral surfaces ─────────────────────────────────────────────────*/
+  --color-surface: #ffffff;
+  --color-surface-muted: #f9f7f7;
+  --color-border: #ede8e8;
+
+  /* ── Status ───────────────────────────────────────────────────────────*/
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+
+  /* ── Shadows ──────────────────────────────────────────────────────────*/
+  --shadow-card: 0 1px 6px rgba(0, 0, 0, 0.07);
+  --shadow-modal: 0 20px 40px -8px rgba(0, 0, 0, 0.25);
+
+  /* ── Radius ───────────────────────────────────────────────────────────*/
+  --radius-card: 10px;
 }
 
 @media (prefers-color-scheme: dark) {

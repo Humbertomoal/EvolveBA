@@ -1,7 +1,11 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
-import { getMaterialesProveedor } from "@/src/lib/proveedorMateriales";
+import {
+  getMaterialesProveedor,
+  getFamiliasProveedor,
+} from "@/src/lib/proveedorMateriales";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedorById } from "@/src/lib/proveedores";
+import { getCatalogosActivos } from "@/src/lib/getCatalogos";
 import ProveedorForm from "../../_components/ProveedorForm";
 
 export default async function EditarProveedorPage({
@@ -13,11 +17,14 @@ export default async function EditarProveedorPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [proveedor, productos, materialesIniciales] = await Promise.all([
-    getProveedorById(id),
-    getProductos(),
-    getMaterialesProveedor(id),
-  ]);
+  const [proveedor, productos, materialesIniciales, familiasCatalogo, familiasIniciales] =
+    await Promise.all([
+      getProveedorById(id),
+      getProductos(),
+      getMaterialesProveedor(id),
+      getCatalogosActivos("FAMILIA"),
+      getFamiliasProveedor(id),
+    ]);
 
   if (!proveedor) {
     return (
@@ -38,6 +45,8 @@ export default async function EditarProveedorPage({
       proveedorExistente={proveedor}
       productos={productos}
       materialesIniciales={materialesIniciales}
+      familiasCatalogo={familiasCatalogo}
+      familiasIniciales={familiasIniciales}
     />
   );
 }

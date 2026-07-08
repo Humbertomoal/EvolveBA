@@ -41,7 +41,7 @@ export default async function LanzamientoLicitacionesPage({
       <div className="flex items-center justify-end gap-4">
         <Link
           href={`${basePath}/comprador/licitaciones/nueva`}
-          className="flex items-center gap-2 rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)]"
+          className="flex items-center gap-2 rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)]"
         >
           <IconPlus className="h-4 w-4 shrink-0" />
           Crear nueva licitación

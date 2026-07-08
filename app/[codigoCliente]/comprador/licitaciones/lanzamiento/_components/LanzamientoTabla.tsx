@@ -2,15 +2,17 @@
 
 import {
   IconClock,
-  IconEdit,
+  IconPencil,
   IconFlag,
   IconTrash,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import type { LicitacionRow } from "@/src/lib/licitaciones";
 import { eliminarLicitacionAction } from "@/src/lib/licitacionesActions";
 import PanelFiltros from "@/app/_components/PanelFiltros";
+import EmptyState from "@/src/components/EmptyState";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -137,7 +139,7 @@ function LicitacionFila({
   }
 
   return (
-    <tr className="transition-colors hover:bg-zinc-50/60">
+    <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
       {/* Urgency indicator */}
       <td className="px-3 py-3">
         {urgencia === "rojo" && <IconFlag className="h-4 w-4 text-red-500" />}
@@ -172,16 +174,16 @@ function LicitacionFila({
         <div className="flex items-center gap-1">
           <Link
             href={`${basePath}/comprador/licitaciones/${l.id}/editar`}
-            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
             title="Editar"
           >
-            <IconEdit className="h-4 w-4" />
+            <IconPencil className="h-4 w-4" />
           </Link>
           <button
             type="button"
             onClick={() => onEliminar(l.id)}
             disabled={eliminando}
-            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
             title="Eliminar"
           >
             <IconTrash className="h-4 w-4" />
@@ -224,8 +226,14 @@ export default function LanzamientoTabla({
     )
       return;
     setEliminando(id);
-    await eliminarLicitacionAction(id, basePath);
-    setEliminando(null);
+    try {
+      await eliminarLicitacionAction(id, basePath);
+      toast.success("Licitación eliminada correctamente");
+    } catch {
+      toast.error("No se pudo eliminar la licitación. Intenta de nuevo.");
+    } finally {
+      setEliminando(null);
+    }
   }
 
   return (
@@ -237,7 +245,7 @@ export default function LanzamientoTabla({
           placeholder="Buscar por número o jerarquía…"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <PanelFiltros
           secciones={[
@@ -262,14 +270,25 @@ export default function LanzamientoTabla({
 
       {/* Table */}
       {filtradas.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-zinc-300 py-12 text-center text-sm text-zinc-400">
-          Sin licitaciones registradas.
-        </p>
+        licitaciones.length === 0 ? (
+          <EmptyState
+            icon="IconFileInvoice"
+            title="Aún no hay licitaciones registradas"
+            description="Lanza tu primera licitación para empezar a recibir cotizaciones de proveedores."
+          />
+        ) : (
+          <EmptyState
+            icon="IconSearchOff"
+            title="Sin resultados"
+            description="No se encontraron licitaciones con los filtros aplicados."
+          />
+        )
       ) : (
-        <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+        <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+              <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="w-8 px-3 py-3" />
                 <th className="min-w-[130px] px-3 py-3">Número</th>
                 <th className="min-w-[120px] px-3 py-3">Fecha Creación</th>
@@ -299,6 +318,7 @@ export default function LanzamientoTabla({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

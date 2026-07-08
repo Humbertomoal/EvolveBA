@@ -15,6 +15,7 @@ import {
 import SidebarNav from "@/app/_components/SidebarNav";
 import TopBar from "@/app/_components/TopBar";
 import { PageHeaderProvider } from "@/app/_components/PageHeaderContext";
+import { SidebarStateProvider } from "@/app/_components/SidebarStateContext";
 import {
   CODIGO_CLIENTE_SIN_ESPECIFICAR,
   getClienteByCodigo,
@@ -116,38 +117,40 @@ export default async function CompradorLayout({
   ];
 
   return (
-    <div
-      className="flex min-h-screen"
-      style={
-        {
-          "--color-primario": cliente.colorPrimario,
-          "--color-secundario": cliente.colorSecundario,
-        } as React.CSSProperties
-      }
-    >
-      <SidebarNav
-        nombreEmpresa={cliente.nombreEmpresa}
-        logoUrl={cliente.logoUrl}
-        seccion="Comprador"
-        panelHref={`${basePath}/comprador`}
-        cambiarVistaHref={`${basePath}/inicio`}
-        items={NAV_ITEMS}
-      />
-      <PageHeaderProvider>
-        <div className="flex flex-1 flex-col">
-          {usuarioActual && (
-            <TopBar
-              esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
-              basePath={basePath}
-              proveedores={proveedores}
-              vistaActual="comprador"
-              usuario={usuarioActual}
-              logoutAction={logoutAction}
-            />
-          )}
-          <main className="flex-1 bg-[#FEFBFB] p-8">{children}</main>
-        </div>
-      </PageHeaderProvider>
-    </div>
+    <SidebarStateProvider>
+      <div
+        className="flex min-h-screen"
+        style={
+          {
+            "--color-primario": cliente.colorPrimario,
+            "--color-secundario": cliente.colorSecundario,
+          } as React.CSSProperties
+        }
+      >
+        <SidebarNav
+          nombreEmpresa={cliente.nombreEmpresa}
+          logoUrl={cliente.logoUrl}
+          seccion="Comprador"
+          panelHref={`${basePath}/comprador`}
+          cambiarVistaHref={`${basePath}/inicio`}
+          items={NAV_ITEMS}
+        />
+        <PageHeaderProvider>
+          <div className="flex flex-1 flex-col">
+            {usuarioActual && (
+              <TopBar
+                esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
+                basePath={basePath}
+                proveedores={proveedores}
+                vistaActual="comprador"
+                usuario={usuarioActual}
+                logoutAction={logoutAction}
+              />
+            )}
+            <main className="flex-1 bg-[#FEFBFB] p-4 sm:p-8">{children}</main>
+          </div>
+        </PageHeaderProvider>
+      </div>
+    </SidebarStateProvider>
   );
 }

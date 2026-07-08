@@ -10,6 +10,7 @@ import type { OrdenCompraDetalle } from "../page";
 import { actualizarEstatusOrdenAction } from "@/src/lib/ordenesActions";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import Badge, { type BadgeVariant } from "@/src/components/Badge";
 
 const ESTADOS = ["Pendiente", "En tránsito", "Entregada", "Cancelada"];
 
@@ -22,18 +23,15 @@ function formatFecha(iso: string | null): string {
   });
 }
 
+const ESTATUS_VARIANTE: Record<string, BadgeVariant> = {
+  Pendiente: "pendiente",
+  "En tránsito": "en-transito",
+  Entregada: "entregada",
+  Cancelada: "cancelada",
+};
+
 function EstatusBadge({ estado }: { estado: string }) {
-  const cfg: Record<string, string> = {
-    Pendiente:     "bg-zinc-100 text-zinc-600",
-    "En tránsito": "bg-blue-100 text-blue-700",
-    Entregada:     "bg-emerald-100 text-emerald-700",
-    Cancelada:     "bg-red-100 text-red-500",
-  };
-  return (
-    <span className={`rounded-full px-3 py-1 text-sm font-medium ${cfg[estado] ?? "bg-zinc-100 text-zinc-600"}`}>
-      {estado}
-    </span>
-  );
+  return <Badge variant={ESTATUS_VARIANTE[estado] ?? "neutral"}>{estado}</Badge>;
 }
 
 export default function OrdenDetalle({
@@ -123,7 +121,7 @@ export default function OrdenDetalle({
               value={estadoLocal}
               disabled={isPending}
               onChange={(e) => handleCambioEstatus(e.target.value)}
-              className="mt-0.5 rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:opacity-50"
+              className="mt-0.5 rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
             >
               {ESTADOS.map((e) => (
                 <option key={e} value={e}>{e}</option>
@@ -134,14 +132,14 @@ export default function OrdenDetalle({
       </div>
 
       {/* Lines table */}
-      <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+      <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
         <div className="border-b border-zinc-200 px-5 py-4">
           <h2 className="text-base font-semibold text-zinc-900">Materiales</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+              <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="px-5 py-3">Producto / Material</th>
                 <th className="px-4 py-3 text-right">Cantidad</th>
                 <th className="px-4 py-3">U/M</th>
@@ -154,7 +152,7 @@ export default function OrdenDetalle({
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {orden.lineas.map((l: any) => (
-                <tr key={l.id}>
+                <tr key={l.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                   <td className="px-5 py-3 font-medium text-zinc-800">{l.productoNombre}</td>
                   <td className="px-4 py-3 text-right text-zinc-600">{l.cantidad.toLocaleString("es-MX")}</td>
                   <td className="px-4 py-3 text-zinc-600">{l.unidadMedida}</td>

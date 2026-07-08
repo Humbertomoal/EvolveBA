@@ -192,13 +192,13 @@ export default function ChatWidget({
             rows={1}
             maxLength={1000}
             disabled={enviando}
-            className="flex-1 resize-none overflow-hidden rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none disabled:opacity-60"
+            className="flex-1 resize-none overflow-hidden rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
           />
           <button
             type="button"
             onClick={handleEnviar}
             disabled={enviando || !texto.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-primario)] text-white transition-colors hover:bg-[var(--color-secundario)] disabled:opacity-40"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-primario)] text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:opacity-40"
           >
             <IconSend className="h-4 w-4" />
           </button>

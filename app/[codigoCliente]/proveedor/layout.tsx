@@ -10,6 +10,7 @@ import { logoutAction } from "@/src/lib/authActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import TopBar from "@/app/_components/TopBar";
 import { PageHeaderProvider } from "@/app/_components/PageHeaderContext";
+import { SidebarStateProvider } from "@/app/_components/SidebarStateContext";
 import ProveedorSidebarWrapper from "./_components/ProveedorSidebarWrapper";
 
 export default async function ProveedorLayout({
@@ -53,38 +54,40 @@ export default async function ProveedorLayout({
   }
 
   return (
-    <div
-      className="flex min-h-screen"
-      style={
-        {
-          "--color-primario": cliente.colorPrimario,
-          "--color-secundario": cliente.colorSecundario,
-        } as React.CSSProperties
-      }
-    >
-      <ProveedorSidebarWrapper
-        basePath={basePath}
-        proveedorId={proveedorIdActual}
-        nombreEmpresa={cliente.nombreEmpresa}
-        logoUrl={cliente.logoUrl}
-        initialNoLeidos={noLeidosInicial}
-      />
-      <PageHeaderProvider>
-        <main className="flex flex-1 flex-col bg-[#FEFBFB]">
-          {usuarioActual && (
-            <TopBar
-              esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
-              basePath={basePath}
-              proveedores={proveedoresLista}
-              vistaActual="proveedor"
-              proveedorIdActual={proveedorIdActual}
-              usuario={usuarioActual}
-              logoutAction={logoutAction}
-            />
-          )}
-          <div className="p-8">{children}</div>
-        </main>
-      </PageHeaderProvider>
-    </div>
+    <SidebarStateProvider>
+      <div
+        className="flex min-h-screen"
+        style={
+          {
+            "--color-primario": cliente.colorPrimario,
+            "--color-secundario": cliente.colorSecundario,
+          } as React.CSSProperties
+        }
+      >
+        <ProveedorSidebarWrapper
+          basePath={basePath}
+          proveedorId={proveedorIdActual}
+          nombreEmpresa={cliente.nombreEmpresa}
+          logoUrl={cliente.logoUrl}
+          initialNoLeidos={noLeidosInicial}
+        />
+        <PageHeaderProvider>
+          <main className="flex flex-1 flex-col bg-[#FEFBFB]">
+            {usuarioActual && (
+              <TopBar
+                esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
+                basePath={basePath}
+                proveedores={proveedoresLista}
+                vistaActual="proveedor"
+                proveedorIdActual={proveedorIdActual}
+                usuario={usuarioActual}
+                logoutAction={logoutAction}
+              />
+            )}
+            <div className="p-4 sm:p-8">{children}</div>
+          </main>
+        </PageHeaderProvider>
+      </div>
+    </SidebarStateProvider>
   );
 }

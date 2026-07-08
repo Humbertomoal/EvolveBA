@@ -1,6 +1,6 @@
 "use client";
 
-import { IconEdit, IconPencil } from "@tabler/icons-react";
+import { IconPencil } from "@tabler/icons-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { LicitacionRow } from "@/src/lib/licitaciones";
@@ -109,7 +109,7 @@ export default function ManualTabla({
           placeholder="Buscar por número o jerarquía..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none"
+          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <PanelFiltros
           onLimpiar={() => setFiltros(FILTROS_DEFAULT)}
@@ -139,57 +139,59 @@ export default function ManualTabla({
           Sin cotizaciones manuales en proceso.
         </p>
       ) : (
-        <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
-                <th className="min-w-[130px] px-3 py-3">Número</th>
-                <th className="min-w-[120px] px-3 py-3">Jerarquía</th>
-                <th className="min-w-[110px] px-3 py-3">Comprador</th>
-                <th className="min-w-[140px] px-3 py-3">Costo Objetivo</th>
-                <th className="min-w-[170px] px-3 py-3">Fecha de creación</th>
-                <th className="min-w-[80px] px-3 py-3 text-center">Proveedores</th>
-                <th className="min-w-[160px] px-3 py-3">Estatus</th>
-                <th className="px-3 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {filtradas.map((l: any) => (
-                <tr key={l.id} className="transition-colors hover:bg-zinc-50/60">
-                  <td className="px-3 py-3 font-medium text-zinc-800">{l.numero}</td>
-                  <td className="px-3 py-3 text-zinc-600">{l.jerarquia ?? "—"}</td>
-                  <td className="px-3 py-3 text-zinc-600">Comprador 1</td>
-                  <td className="px-3 py-3 text-zinc-600">{formatPeso(l.costoObjetivo)}</td>
-                  <td className="px-3 py-3 text-zinc-600">{formatFechaHora(l.fechaCreacion)}</td>
-                  <td className="px-3 py-3 text-center text-zinc-600">{l.numProveedores}</td>
-                  <td className="px-3 py-3">
-                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                      Capturando cotizaciones
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-1">
-                      <Link
-                        href={`${basePath}/comprador/licitaciones-proceso/${l.id}/captura-manual`}
-                        className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-                        title="Capturar cotizaciones"
-                      >
-                        <IconPencil className="h-3.5 w-3.5" />
-                        Capturar
-                      </Link>
-                      <Link
-                        href={`${basePath}/comprador/licitaciones/${l.id}/editar`}
-                        className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-                        title="Editar"
-                      >
-                        <IconEdit className="h-4 w-4" />
-                      </Link>
-                    </div>
-                  </td>
+        <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="min-w-[130px] px-3 py-3">Número</th>
+                  <th className="min-w-[120px] px-3 py-3">Jerarquía</th>
+                  <th className="min-w-[110px] px-3 py-3">Comprador</th>
+                  <th className="min-w-[140px] px-3 py-3">Costo Objetivo</th>
+                  <th className="min-w-[170px] px-3 py-3">Fecha de creación</th>
+                  <th className="min-w-[80px] px-3 py-3 text-center">Proveedores</th>
+                  <th className="min-w-[160px] px-3 py-3">Estatus</th>
+                  <th className="px-3 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {filtradas.map((l: any) => (
+                  <tr key={l.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className="px-3 py-3 font-medium text-zinc-800">{l.numero}</td>
+                    <td className="px-3 py-3 text-zinc-600">{l.jerarquia ?? "—"}</td>
+                    <td className="px-3 py-3 text-zinc-600">Comprador 1</td>
+                    <td className="px-3 py-3 text-zinc-600">{formatPeso(l.costoObjetivo)}</td>
+                    <td className="px-3 py-3 text-zinc-600">{formatFechaHora(l.fechaCreacion)}</td>
+                    <td className="px-3 py-3 text-center text-zinc-600">{l.numProveedores}</td>
+                    <td className="px-3 py-3">
+                      <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                        Capturando cotizaciones
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`${basePath}/comprador/licitaciones-proceso/${l.id}/captura-manual`}
+                          className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                          title="Capturar cotizaciones"
+                        >
+                          <IconPencil className="h-3.5 w-3.5" />
+                          Capturar
+                        </Link>
+                        <Link
+                          href={`${basePath}/comprador/licitaciones/${l.id}/editar`}
+                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
+                          title="Editar"
+                        >
+                          <IconPencil className="h-4 w-4" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

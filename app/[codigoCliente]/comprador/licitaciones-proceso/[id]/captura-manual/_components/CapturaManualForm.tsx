@@ -112,7 +112,7 @@ function proveedorTieneOfertas(
   });
 }
 
-const INPUT = "w-full rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none";
+const INPUT = "w-full rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -206,7 +206,7 @@ export default function CapturaManualForm({
           return (
             <div
               key={proveedor.id}
-              className="overflow-hidden bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
+              className="overflow-hidden rounded-card border border-border bg-white shadow-card"
             >
               {/* Accordion header */}
               <button
@@ -241,7 +241,7 @@ export default function CapturaManualForm({
                 <div className="overflow-x-auto border-t border-zinc-200">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-zinc-100 bg-white text-left text-xs font-medium text-zinc-500">
+                      <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                         <th className="min-w-[180px] px-4 py-2.5">Material</th>
                         <th className="min-w-[100px] px-4 py-2.5 text-right">
                           Cant. solicitada
@@ -260,7 +260,7 @@ export default function CapturaManualForm({
                         };
                         const precio = parseFloat(celda.precioUnitario) || 0;
                         return (
-                          <tr key={item.licitacionItemId} className="hover:bg-zinc-50/50">
+                          <tr key={item.licitacionItemId} className="hover:bg-zinc-50/50 transition-colors duration-150">
                             <td className="px-4 py-2.5 font-medium text-zinc-800">
                               {item.productoNombre}
                             </td>

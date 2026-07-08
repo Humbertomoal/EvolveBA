@@ -276,10 +276,11 @@ export default function ResultadoView({
       </div>
 
       {/* Tabla de materiales */}
-      <div className="overflow-x-auto bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+      <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-xs font-medium text-zinc-500">
+            <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
               <th className="min-w-[180px] px-4 py-3">Material</th>
               <th className="min-w-[90px] px-4 py-3 text-right">Cantidad</th>
               <th className="min-w-[70px] px-4 py-3">U.M.</th>
@@ -301,7 +302,7 @@ export default function ResultadoView({
               const isProcessing = confirmando === a.id;
 
               return (
-                <tr key={a.id} className="hover:bg-zinc-50/40">
+                <tr key={a.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                   <td className="px-4 py-3 font-medium text-zinc-800">
                     {a.productoNombre}
                   </td>
@@ -382,6 +383,7 @@ export default function ResultadoView({
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
 
       {/* Modal: Rechazar */}
@@ -413,7 +415,7 @@ export default function ResultadoView({
                 onChange={(e) => setMotivo(e.target.value)}
                 rows={3}
                 placeholder="Escribe el motivo por el que no puedes suministrar este material..."
-                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-800 focus:border-zinc-400 focus:outline-none"
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-800 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
             <div className="flex justify-end gap-3 border-t border-zinc-200 px-5 py-4">

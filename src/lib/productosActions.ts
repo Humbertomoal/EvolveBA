@@ -9,6 +9,9 @@ import { prisma } from "@/src/lib/prisma";
 function extraerDatos(formData: FormData): ProductoInput {
   const familia = String(formData.get("familia") ?? "").trim();
   const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const especificacionesTecnicas = String(
+    formData.get("especificacionesTecnicas") ?? ""
+  ).trim();
 
   return {
     nombre: String(formData.get("nombre") ?? "").trim(),
@@ -18,6 +21,8 @@ function extraerDatos(formData: FormData): ProductoInput {
     codigo: String(formData.get("codigo") ?? "").trim(),
     descripcion: descripcion || undefined,
     imagenUrl: undefined,
+    especificacionesTecnicas: especificacionesTecnicas || undefined,
+    monedaPredeterminada: String(formData.get("monedaPredeterminada") ?? "").trim() || "MXN",
   };
 }
 
