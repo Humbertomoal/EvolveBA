@@ -94,7 +94,7 @@ export default async function CompradorHomePage({
     const d = new Date(ahora.getFullYear(), ahora.getMonth() - (5 - i), 1);
     const label = d.toLocaleDateString("es-MX", { month: "short", year: "2-digit" });
     const total = licitacionesParaChart.filter(
-      (l) =>
+      (l: any) =>
         l.fechaCreacion.getFullYear() === d.getFullYear() &&
         l.fechaCreacion.getMonth() === d.getMonth()
     ).length;
