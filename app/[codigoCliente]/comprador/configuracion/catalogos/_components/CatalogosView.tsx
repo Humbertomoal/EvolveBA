@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import toast from "react-hot-toast";
 import type { CatalogoValorDTO } from "@/src/lib/getCatalogos";
 import {
   crearCatalogoValorAction,
@@ -12,6 +13,7 @@ import {
   actualizarOrdenAction,
 } from "@/src/lib/catalogosActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import EmptyState from "@/src/components/EmptyState";
 
 type TabKey = "JERARQUIA" | "TIPO_LICITACION" | "FAMILIA" | "UNIDAD_MEDIDA" | "MONEDA";
 
@@ -120,8 +122,12 @@ export default function CatalogosView({
     setCargando(false);
     if (!result.ok) {
       setFormError(result.error ?? "Error al guardar.");
+      toast.error(result.error ?? "No se pudo guardar el valor.");
       return;
     }
+    toast.success(
+      modal.modo === "crear" ? "Valor creado correctamente" : "Valor actualizado correctamente"
+    );
     cerrarModal();
     router.refresh();
   }
@@ -139,8 +145,10 @@ export default function CatalogosView({
     setConfirmandoId(null);
     if (!result.ok) {
       setBannerError(result.error ?? "Error al eliminar.");
+      toast.error(result.error ?? "No se pudo eliminar el valor.");
       return;
     }
+    toast.success("Valor eliminado correctamente");
     router.refresh();
   }
 
@@ -220,9 +228,14 @@ export default function CatalogosView({
         </div>
 
         {tabValores.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-zinc-400">
-            No hay valores configurados. Haz clic en{" "}
-            <strong className="font-semibold">Agregar</strong> para crear el primero.
+          <div className="px-4 py-2">
+            <EmptyState
+              icon="IconListDetails"
+              title="Sin valores configurados"
+              description={`Agrega el primer valor de "${TABS.find((t) => t.key === tab)?.label}" para empezar a usarlo en el sistema.`}
+              actionLabel="Agregar"
+              onAction={abrirCrear}
+            />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -260,10 +273,10 @@ export default function CatalogosView({
                       <button
                         type="button"
                         onClick={() => handleToggleActivo(v.id, v.activo)}
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-150 ${
                           v.activo
-                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                            : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                            ? "bg-green-50 text-green-700 hover:bg-green-100"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >
                         {v.activo ? "Activo" : "Inactivo"}

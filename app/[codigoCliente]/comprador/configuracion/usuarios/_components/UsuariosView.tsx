@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconPencil, IconPlus } from "@tabler/icons-react";
+import toast from "react-hot-toast";
 import type { UsuarioDTO, RolDTO } from "@/src/lib/usuariosTypes";
 import {
   crearUsuarioAction,
@@ -10,6 +11,7 @@ import {
   toggleActivoUsuarioAction,
 } from "@/src/lib/usuariosActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import EmptyState from "@/src/components/EmptyState";
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
@@ -132,13 +134,21 @@ export default function UsuariosView({
     }
 
     setCargando(false);
-    if (!result.ok) { setFormError(result.error ?? "Error al guardar."); return; }
+    if (!result.ok) {
+      setFormError(result.error ?? "Error al guardar.");
+      toast.error(result.error ?? "No se pudo guardar el usuario.");
+      return;
+    }
+    toast.success(
+      modal.modo === "crear" ? "Usuario creado correctamente" : "Usuario actualizado correctamente"
+    );
     cerrarModal();
     router.refresh();
   }
 
   async function handleToggleActivo(id: string, activo: boolean) {
     await toggleActivoUsuarioAction(id, !activo);
+    toast.success(activo ? "Usuario desactivado" : "Usuario activado");
     router.refresh();
   }
 
@@ -175,8 +185,14 @@ export default function UsuariosView({
 
       <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
         {usuarios.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-zinc-400">
-            No hay usuarios. Haz clic en <strong className="font-semibold">Agregar usuario</strong> para crear el primero.
+          <div className="px-4 py-2">
+            <EmptyState
+              icon="IconUsers"
+              title="Sin usuarios registrados"
+              description="Agrega el primer usuario para que pueda acceder al sistema."
+              actionLabel="Agregar usuario"
+              onAction={abrirCrear}
+            />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -216,7 +232,7 @@ export default function UsuariosView({
                       <button
                         type="button"
                         onClick={() => handleToggleActivo(u.id, u.activo)}
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${u.activo ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-150 ${u.activo ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
                       >
                         {u.activo ? "Activo" : "Inactivo"}
                       </button>

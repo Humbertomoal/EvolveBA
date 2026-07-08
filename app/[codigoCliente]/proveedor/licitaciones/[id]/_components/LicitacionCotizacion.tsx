@@ -326,7 +326,7 @@ export default function LicitacionCotizacion({
               Por iniciar
             </span>
           ) : (
-            <CountdownTimer fechaFin={new Date(rondaFinMs)} precision="seconds" />
+            <CountdownTimer fechaFin={new Date(rondaFinMs)} precision="seconds" className="text-lg" />
           )}
           <div className="relative">
             <button

@@ -3,7 +3,6 @@
 import {
   IconAlertCircle,
   IconCircleCheck,
-  IconCircleDotFilled,
   IconClock,
   IconFileText,
   IconTrophy,
@@ -110,9 +109,25 @@ function ProgramadaRow({
       onClick={() => router.push(`${basePath}/proveedor/licitaciones/${l.id}`)}
       className="cursor-pointer hover:bg-zinc-50/50 transition-colors duration-150"
     >
-      <td className="pl-3 pr-0 py-3 w-6">
-        {urgencia === "red" && <IconCircleDotFilled className="h-3.5 w-3.5 text-red-500" />}
-        {urgencia === "amber" && <IconCircleDotFilled className="h-3.5 w-3.5 text-amber-400" />}
+      <td className="pl-3 pr-0 py-3 w-8">
+        {urgencia === "red" && (
+          <span
+            title="Urgente: inicia en menos de 3 horas"
+            className="flex h-3 w-3 shrink-0 rounded-full bg-red-500 ring-4 ring-red-100 animate-pulse"
+          />
+        )}
+        {urgencia === "amber" && (
+          <span
+            title="Pronto: inicia en menos de 24 horas"
+            className="flex h-3 w-3 shrink-0 rounded-full bg-amber-400 ring-4 ring-amber-100"
+          />
+        )}
+        {urgencia === null && ms !== null && ms > 0 && (
+          <span
+            title="En tiempo"
+            className="flex h-3 w-3 shrink-0 rounded-full bg-green-500 ring-4 ring-green-100"
+          />
+        )}
       </td>
       <td className={`${CELL} font-medium text-zinc-800`}>{l.numero}</td>
       <td className={`${CELL} text-zinc-600`}>{formatFecha(l.fechaCreacion)}</td>
@@ -132,7 +147,7 @@ function ProgramadaRow({
           type="button"
           onClick={(e) => { e.stopPropagation(); onModal({ numero: l.numero, instrucciones: l.instrucciones }); }}
           title="Ver instrucciones"
-          className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700"
         >
           <IconFileText className="h-4 w-4" />
         </button>
@@ -365,7 +380,7 @@ export default function MisLicitacionesTabla({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
-                    <th className="w-6 px-3 py-3" />
+                    <th className="w-8 px-3 py-3" />
                     <th className="min-w-[130px] px-4 py-3">Número</th>
                     <th className="min-w-[110px] px-4 py-3">Fecha Licitación</th>
                     <th className="min-w-[150px] px-4 py-3">Inicio de Licitación</th>
@@ -443,12 +458,12 @@ export default function MisLicitacionesTabla({
                       <td className={`${CELL} text-center`}>
                         {!l.esperandoDecision &&
                           (l.cotizóEnRondaActual ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
                               <IconCircleCheck className="h-3.5 w-3.5" />
                               Ya cotizé
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                               <IconClock className="h-3.5 w-3.5" />
                               Pendiente
                             </span>
@@ -459,7 +474,7 @@ export default function MisLicitacionesTabla({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setModal({ numero: l.numero, instrucciones: l.instrucciones }); }}
                           title="Ver instrucciones"
-                          className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700"
                         >
                           <IconFileText className="h-4 w-4" />
                         </button>

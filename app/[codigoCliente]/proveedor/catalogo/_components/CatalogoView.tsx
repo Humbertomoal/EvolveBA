@@ -3,6 +3,7 @@
 import {
   IconChevronDown,
   IconChevronRight,
+  IconCheck,
   IconCircleCheck,
   IconCircleX,
   IconPackage,
@@ -14,6 +15,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import EmptyState from "@/src/components/EmptyState";
 import {
   quitarMaterialProveedorAction,
   sincronizarMaterialesAction,
@@ -270,7 +272,7 @@ export default function CatalogoView({
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-zinc-900">Mi Información</h2>
 
-        <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+        <div className="rounded-card border border-border bg-white shadow-card">
           <div className="grid divide-y divide-zinc-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
             {/* Columna izquierda */}
             <div className="divide-y divide-zinc-100">
@@ -307,7 +309,7 @@ export default function CatalogoView({
               />
               <InfoFila label="Domicilio" valor={proveedor.domicilio} />
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-xs font-medium text-zinc-500">Estado</span>
+                <span className="text-xs text-zinc-400">Estado</span>
                 <span
                   className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     proveedor.estado === "Activo"
@@ -424,12 +426,23 @@ export default function CatalogoView({
                                   {filtrados.map((p: any) => (
                                     <tr key={p.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                                       <td className="px-4 py-3">
-                                        <input
-                                          type="checkbox"
-                                          checked={seleccionInline.includes(p.id)}
-                                          onChange={() => toggleInline(p.id)}
-                                          className="h-4 w-4 rounded border-zinc-300"
-                                        />
+                                        <label
+                                          className={`inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border transition-colors duration-150 ${
+                                            seleccionInline.includes(p.id)
+                                              ? "border-primary bg-primary/10"
+                                              : "border-zinc-300 bg-white hover:bg-zinc-50"
+                                          }`}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={seleccionInline.includes(p.id)}
+                                            onChange={() => toggleInline(p.id)}
+                                            className="sr-only"
+                                          />
+                                          {seleccionInline.includes(p.id) && (
+                                            <IconCheck className="h-3.5 w-3.5 text-primary" />
+                                          )}
+                                        </label>
                                       </td>
                                       <td className="px-4 py-3 font-medium text-zinc-800">{p.nombre}</td>
                                       <td className="px-4 py-3 text-zinc-500">{p.codigo}</td>
@@ -455,9 +468,13 @@ export default function CatalogoView({
             </div>
           </div>
         ) : materialesAsignados.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-300 py-10 text-center text-sm text-zinc-400">
-            Aún no tienes materiales en tu catálogo. Usa el botón para agregar.
-          </p>
+          <EmptyState
+            icon="IconPackage"
+            title="Aún no tienes materiales asignados"
+            description="Usa el botón «Agregar material» para elegir los productos que ofreces."
+            actionLabel="Agregar material"
+            onAction={abrirModal}
+          />
         ) : (
           <MaterialesTabla materiales={materialesAsignados} onQuitar={quitarMaterial} pending={pending} />
         )}
@@ -712,8 +729,8 @@ export default function CatalogoView({
 function InfoFila({ label, valor }: { label: string; valor: string }) {
   return (
     <div className="flex items-start justify-between gap-4 px-4 py-3">
-      <span className="shrink-0 text-xs font-medium text-zinc-500">{label}</span>
-      <span className="text-right text-sm text-zinc-800">{valor}</span>
+      <span className="shrink-0 text-xs text-zinc-400">{label}</span>
+      <span className="text-right text-sm font-medium text-zinc-800">{valor}</span>
     </div>
   );
 }
@@ -867,7 +884,7 @@ function MaterialesTabla({
                     onClick={() => onQuitar(m.id)}
                     disabled={pending}
                     aria-label={`Quitar ${m.nombre}`}
-                    className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                    className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                   >
                     <IconTrash className="h-4 w-4" />
                   </button>

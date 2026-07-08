@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconCheck, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import toast from "react-hot-toast";
 import { MODULOS, type RolDTO, type RolPermisoDTO } from "@/src/lib/usuariosTypes";
 import {
   crearRolAction,
@@ -10,6 +11,7 @@ import {
   eliminarRolAction,
 } from "@/src/lib/usuariosActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import EmptyState from "@/src/components/EmptyState";
 
 // ── Permission helpers ────────────────────────────────────────────────────────
 
@@ -62,17 +64,29 @@ function MatrizPermisos({
               return (
                 <tr key={m.key} className="hover:bg-zinc-50/50 transition-colors duration-150">
                   <td className="px-3 py-2 text-zinc-700">{m.label}</td>
-                  {(["ver", "crear", "editar", "eliminar"] as const).map((campo) => (
-                    <td key={campo} className="px-3 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={disabled ? true : p[campo]}
-                        disabled={disabled}
-                        onChange={(e) => onChange(m.key, campo, e.target.checked)}
-                        className="accent-[var(--color-primario)] disabled:opacity-60"
-                      />
-                    </td>
-                  ))}
+                  {(["ver", "crear", "editar", "eliminar"] as const).map((campo) => {
+                    const checked = disabled ? true : p[campo];
+                    return (
+                      <td key={campo} className="px-3 py-2 text-center">
+                        <label
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md border transition-colors duration-150 ${
+                            checked
+                              ? "border-primary bg-primary/10"
+                              : "border-zinc-300 bg-white hover:bg-zinc-50"
+                          } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={disabled}
+                            onChange={(e) => onChange(m.key, campo, e.target.checked)}
+                            className="sr-only"
+                          />
+                          {checked && <IconCheck className="h-3.5 w-3.5 text-primary" />}
+                        </label>
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
@@ -182,7 +196,12 @@ export default function RolesView({
     }
 
     setCargando(false);
-    if (!result.ok) { setFormError(result.error ?? "Error al guardar."); return; }
+    if (!result.ok) {
+      setFormError(result.error ?? "Error al guardar.");
+      toast.error(result.error ?? "No se pudo guardar el rol.");
+      return;
+    }
+    toast.success(modal.modo === "crear" ? "Rol creado correctamente" : "Rol actualizado correctamente");
     cerrarModal();
     router.refresh();
   }
@@ -193,7 +212,12 @@ export default function RolesView({
     const result = await eliminarRolAction(id);
     setCargando(false);
     setConfirmandoId(null);
-    if (!result.ok) { setBannerError(result.error ?? "Error al eliminar."); return; }
+    if (!result.ok) {
+      setBannerError(result.error ?? "Error al eliminar.");
+      toast.error(result.error ?? "No se pudo eliminar el rol.");
+      return;
+    }
+    toast.success("Rol eliminado correctamente");
     router.refresh();
   }
 
@@ -225,7 +249,15 @@ export default function RolesView({
 
       <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
         {roles.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-zinc-400">No hay roles configurados.</div>
+          <div className="px-4 py-2">
+            <EmptyState
+              icon="IconShield"
+              title="Sin roles configurados"
+              description="Crea el primer rol para definir qué puede hacer cada usuario en el sistema."
+              actionLabel="Crear rol"
+              onAction={abrirCrear}
+            />
+          </div>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full text-sm">

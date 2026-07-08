@@ -46,8 +46,8 @@ function CountdownHeader({ limiteMs }: { limiteMs: number }) {
 
   if (ms === 0)
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-        <IconClock className="h-3.5 w-3.5" />
+      <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full bg-red-100 px-3.5 py-1.5 text-sm font-semibold text-red-700">
+        <IconClock className="h-4 w-4" />
         Tiempo vencido
       </span>
     );
@@ -61,16 +61,20 @@ function CountdownHeader({ limiteMs }: { limiteMs: number }) {
       ? `${h}h ${String(m).padStart(2, "0")}m para confirmar`
       : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s para confirmar`;
 
-  const color =
-    totalSecs < 3600
-      ? "bg-red-100 text-red-700"
-      : totalSecs < 7200
-        ? "bg-amber-100 text-amber-700"
-        : "bg-zinc-100 text-zinc-600";
+  const esUrgente = totalSecs < 3600;
+  const color = esUrgente
+    ? "bg-red-100 text-red-700"
+    : totalSecs < 7200
+      ? "bg-amber-100 text-amber-700"
+      : "bg-zinc-100 text-zinc-600";
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${color}`}>
-      <IconClock className="h-3.5 w-3.5" />
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold ${color} ${
+        esUrgente ? "animate-pulse" : ""
+      }`}
+    >
+      <IconClock className="h-4 w-4" />
       {text}
     </span>
   );
@@ -342,7 +346,7 @@ export default function ResultadoView({
                           type="button"
                           disabled={isProcessing}
                           onClick={() => handleConfirmar(a.id)}
-                          className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-150 hover:bg-emerald-700 disabled:opacity-50"
                         >
                           <IconCheck className="h-3.5 w-3.5" />
                           {isProcessing ? "..." : "Confirmar"}
@@ -353,7 +357,7 @@ export default function ResultadoView({
                           onClick={() =>
                             setRechazando({ id: a.id, nombre: a.productoNombre })
                           }
-                          className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors duration-150 hover:bg-red-50 disabled:opacity-50"
                         >
                           <IconX className="h-3.5 w-3.5" />
                           Rechazar
