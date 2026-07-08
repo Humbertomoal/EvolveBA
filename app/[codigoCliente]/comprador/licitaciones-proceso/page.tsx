@@ -16,6 +16,7 @@ export default async function LicitacionesEnProcesoPage({
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
   const { compradorId, puedeVerTodo } = await getCompradorSession();
+  console.log("[licitaciones-proceso] compradorId =", compradorId, "puedeVerTodo =", puedeVerTodo);
 
   // Verificar estado de todas las licitaciones En Proceso
   const enProceso = await prisma.licitacion.findMany({
@@ -37,6 +38,12 @@ export default async function LicitacionesEnProcesoPage({
     (l) => l.modoLicitacion !== "Manual"
   );
   const manualLics = licitaciones.filter((l) => l.modoLicitacion === "Manual");
+  console.log(
+    "[licitaciones-proceso] total licitaciones =",
+    licitaciones.length,
+    "manualLics =",
+    manualLics.length
+  );
 
   // Cargar mejores ofertas históricas para licitaciones Proveedores esperandoDecision
   const mejoresOfertas: Record<string, MejorOfertaItem[]> = {};

@@ -18,8 +18,10 @@ export async function getCompradorSession(): Promise<{
 }> {
   const store = await cookies();
   const compradorId = store.get(COMPRADOR_COOKIE)?.value ?? "default";
+  console.log("[getCompradorSession] cookie cyrgo_comprador_id =", compradorId);
 
   if (compradorId === COMPRADOR_VER_TODO) {
+    console.log("[getCompradorSession] cookie === __todos__ -> puedeVerTodo=true");
     return { compradorId: COMPRADOR_VER_TODO, puedeVerTodo: true };
   }
 
@@ -29,13 +31,21 @@ export async function getCompradorSession(): Promise<{
         where: { id: compradorId },
         include: { rol: { select: { esAdmin: true, esSupervisor: true } } },
       });
+      console.log(
+        "[getCompradorSession] usuario encontrado =",
+        !!usuario,
+        "rol =",
+        usuario?.rol
+      );
       if (usuario?.rol?.esAdmin || usuario?.rol?.esSupervisor) {
+        console.log("[getCompradorSession] esAdmin/esSupervisor -> puedeVerTodo=true");
         return { compradorId, puedeVerTodo: true };
       }
-    } catch {
-      // Migration not yet applied — treat as filtered
+    } catch (error) {
+      console.error("[getCompradorSession] ERROR consultando usuario/rol:", error);
     }
   }
 
+  console.log("[getCompradorSession] devolviendo puedeVerTodo=false para", compradorId);
   return { compradorId, puedeVerTodo: false };
 }

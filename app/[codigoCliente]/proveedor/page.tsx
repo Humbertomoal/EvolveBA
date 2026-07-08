@@ -34,6 +34,7 @@ export default async function ProveedorHomePage({
             licitacion: {
               eliminado: false,
               estado: { in: ["Programada", "En Proceso"] },
+              modoLicitacion: { not: "Manual" },
             },
           },
         }),

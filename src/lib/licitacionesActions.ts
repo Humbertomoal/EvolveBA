@@ -87,8 +87,9 @@ export async function crearLicitacionAction(
     });
   }
 
-  // Manual mode: no supplier visibility — skip LicitacionProveedor records entirely
-  if (datos.modoLicitacion !== "Manual" && datos.proveedoresInvitados.length > 0) {
+  // Modo Manual también necesita el registro en LicitacionProveedor: es la
+  // lista de invitados que lee captura-manual, aunque no se les notifique.
+  if (datos.proveedoresInvitados.length > 0) {
     await prisma.licitacionProveedor.createMany({
       data: datos.proveedoresInvitados.map((proveedorId) => ({
         licitacionId: licitacion.id,
@@ -158,8 +159,9 @@ export async function actualizarLicitacionAction(
   }
 
   await prisma.licitacionProveedor.deleteMany({ where: { licitacionId: id } });
-  // Manual mode: no supplier visibility — keep LicitacionProveedor empty
-  if (datos.modoLicitacion !== "Manual" && datos.proveedoresInvitados.length > 0) {
+  // Modo Manual también necesita el registro en LicitacionProveedor: es la
+  // lista de invitados que lee captura-manual, aunque no se les notifique.
+  if (datos.proveedoresInvitados.length > 0) {
     await prisma.licitacionProveedor.createMany({
       data: datos.proveedoresInvitados.map((proveedorId) => ({
         licitacionId: id,
