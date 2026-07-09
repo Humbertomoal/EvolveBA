@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 bg-zinc-50 px-6 text-center dark:bg-black">
       <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">
-        CYRGO
+        Evolve BA App Comercial
       </h1>
       <div className="flex flex-col gap-4 sm:flex-row">
         <Link

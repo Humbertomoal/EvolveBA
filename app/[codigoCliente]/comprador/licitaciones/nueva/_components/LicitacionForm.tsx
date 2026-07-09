@@ -80,6 +80,14 @@ function iClass(hasError: boolean) {
     : INPUT;
 }
 
+// Ancho fijo para inputs dentro de la tabla de materiales — evita que se
+// estiren y fuercen el overflow horizontal del contenedor del formulario.
+function cellInputClass(hasError: boolean, width: string) {
+  return `${width} rounded-md border px-2 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+    hasError ? "border-red-500 focus:border-red-500" : "border-zinc-300 focus:border-zinc-400"
+  }`;
+}
+
 let _seq = 0;
 function nuevoId() {
   return `fila_${Date.now()}_${_seq++}`;
@@ -158,7 +166,7 @@ export default function LicitacionForm({
   const [busquedaProveedor, setBusquedaProveedor] = useState("");
   const [filtrosTipo, setFiltrosTipo] = useState<string[]>([]);
   const [filtrosEstado, setFiltrosEstado] = useState<string[]>([]);
-  const [filtrarPorMateriales, setFiltrarPorMateriales] = useState(false);
+  const [preseleccionarMateriales, setPreseleccionarMateriales] = useState(true);
   const [selTemp, setSelTemp] = useState<string[]>([]);
   const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState<string[]>(
     inicial?.proveedoresInvitados ?? []
@@ -316,16 +324,26 @@ export default function LicitacionForm({
 
   // ── Proveedores modal helpers ────────────────────────────────────────────────
 
+  const productosEnLicitacion = items.map((i) => i.productoId).filter(Boolean);
+
+  function proveedorTieneMateriales(p: any) {
+    return (proveedorMateriales[p.id] ?? []).some((matId) =>
+      productosEnLicitacion.includes(matId)
+    );
+  }
+
   function abrirModalProveedores() {
-    setSelTemp([...proveedoresSeleccionados]);
     setBusquedaProveedor("");
     setFiltrosTipo([]);
     setFiltrosEstado([]);
-    setFiltrarPorMateriales(false);
+    const activarPreseleccion = productosEnLicitacion.length > 0;
+    setPreseleccionarMateriales(activarPreseleccion);
+    const idsSugeridos = activarPreseleccion
+      ? proveedores.filter(proveedorTieneMateriales).map((p: any) => p.id)
+      : [];
+    setSelTemp([...new Set([...proveedoresSeleccionados, ...idsSugeridos])]);
     setModalProveedoresAbierto(true);
   }
-
-  const productosEnLicitacion = items.map((i) => i.productoId).filter(Boolean);
 
   const proveedoresFiltrados = proveedores.filter((p: any) => {
     const q = busquedaProveedor.toLowerCase();
@@ -336,18 +354,23 @@ export default function LicitacionForm({
     const matchTipo = filtrosTipo.length === 0 || filtrosTipo.includes(p.tipoPersona);
     const matchEstado =
       filtrosEstado.length === 0 || filtrosEstado.includes(p.estado);
-    const matchMateriales =
-      !filtrarPorMateriales ||
-      (proveedorMateriales[p.id] ?? []).some((matId) =>
-        productosEnLicitacion.includes(matId)
-      );
-    return matchQ && matchTipo && matchEstado && matchMateriales;
+    return matchQ && matchTipo && matchEstado;
   });
 
   function toggleProveedorTemp(id: string) {
     setSelTemp((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  }
+
+  function seleccionarTodosVisibles() {
+    setSelTemp((prev) => [
+      ...new Set([...prev, ...proveedoresFiltrados.map((p: any) => p.id)]),
+    ]);
+  }
+
+  function deseleccionarTodos() {
+    setSelTemp([]);
   }
 
   function confirmarProveedores() {
@@ -586,7 +609,7 @@ Asistente de Inteligencia Artificial`;
 
   const errores: Record<string, string | null> = {
     numero: !numero.trim() ? "Número de Licitación requerido" : null,
-    jerarquia: !jerarquia.trim() ? "Jerarquía requerida" : null,
+    jerarquia: !jerarquia.trim() ? "Criticidad requerida" : null,
     tipoLicitacion: !tipoLicitacion ? "Selecciona un Tipo de Licitación" : null,
     fechaEjecucion: esManual ? null : !fechaEjecucion ? "Fecha de Ejecución requerida" : null,
     fechaFinLicitacion: esManual
@@ -637,9 +660,9 @@ Asistente de Inteligencia Artificial`;
   const tieneInstrucciones = instrucciones.trim().length > 0 || archivos.length > 0;
   const puedeToggleMateriales = productosEnLicitacion.length > 0;
 
-  // Auto-reset toggle when licitacion has no products (avoids trapped empty-list state)
+  // Auto-reset toggle when licitacion has no products (nothing to preselect)
   useEffect(() => {
-    if (!puedeToggleMateriales) setFiltrarPorMateriales(false);
+    if (!puedeToggleMateriales) setPreseleccionarMateriales(false);
   }, [puedeToggleMateriales]);
 
   // Auto-dismiss info banner after 5 seconds
@@ -673,7 +696,7 @@ Asistente de Inteligencia Artificial`;
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl space-y-8">
+    <div className="w-full max-w-5xl min-w-0 space-y-8 overflow-x-hidden">
 
       {/* Informative banner — rango de entrega auto-adjusted */}
       {bannerInfo && (
@@ -839,7 +862,7 @@ Asistente de Inteligencia Artificial`;
             />
           </Campo>
           <Campo
-            label="Jerarquía"
+            label="Criticidad"
             required
             error={intentoGuardar ? errores.jerarquia : null}
           >
@@ -1067,7 +1090,7 @@ Asistente de Inteligencia Artificial`;
       </fieldset>
 
       {/* Section B – Productos */}
-      <fieldset className="space-y-3">
+      <fieldset className="min-w-0 space-y-3">
         <legend className="text-sm font-semibold text-zinc-900">
           Productos de la licitación
         </legend>
@@ -1087,20 +1110,19 @@ Asistente de Inteligencia Artificial`;
             Sin productos. Usa el botón de abajo para agregar el primero.
           </p>
         ) : (
-          <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="w-full overflow-x-auto rounded-card border border-border bg-white shadow-card">
+            <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
-                  <th className="px-3 py-2.5 min-w-[200px]">Producto</th>
-                  <th className="px-3 py-2.5 min-w-[180px]">Especificación</th>
-                  <th className="px-3 py-2.5 min-w-[150px]">Fecha de entrega</th>
-                  <th className="px-3 py-2.5 min-w-[110px]">Unidad</th>
-                  <th className="px-3 py-2.5 min-w-[100px]">Moneda</th>
-                  <th className="px-3 py-2.5 min-w-[110px]">Cantidad</th>
-                  <th className="px-3 py-2.5 min-w-[130px]">Precio obj.</th>
-                  <th className="px-3 py-2.5 min-w-[100px] text-right">Subtotal</th>
-                  <th className="px-3 py-2.5 w-10" />
+                  <th className="px-2 py-2.5 w-44">Producto</th>
+                  <th className="px-2 py-2.5 w-40">Especificación</th>
+                  <th className="px-2 py-2.5 w-36">Fecha de entrega</th>
+                  <th className="px-2 py-2.5 w-20">Unidad</th>
+                  <th className="px-2 py-2.5 w-28">Moneda</th>
+                  <th className="px-2 py-2.5 w-24">Cantidad</th>
+                  <th className="px-2 py-2.5 w-28">Precio obj.</th>
+                  <th className="px-2 py-2.5 w-28 text-right">Subtotal</th>
+                  <th className="px-2 py-2.5 w-10" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -1114,15 +1136,17 @@ Asistente de Inteligencia Artificial`;
                       !item.fechaEntrega ||
                       !item.cantidadSolicitada ||
                       item.precioObjetivo === "");
+                  const nombreProducto = productos.find((p: any) => p.id === item.productoId)?.nombre;
                   return (
                     <tr key={item._id} className={`hover:bg-zinc-50/50 transition-colors duration-150 ${rowHasError ? "bg-red-50/40" : ""}`}>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         <select
                           value={item.productoId}
                           onChange={(e) =>
                             cambiarItem(item._id, "productoId", e.target.value)
                           }
-                          className={iClass(intentoGuardar && !item.productoId)}
+                          title={nombreProducto}
+                          className={cellInputClass(intentoGuardar && !item.productoId, "w-44 max-w-44 truncate")}
                         >
                           <option value="">Seleccionar…</option>
                           {productos.map((p: any)=> (
@@ -1132,7 +1156,7 @@ Asistente de Inteligencia Artificial`;
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         <input
                           type="text"
                           value={item.especificacion}
@@ -1140,10 +1164,11 @@ Asistente de Inteligencia Artificial`;
                             cambiarItem(item._id, "especificacion", e.target.value)
                           }
                           placeholder="Detalles adicionales…"
-                          className={INPUT}
+                          title={item.especificacion || undefined}
+                          className={cellInputClass(false, "w-40")}
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         <input
                           type="date"
                           value={item.fechaEntrega}
@@ -1151,21 +1176,21 @@ Asistente de Inteligencia Artificial`;
                           onChange={(e) =>
                             cambiarItem(item._id, "fechaEntrega", e.target.value)
                           }
-                          className={iClass(intentoGuardar && !item.fechaEntrega)}
+                          className={cellInputClass(intentoGuardar && !item.fechaEntrega, "w-36")}
                         />
                       </td>
-                      <td className="px-3 py-2">
-                        <span className="block rounded-md bg-zinc-100 px-3 py-2 text-zinc-500">
+                      <td className="px-2 py-2">
+                        <span className="block w-20 truncate rounded-md bg-zinc-100 px-2 py-2 text-zinc-500">
                           {item.unidadMedida || "—"}
                         </span>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         <select
                           value={item.moneda}
                           onChange={(e) =>
                             cambiarItem(item._id, "moneda" as keyof ItemFila, e.target.value)
                           }
-                          className={INPUT}
+                          className={cellInputClass(false, "w-28")}
                         >
                           {(catalogos?.monedas && catalogos.monedas.length > 0
                             ? catalogos.monedas
@@ -1175,7 +1200,7 @@ Asistente de Inteligencia Artificial`;
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         <input
                           type="number"
                           min="0"
@@ -1184,12 +1209,12 @@ Asistente de Inteligencia Artificial`;
                           onChange={(e) =>
                             cambiarItem(item._id, "cantidadSolicitada", e.target.value)
                           }
-                          className={iClass(intentoGuardar && !item.cantidadSolicitada)}
+                          className={cellInputClass(intentoGuardar && !item.cantidadSolicitada, "w-24")}
                         />
                       </td>
-                      <td className="px-3 py-2">
-                        <div className="relative">
-                          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
+                      <td className="px-2 py-2">
+                        <div className="relative w-28">
+                          <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-zinc-400">
                             $
                           </span>
                           <input
@@ -1200,16 +1225,16 @@ Asistente de Inteligencia Artificial`;
                             onChange={(e) =>
                               cambiarItem(item._id, "precioObjetivo", e.target.value)
                             }
-                            className={`${iClass(intentoGuardar && item.precioObjetivo === "")} pl-7`}
+                            className={`${cellInputClass(intentoGuardar && item.precioObjetivo === "", "w-28")} pl-6`}
                           />
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-zinc-500">
+                      <td className="w-28 px-2 py-2 text-right tabular-nums text-zinc-500">
                         {item.cantidadSolicitada && item.precioObjetivo !== ""
                           ? `$${fmt(subtotal)}`
                           : "—"}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         <button
                           type="button"
                           onClick={() => eliminarItem(item._id)}
@@ -1224,7 +1249,6 @@ Asistente de Inteligencia Artificial`;
                 })}
               </tbody>
             </table>
-            </div>
           </div>
         )}
 
@@ -1458,54 +1482,71 @@ Asistente de Inteligencia Artificial`;
                 )}
               </div>
 
-              {/* Toggle: filtrar por materiales de la licitación */}
-              <span
-                title={
-                  !puedeToggleMateriales
-                    ? "Agrega productos primero para filtrar por materiales"
-                    : undefined
-                }
-                className="flex items-center gap-2.5 select-none"
-              >
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={filtrarPorMateriales}
-                  onClick={() => {
-                    if (!puedeToggleMateriales) return;
-                    const turnOn = !filtrarPorMateriales;
-                    setFiltrarPorMateriales(turnOn);
-                    if (turnOn) {
-                      const idsToPreselect = proveedoresFiltrados
-                        .filter((p: any) =>
-                          (proveedorMateriales[p.id] ?? []).some((matId) =>
-                            productosEnLicitacion.includes(matId)
-                          )
-                        )
-                        .map((p: any)=> p.id);
-                      setSelTemp((prev) => [...new Set([...prev, ...idsToPreselect])]);
-                    }
-                  }}
-                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-                    !puedeToggleMateriales
-                      ? "cursor-not-allowed bg-zinc-200 opacity-50"
-                      : filtrarPorMateriales
-                        ? "bg-[var(--color-primario)]"
-                        : "bg-zinc-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      filtrarPorMateriales ? "translate-x-4" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
+              {/* Toggle: preseleccionar proveedores con materiales de la licitación */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span
-                  className={`text-xs ${puedeToggleMateriales ? "cursor-pointer text-zinc-600" : "text-zinc-400"}`}
+                  title={
+                    !puedeToggleMateriales
+                      ? "Agrega productos primero para preseleccionar por materiales"
+                      : undefined
+                  }
+                  className="flex items-center gap-2.5 select-none"
                 >
-                  Solo proveedores con materiales de esta licitación
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={preseleccionarMateriales}
+                    onClick={() => {
+                      if (!puedeToggleMateriales) return;
+                      const turnOn = !preseleccionarMateriales;
+                      setPreseleccionarMateriales(turnOn);
+                      if (turnOn) {
+                        const idsToPreselect = proveedores
+                          .filter(proveedorTieneMateriales)
+                          .map((p: any) => p.id);
+                        setSelTemp((prev) => [...new Set([...prev, ...idsToPreselect])]);
+                      }
+                      // Al desactivar no se desmarca nada: solo deja de aplicar la preselección.
+                    }}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                      !puedeToggleMateriales
+                        ? "cursor-not-allowed bg-zinc-200 opacity-50"
+                        : preseleccionarMateriales
+                          ? "bg-[var(--color-primario)]"
+                          : "bg-zinc-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                        preseleccionarMateriales ? "translate-x-4" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                  <span
+                    className={`text-xs ${puedeToggleMateriales ? "cursor-pointer text-zinc-600" : "text-zinc-400"}`}
+                  >
+                    Preseleccionar proveedores que manejan los materiales de esta licitación
+                  </span>
                 </span>
-              </span>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={seleccionarTodosVisibles}
+                    className="text-xs font-medium text-[var(--color-primario)] hover:underline"
+                  >
+                    Seleccionar todos
+                  </button>
+                  <span className="text-zinc-300">·</span>
+                  <button
+                    type="button"
+                    onClick={deseleccionarTodos}
+                    className="text-xs font-medium text-zinc-500 hover:underline"
+                  >
+                    Deseleccionar todos
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Provider list */}
@@ -1527,6 +1568,12 @@ Asistente de Inteligencia Artificial`;
                           <span className="font-medium text-zinc-800">{p.razonSocial}</span>
                           <span className="ml-2 text-zinc-400">{p.rfc}</span>
                         </span>
+                        {puedeToggleMateriales && proveedorTieneMateriales(p) && (
+                          <IconCheck
+                            className="h-4 w-4 shrink-0 text-emerald-600"
+                            title="Tiene los materiales de esta licitación"
+                          />
+                        )}
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                             p.estado === "Activo"

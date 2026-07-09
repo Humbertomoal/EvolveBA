@@ -112,7 +112,7 @@ function proveedorTieneOfertas(
   });
 }
 
-const INPUT = "w-full rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
+const INPUT = "rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -182,7 +182,7 @@ export default function CapturaManualForm({
   }
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="w-full max-w-5xl min-w-0 space-y-6 overflow-x-hidden">
       {/* Header */}
       <div className="space-y-1">
         <Link
@@ -238,18 +238,18 @@ export default function CapturaManualForm({
 
               {/* Accordion body */}
               {abierto && (
-                <div className="overflow-x-auto border-t border-zinc-200">
-                  <table className="w-full text-sm">
+                <div className="w-full overflow-x-auto border-t border-zinc-200">
+                  <table className="min-w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
-                        <th className="min-w-[180px] px-4 py-2.5">Material</th>
-                        <th className="min-w-[100px] px-4 py-2.5 text-right">
+                        <th className="w-40 px-2 py-2.5">Material</th>
+                        <th className="w-24 px-2 py-2.5 text-right">
                           Cant. solicitada
                         </th>
-                        <th className="min-w-[80px] px-4 py-2.5">Unidad</th>
-                        <th className="min-w-[120px] px-4 py-2.5">Fecha entrega</th>
-                        <th className="min-w-[150px] px-4 py-2.5">Precio unitario</th>
-                        <th className="min-w-[150px] px-4 py-2.5">Cant. disponible</th>
+                        <th className="w-20 px-2 py-2.5">Unidad</th>
+                        <th className="w-28 px-2 py-2.5">Fecha entrega</th>
+                        <th className="w-32 px-2 py-2.5">Precio unitario</th>
+                        <th className="w-28 px-2 py-2.5">Cant. disponible</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
@@ -261,20 +261,23 @@ export default function CapturaManualForm({
                         const precio = parseFloat(celda.precioUnitario) || 0;
                         return (
                           <tr key={item.licitacionItemId} className="hover:bg-zinc-50/50 transition-colors duration-150">
-                            <td className="px-4 py-2.5 font-medium text-zinc-800">
+                            <td
+                              className="max-w-40 truncate px-2 py-2.5 font-medium text-zinc-800"
+                              title={item.productoNombre}
+                            >
                               {item.productoNombre}
                             </td>
-                            <td className="px-4 py-2.5 text-right text-zinc-600">
+                            <td className="px-2 py-2.5 text-right text-zinc-600">
                               {item.cantidadSolicitada}
                             </td>
-                            <td className="px-4 py-2.5 text-zinc-500">
+                            <td className="px-2 py-2.5 text-zinc-500">
                               {item.unidadMedida}
                             </td>
-                            <td className="px-4 py-2.5 text-zinc-500">
+                            <td className="px-2 py-2.5 text-zinc-500">
                               {formatFecha(item.fechaEntrega)}
                             </td>
-                            <td className="px-4 py-2.5">
-                              <div className="relative">
+                            <td className="px-2 py-2.5">
+                              <div className="relative w-28">
                                 <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-zinc-400 text-xs">
                                   $
                                 </span>
@@ -292,7 +295,7 @@ export default function CapturaManualForm({
                                     )
                                   }
                                   placeholder="0.00"
-                                  className={`${INPUT} pl-5`}
+                                  className={`${INPUT} w-28 pl-5`}
                                 />
                               </div>
                               {precio > 0 && (
@@ -301,7 +304,7 @@ export default function CapturaManualForm({
                                 </p>
                               )}
                             </td>
-                            <td className="px-4 py-2.5">
+                            <td className="px-2 py-2.5">
                               <input
                                 type="number"
                                 min="0"
@@ -316,7 +319,7 @@ export default function CapturaManualForm({
                                   )
                                 }
                                 placeholder="0"
-                                className={INPUT}
+                                className={`${INPUT} w-24`}
                               />
                             </td>
                           </tr>

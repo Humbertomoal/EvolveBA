@@ -123,7 +123,7 @@ function generarPDF(
     </style></head><body>
     <h1>Licitación ${licitacion.numero}</h1>
     <div class="sub">
-      Proveedor: ${proveedorNombre} &nbsp;|&nbsp; Jerarquía: ${licitacion.jerarquia ?? "—"}
+      Proveedor: ${proveedorNombre} &nbsp;|&nbsp; Criticidad: ${licitacion.jerarquia ?? "—"}
     </div>
     <table>
       <thead>

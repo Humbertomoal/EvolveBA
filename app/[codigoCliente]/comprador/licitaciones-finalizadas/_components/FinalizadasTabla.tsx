@@ -109,7 +109,7 @@ export default function FinalizadasTabla({
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
-          placeholder="Buscar por número o jerarquía..."
+          placeholder="Buscar por número o criticidad..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -178,7 +178,7 @@ export default function FinalizadasTabla({
             },
             {
               tipo: "select",
-              titulo: "Jerarquía",
+              titulo: "Criticidad",
               valor: filtros.jerarquia,
               onCambio: (v) => setFiltro("jerarquia", v),
               opciones: [
@@ -208,7 +208,7 @@ export default function FinalizadasTabla({
               <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="min-w-[130px] px-3 py-3">Número</th>
                 <th className="min-w-[110px] px-3 py-3">Modo</th>
-                <th className="min-w-[130px] px-3 py-3">Jerarquía</th>
+                <th className="min-w-[130px] px-3 py-3">Criticidad</th>
                 <th className="min-w-[130px] px-3 py-3">Fecha de inicio</th>
                 <th className="min-w-[130px] px-3 py-3">Fecha de cierre</th>
                 <th className="min-w-[140px] px-3 py-3">Fecha de finalización</th>

@@ -139,7 +139,7 @@ export default async function ImprimirOrdenCompradorPage({
             <span>{orden.licitacion.numero}</span>
           </div>
           <div className="meta-item">
-            <label>Jerarquía</label>
+            <label>Criticidad</label>
             <span>{orden.licitacion.jerarquia ?? "—"}</span>
           </div>
           <div className="meta-item">
@@ -190,7 +190,7 @@ export default async function ImprimirOrdenCompradorPage({
           </tfoot>
         </table>
 
-        <div className="footer">Generado por CYRGO · {hoy}</div>
+        <div className="footer">Generado por Evolve BA App Comercial · {hoy}</div>
       </div>
     </>
   );

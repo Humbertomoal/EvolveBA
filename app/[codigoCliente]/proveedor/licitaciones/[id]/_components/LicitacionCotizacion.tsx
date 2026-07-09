@@ -349,7 +349,7 @@ export default function LicitacionCotizacion({
       {/* ── Info cards ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {[
-          { label: "Jerarquía", valor: jerarquia ?? "—" },
+          { label: "Criticidad", valor: jerarquia ?? "—" },
           { label: "Comprador", valor: "Comprador 1" },
           { label: "Tipo de Compra", valor: tipoLicitacion ?? "—" },
           { label: "Inicio de Ronda", valor: formatFechaHora(fechaEjecucion) },

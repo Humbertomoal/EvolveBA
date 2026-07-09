@@ -18,7 +18,7 @@ import EmptyState from "@/src/components/EmptyState";
 type TabKey = "JERARQUIA" | "TIPO_LICITACION" | "FAMILIA" | "UNIDAD_MEDIDA" | "MONEDA";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "JERARQUIA", label: "Jerarquías" },
+  { key: "JERARQUIA", label: "Criticidad" },
   { key: "TIPO_LICITACION", label: "Tipos de Licitación" },
   { key: "FAMILIA", label: "Familias de Producto" },
   { key: "UNIDAD_MEDIDA", label: "Unidades de Medida" },

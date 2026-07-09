@@ -197,7 +197,7 @@ export default function OrdenesTabla({
               <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="min-w-[110px] px-4 py-3">Número OC</th>
                 <th className="min-w-[120px] px-4 py-3">Licitación</th>
-                <th className="min-w-[110px] px-4 py-3">Jerarquía</th>
+                <th className="min-w-[110px] px-4 py-3">Criticidad</th>
                 <th className="min-w-[110px] px-4 py-3">Fecha creación</th>
                 <th className="min-w-[120px] px-4 py-3">Entrega estimada</th>
                 <th className="min-w-[110px] px-4 py-3 text-right">Total</th>

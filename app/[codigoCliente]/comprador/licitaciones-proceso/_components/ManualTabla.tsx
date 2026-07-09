@@ -106,7 +106,7 @@ export default function ManualTabla({
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
-          placeholder="Buscar por número o jerarquía..."
+          placeholder="Buscar por número o criticidad..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -145,7 +145,7 @@ export default function ManualTabla({
               <thead>
                 <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="min-w-[130px] px-3 py-3">Número</th>
-                  <th className="min-w-[120px] px-3 py-3">Jerarquía</th>
+                  <th className="min-w-[120px] px-3 py-3">Criticidad</th>
                   <th className="min-w-[110px] px-3 py-3">Comprador</th>
                   <th className="min-w-[140px] px-3 py-3">Costo Objetivo</th>
                   <th className="min-w-[170px] px-3 py-3">Fecha de creación</th>

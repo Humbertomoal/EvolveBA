@@ -211,7 +211,7 @@ export default function OrdenesCompradorTabla({
                 <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="min-w-[110px] px-4 py-3">Número OC</th>
                   <th className="min-w-[120px] px-4 py-3">Licitación</th>
-                  <th className="min-w-[110px] px-4 py-3">Jerarquía</th>
+                  <th className="min-w-[110px] px-4 py-3">Criticidad</th>
                   <th className="min-w-[160px] px-4 py-3">Proveedor</th>
                   <th className="min-w-[80px] px-4 py-3 text-center">Materiales</th>
                   <th className="min-w-[110px] px-4 py-3">Fecha OC</th>

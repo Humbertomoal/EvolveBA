@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CYRGO",
-  description: "Plataforma de compras CYRGO",
+  title: "Evolve BA App Comercial",
+  description: "Plataforma de compras Evolve BA App Comercial",
 };
 
 export default function RootLayout({

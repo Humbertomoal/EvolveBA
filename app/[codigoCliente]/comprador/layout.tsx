@@ -136,7 +136,7 @@ export default async function CompradorLayout({
           items={NAV_ITEMS}
         />
         <PageHeaderProvider>
-          <div className="flex flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col">
             {usuarioActual && (
               <TopBar
                 esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
@@ -147,7 +147,7 @@ export default async function CompradorLayout({
                 logoutAction={logoutAction}
               />
             )}
-            <main className="flex-1 bg-[#FEFBFB] p-4 sm:p-8">{children}</main>
+            <main className="min-w-0 flex-1 bg-[#FEFBFB] p-4 sm:p-8">{children}</main>
           </div>
         </PageHeaderProvider>
       </div>

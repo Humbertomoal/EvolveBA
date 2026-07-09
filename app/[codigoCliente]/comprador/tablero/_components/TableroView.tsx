@@ -185,7 +185,7 @@ export default function TableroView({
               <thead>
                 <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="pb-2 pr-4">Licitación</th>
-                  <th className="pb-2 pr-4">Jerarquía</th>
+                  <th className="pb-2 pr-4">Criticidad</th>
                   <th className="pb-2 pr-4 text-right">Precio inicial</th>
                   <th className="pb-2 pr-4 text-right">Precio final</th>
                   <th className="pb-2 pr-4 text-right">Ahorro $</th>

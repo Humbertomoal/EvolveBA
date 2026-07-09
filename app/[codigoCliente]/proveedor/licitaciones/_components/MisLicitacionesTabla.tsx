@@ -384,7 +384,7 @@ export default function MisLicitacionesTabla({
                     <th className="min-w-[130px] px-4 py-3">Número</th>
                     <th className="min-w-[110px] px-4 py-3">Fecha Licitación</th>
                     <th className="min-w-[150px] px-4 py-3">Inicio de Licitación</th>
-                    <th className="min-w-[120px] px-4 py-3">Jerarquía</th>
+                    <th className="min-w-[120px] px-4 py-3">Criticidad</th>
                     <th className="min-w-[100px] px-4 py-3">Comprador</th>
                     <th className="min-w-[120px] px-4 py-3">Fecha Obj. Entrega</th>
                     <th className="min-w-[100px] px-4 py-3 text-center">Participantes</th>
@@ -418,7 +418,7 @@ export default function MisLicitacionesTabla({
                     <th className="min-w-[130px] px-4 py-3">Número</th>
                     <th className="min-w-[110px] px-4 py-3">Fecha</th>
                     <th className="min-w-[150px] px-4 py-3">Inicio de Licitación</th>
-                    <th className="min-w-[120px] px-4 py-3">Jerarquía</th>
+                    <th className="min-w-[120px] px-4 py-3">Criticidad</th>
                     <th className="min-w-[100px] px-4 py-3">Comprador</th>
                     <th className="min-w-[110px] px-4 py-3 text-center">Ronda</th>
                     <th className="min-w-[130px] px-4 py-3 text-center">Tiempo restante</th>
@@ -496,7 +496,7 @@ export default function MisLicitacionesTabla({
           <div className="mt-4 flex gap-2">
             <input
               type="text"
-              placeholder="Buscar por número o jerarquía…"
+              placeholder="Buscar por número o criticidad…"
               value={filtroTextFin}
               onChange={(e) => setFiltroTextFin(e.target.value)}
               className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -519,7 +519,7 @@ export default function MisLicitacionesTabla({
                 ...(jerarquiasFin.length > 0
                   ? [{
                       tipo: "select" as const,
-                      titulo: "Jerarquía",
+                      titulo: "Criticidad",
                       opciones: [
                         { label: "Todas", value: "" },
                         ...jerarquiasFin.map((j) => ({ label: j, value: j })),
@@ -565,7 +565,7 @@ export default function MisLicitacionesTabla({
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="min-w-[130px] px-4 py-3">Número</th>
                     <th className="min-w-[110px] px-4 py-3">Fecha</th>
-                    <th className="min-w-[120px] px-4 py-3">Jerarquía</th>
+                    <th className="min-w-[120px] px-4 py-3">Criticidad</th>
                     <th className="min-w-[100px] px-4 py-3">Comprador</th>
                     <th className="min-w-[90px] px-4 py-3">Estado</th>
                     <th className="min-w-[220px] px-4 py-3">Resultado</th>

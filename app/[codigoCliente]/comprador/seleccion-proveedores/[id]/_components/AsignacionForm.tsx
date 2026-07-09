@@ -111,7 +111,7 @@ function generarPDF(
 </style></head><body>
 <h1>Licitación ${licitacion.numero}</h1>
 <div class="meta">
-  ${licitacion.jerarquia ? `Jerarquía: ${licitacion.jerarquia} &nbsp;|&nbsp;` : ""}
+  ${licitacion.jerarquia ? `Criticidad: ${licitacion.jerarquia} &nbsp;|&nbsp;` : ""}
   ${licitacion.tipoLicitacion ? `Tipo: ${licitacion.tipoLicitacion} &nbsp;|&nbsp;` : ""}
   Comprador: Comprador 1
 </div>
