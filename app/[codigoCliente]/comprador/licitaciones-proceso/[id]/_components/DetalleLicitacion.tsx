@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconClock,
   IconEye,
   IconMessageCircle,
   IconPlayerSkipForward,
@@ -66,10 +67,12 @@ export type ResumenAhorro = {
   presupuestoObjetivoTotal: number;
   primeraRondaTotal: number;
   mejorPrecioActualTotal: number;
+  adherenciaPct: number;
   ahorroTotal: number;
   ahorroPct: number | null;
   variacionPct: number | null;
   monedaPredominante: string;
+  hayOfertas: boolean;
 };
 
 export type MejorPrecioItem = {
@@ -139,6 +142,44 @@ function cercaniaBadgeClass(pct: number): string {
   if (pct >= 100) return "bg-emerald-100 text-emerald-700";
   if (pct >= 90) return "bg-amber-100 text-amber-700";
   return "bg-red-100 text-red-700";
+}
+
+// Mismos umbrales que cercaniaBadgeClass, en variante de texto para KPI.
+function adherenciaColorClass(pct: number): string {
+  if (pct >= 100) return "text-emerald-600";
+  if (pct >= 90) return "text-amber-600";
+  return "text-red-600";
+}
+
+// Tarjeta KPI que, cuando aún no hay ninguna oferta registrada en la
+// licitación, muestra un estado de espera en vez de $0 / 0% confuso.
+function KpiCard({
+  label,
+  hayOfertas,
+  children,
+}: {
+  label: string;
+  hayOfertas: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-card border border-border bg-white shadow-card p-4">
+      <p className="text-xs font-medium text-zinc-500">{label}</p>
+      {hayOfertas ? (
+        children
+      ) : (
+        <div className="mt-1.5 flex items-start gap-2">
+          <IconClock className="h-5 w-5 shrink-0 text-zinc-300" />
+          <div>
+            <p className="text-sm font-medium text-zinc-400">En espera de ofertas</p>
+            <p className="text-xs text-zinc-300">
+              Los indicadores se calcularán cuando los proveedores comiencen a cotizar
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -399,9 +440,9 @@ export default function DetalleLicitacion({
         {tab === "mejores" && (
           <div className="mt-4 space-y-6">
             {/* KPIs de ahorro */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-card border border-border bg-white shadow-card p-4">
-                <p className="text-xs font-medium text-zinc-500">Presupuesto objetivo</p>
+                <p className="text-xs font-medium text-zinc-500">Presupuesto Objetivo</p>
                 <p className="mt-1 text-xl font-semibold text-zinc-900">
                   {formatMoneda(
                     resumenAhorro.presupuestoObjetivoTotal,
@@ -409,24 +450,27 @@ export default function DetalleLicitacion({
                   )}
                 </p>
               </div>
-              <div className="rounded-card border border-border bg-white shadow-card p-4">
-                <p className="text-xs font-medium text-zinc-500">Mejor precio actual</p>
+              <KpiCard label="Total Primera Ronda" hayOfertas={resumenAhorro.hayOfertas}>
                 <p className="mt-1 text-xl font-semibold text-zinc-900">
                   {formatMoneda(
-                    resumenAhorro.mejorPrecioActualTotal,
+                    resumenAhorro.primeraRondaTotal,
                     resumenAhorro.monedaPredominante
                   )}
                 </p>
-              </div>
-              <div className="rounded-card border border-border bg-white shadow-card p-4">
-                <p className="text-xs font-medium text-zinc-500">Ahorro total</p>
+              </KpiCard>
+              <KpiCard label="Adherencia de Precio" hayOfertas={resumenAhorro.hayOfertas}>
+                <p className={`mt-1 text-xl font-semibold ${adherenciaColorClass(resumenAhorro.adherenciaPct)}`}>
+                  {resumenAhorro.adherenciaPct.toFixed(1)}%
+                </p>
+              </KpiCard>
+              <KpiCard label="Ahorro" hayOfertas={resumenAhorro.hayOfertas}>
                 <p className={`mt-1 text-xl font-semibold ${ahorroColorClass(resumenAhorro.ahorroTotal)}`}>
                   {formatMoneda(resumenAhorro.ahorroTotal, resumenAhorro.monedaPredominante)}
                   <span className="ml-1.5 text-sm font-medium">
                     ({formatPct(resumenAhorro.ahorroPct)})
                   </span>
                 </p>
-              </div>
+              </KpiCard>
             </div>
 
             {/* Tabla de ahorro por producto */}
@@ -437,7 +481,7 @@ export default function DetalleLicitacion({
                     <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                       <th className="min-w-[180px] px-4 py-3">Producto</th>
                       <th className="px-4 py-3 text-right">Objetivo</th>
-                      <th className="px-4 py-3 text-right">1ª Ronda</th>
+                      <th className="px-4 py-3 text-right">Primera Ronda</th>
                       <th className="px-4 py-3 text-right">Mejor Actual</th>
                       <th className="px-4 py-3 text-right">Variación</th>
                       <th className="px-4 py-3 text-right">Ahorro</th>
@@ -463,7 +507,7 @@ export default function DetalleLicitacion({
                           {a.mejorActualTotal != null ? (
                             formatMoneda(a.mejorActualTotal, a.moneda)
                           ) : (
-                            <span className="text-zinc-300">Sin ofertas</span>
+                            <span className="text-zinc-300">Sin ofertas aún</span>
                           )}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${varColorClass(a.variacionPct)}`}>
@@ -547,7 +591,7 @@ export default function DetalleLicitacion({
                             {formatPeso(item.mejor.precioUnitario)}
                           </span>
                         ) : (
-                          <span className="text-zinc-300">Sin ofertas</span>
+                          <span className="text-zinc-300">Sin ofertas aún</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-zinc-700">

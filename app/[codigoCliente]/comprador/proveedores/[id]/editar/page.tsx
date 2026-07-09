@@ -4,8 +4,9 @@ import {
   getFamiliasProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getProductos } from "@/src/lib/productos";
-import { getProveedorById } from "@/src/lib/proveedores";
+import { getAccesoProveedor, getProveedorById } from "@/src/lib/proveedores";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
+import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import ProveedorForm from "../../_components/ProveedorForm";
 
 export default async function EditarProveedorPage({
@@ -17,13 +18,15 @@ export default async function EditarProveedorPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [proveedor, productos, materialesIniciales, familiasCatalogo, familiasIniciales] =
+  const [proveedor, productos, materialesIniciales, familiasCatalogo, familiasIniciales, usuarioActual, acceso] =
     await Promise.all([
       getProveedorById(id),
       getProductos(),
       getMaterialesProveedor(id),
       getCatalogosActivos("FAMILIA"),
       getFamiliasProveedor(id),
+      getUsuarioActual(),
+      getAccesoProveedor(id),
     ]);
 
   if (!proveedor) {
@@ -47,6 +50,8 @@ export default async function EditarProveedorPage({
       materialesIniciales={materialesIniciales}
       familiasCatalogo={familiasCatalogo}
       familiasIniciales={familiasIniciales}
+      esAdmin={usuarioActual?.esAdmin ?? false}
+      acceso={acceso}
     />
   );
 }

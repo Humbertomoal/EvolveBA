@@ -1,6 +1,6 @@
 "use client";
 
-import { IconDownload, IconX } from "@tabler/icons-react";
+import { IconDownload, IconPencil, IconRefresh, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
@@ -29,8 +29,24 @@ function formatFecha(iso: string | null): string {
 
 // ── State types ───────────────────────────────────────────────────────────────
 
-type FilaState = { proveedorId: string; cantidad: number };
+type FilaState = {
+  proveedorId: string;
+  cantidad: number;
+  // Precio y fecha son editables por el comprador; parten del valor de la
+  // oferta pero se pueden ajustar manualmente (negociación, corrección, etc.).
+  precioUnitario: number;
+  fechaEstimada: string; // "" = cumple la fecha objetivo / sin estimado
+};
 type ItemAsignacion = { primary: FilaState; secondary: FilaState | null };
+
+function precioDefault(o: OfertaParaDropdown | undefined): number {
+  return o?.precioUnitario ?? 0;
+}
+
+function fechaDefault(o: OfertaParaDropdown | undefined): string {
+  if (!o || o.puedeCumplirFecha || !o.fechaEstimadaEntrega) return "";
+  return new Date(o.fechaEstimadaEntrega).toISOString().split("T")[0];
+}
 
 function initAsignacion(
   items: ItemParaAsignacion[]
@@ -40,7 +56,7 @@ function initAsignacion(
     const best = item.ofertas[0];
     if (!best) {
       init[item.licitacionItemId] = {
-        primary: { proveedorId: "", cantidad: 0 },
+        primary: { proveedorId: "", cantidad: 0, precioUnitario: 0, fechaEstimada: "" },
         secondary: null,
       };
       continue;
@@ -49,9 +65,19 @@ function initAsignacion(
     const resto = item.cantidadSolicitada - primaryCant;
     const second = resto > 0 ? item.ofertas[1] : null;
     init[item.licitacionItemId] = {
-      primary: { proveedorId: best.proveedorId, cantidad: primaryCant },
+      primary: {
+        proveedorId: best.proveedorId,
+        cantidad: primaryCant,
+        precioUnitario: precioDefault(best),
+        fechaEstimada: fechaDefault(best),
+      },
       secondary: second
-        ? { proveedorId: second.proveedorId, cantidad: resto }
+        ? {
+            proveedorId: second.proveedorId,
+            cantidad: resto,
+            precioUnitario: precioDefault(second),
+            fechaEstimada: fechaDefault(second),
+          }
         : null,
     };
   }
@@ -71,7 +97,7 @@ function generarPDF(
   for (const item of items) {
     const fila = asignacion[item.licitacionItemId];
     if (!fila) continue;
-    const addFila = (pId: string, cant: number) => {
+    const addFila = (pId: string, cant: number, precio: number) => {
       if (!pId) return;
       const oferta = item.ofertas.find((o: any) => o.proveedorId === pId);
       if (!oferta) return;
@@ -81,12 +107,15 @@ function generarPDF(
         cantidad: cant,
         unidad: item.unidadMedida,
         moneda: item.moneda,
-        precio: oferta.precioUnitario,
-        subtotal: cant * oferta.precioUnitario,
+        precio,
+        subtotal: cant * precio,
       });
     };
-    addFila(fila.primary.proveedorId, fila.primary.cantidad);
-    if (fila.secondary) addFila(fila.secondary.proveedorId, fila.secondary.cantidad);
+    // Usa el precio EDITADO (lo que realmente se va a guardar), no el original de la oferta.
+    addFila(fila.primary.proveedorId, fila.primary.cantidad, fila.primary.precioUnitario);
+    if (fila.secondary) {
+      addFila(fila.secondary.proveedorId, fila.secondary.cantidad, fila.secondary.precioUnitario);
+    }
   }
 
   const totalesPDF: Record<string, number> = {};
@@ -189,11 +218,26 @@ export default function AsignacionForm({
     let secondary: FilaState | null = null;
     if (resto > 0) {
       const alt = item.ofertas.find((o: any) => o.proveedorId !== newProveedorId);
-      if (alt) secondary = { proveedorId: alt.proveedorId, cantidad: resto };
+      if (alt) {
+        secondary = {
+          proveedorId: alt.proveedorId,
+          cantidad: resto,
+          precioUnitario: precioDefault(alt),
+          fechaEstimada: fechaDefault(alt),
+        };
+      }
     }
     setAsignacion((prev) => ({
       ...prev,
-      [itemId]: { primary: { proveedorId: newProveedorId, cantidad: primaryCant }, secondary },
+      [itemId]: {
+        primary: {
+          proveedorId: newProveedorId,
+          cantidad: primaryCant,
+          precioUnitario: precioDefault(oferta),
+          fechaEstimada: fechaDefault(oferta),
+        },
+        secondary,
+      },
     }));
   }
 
@@ -206,7 +250,14 @@ export default function AsignacionForm({
       if (resto > 0) {
         if (!secondary) {
           const alt = item.ofertas.find((o: any) => o.proveedorId !== fila.primary.proveedorId);
-          secondary = alt ? { proveedorId: alt.proveedorId, cantidad: resto } : null;
+          secondary = alt
+            ? {
+                proveedorId: alt.proveedorId,
+                cantidad: resto,
+                precioUnitario: precioDefault(alt),
+                fechaEstimada: fechaDefault(alt),
+              }
+            : null;
         } else {
           secondary = { ...secondary, cantidad: resto };
         }
@@ -218,10 +269,92 @@ export default function AsignacionForm({
   }
 
   function updateSecondaryProveedor(itemId: string, newProveedorId: string) {
+    const item = items.find((i) => i.licitacionItemId === itemId)!;
+    const oferta = getOferta(item, newProveedorId);
     setAsignacion((prev) => {
       const fila = prev[itemId];
       if (!fila.secondary) return prev;
-      return { ...prev, [itemId]: { ...fila, secondary: { ...fila.secondary, proveedorId: newProveedorId } } };
+      return {
+        ...prev,
+        [itemId]: {
+          ...fila,
+          secondary: {
+            ...fila.secondary,
+            proveedorId: newProveedorId,
+            precioUnitario: precioDefault(oferta),
+            fechaEstimada: fechaDefault(oferta),
+          },
+        },
+      };
+    });
+  }
+
+  function updatePrimaryPrecio(itemId: string, value: number) {
+    setAsignacion((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], primary: { ...prev[itemId].primary, precioUnitario: value } },
+    }));
+  }
+
+  function updatePrimaryFecha(itemId: string, value: string) {
+    setAsignacion((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], primary: { ...prev[itemId].primary, fechaEstimada: value } },
+    }));
+  }
+
+  function resetPrimary(itemId: string) {
+    const item = items.find((i) => i.licitacionItemId === itemId)!;
+    setAsignacion((prev) => {
+      const fila = prev[itemId];
+      const oferta = getOferta(item, fila.primary.proveedorId);
+      return {
+        ...prev,
+        [itemId]: {
+          ...fila,
+          primary: {
+            ...fila.primary,
+            precioUnitario: precioDefault(oferta),
+            fechaEstimada: fechaDefault(oferta),
+          },
+        },
+      };
+    });
+  }
+
+  function updateSecondaryPrecio(itemId: string, value: number) {
+    setAsignacion((prev) => {
+      const fila = prev[itemId];
+      if (!fila.secondary) return prev;
+      return { ...prev, [itemId]: { ...fila, secondary: { ...fila.secondary, precioUnitario: value } } };
+    });
+  }
+
+  function updateSecondaryFecha(itemId: string, value: string) {
+    setAsignacion((prev) => {
+      const fila = prev[itemId];
+      if (!fila.secondary) return prev;
+      return { ...prev, [itemId]: { ...fila, secondary: { ...fila.secondary, fechaEstimada: value } } };
+    });
+  }
+
+  function resetSecondary(itemId: string) {
+    const item = items.find((i) => i.licitacionItemId === itemId)!;
+    setAsignacion((prev) => {
+      const fila = prev[itemId];
+      if (!fila.secondary) return prev;
+      const oferta = getOferta(item, fila.secondary.proveedorId);
+      return {
+        ...prev,
+        [itemId]: {
+          ...fila,
+          secondary: {
+            ...fila.secondary,
+            precioUnitario: precioDefault(oferta),
+            fechaEstimada: fechaDefault(oferta),
+          },
+        },
+      };
     });
   }
 
@@ -244,12 +377,13 @@ export default function AsignacionForm({
           licitacionItemId: item.licitacionItemId,
           proveedorId: fila.primary.proveedorId,
           cantidadAsignada: fila.primary.cantidad,
-          precioUnitario: o1.precioUnitario,
+          // Se guarda el valor EDITADO por el comprador, no el original de la oferta.
+          precioUnitario: fila.primary.precioUnitario,
           moneda: item.moneda,
           ronda: o1.ronda,
           orden: 1,
           fechaObjetivo: item.fechaEntrega,
-          fechaEstimadaProveedor: o1.puedeCumplirFecha ? null : o1.fechaEstimadaEntrega,
+          fechaEstimadaProveedor: fila.primary.fechaEstimada || null,
         });
       }
       if (fila.secondary?.proveedorId) {
@@ -259,12 +393,12 @@ export default function AsignacionForm({
             licitacionItemId: item.licitacionItemId,
             proveedorId: fila.secondary.proveedorId,
             cantidadAsignada: fila.secondary.cantidad,
-            precioUnitario: o2.precioUnitario,
+            precioUnitario: fila.secondary.precioUnitario,
             moneda: item.moneda,
             ronda: o2.ronda,
             orden: 2,
             fechaObjetivo: item.fechaEntrega,
-            fechaEstimadaProveedor: o2.puedeCumplirFecha ? null : o2.fechaEstimadaEntrega,
+            fechaEstimadaProveedor: fila.secondary.fechaEstimada || null,
           });
         }
       }
@@ -304,17 +438,17 @@ export default function AsignacionForm({
   const cancelarHabilitado =
     toggleCancelar && textoCancelar.trim().toLowerCase() === "cancelar";
 
-  // Totales por moneda
+  // Totales por moneda — usa el precio EDITADO por el comprador (fila.*.precioUnitario),
+  // no el original de la oferta, para que reflejen cualquier ajuste manual en vivo.
   const totalesPorMoneda = items.reduce((acc: any, item: any) => {
     const fila = asignacion[item.licitacionItemId];
     if (!fila) return acc;
     const sub1 = fila.primary.proveedorId
-      ? fila.primary.cantidad * (getOferta(item, fila.primary.proveedorId)?.precioUnitario ?? 0)
+      ? fila.primary.cantidad * fila.primary.precioUnitario
       : 0;
-    const sub2 =
-      fila.secondary?.proveedorId
-        ? fila.secondary.cantidad * (getOferta(item, fila.secondary.proveedorId)?.precioUnitario ?? 0)
-        : 0;
+    const sub2 = fila.secondary?.proveedorId
+      ? fila.secondary.cantidad * fila.secondary.precioUnitario
+      : 0;
     const moneda = item.moneda ?? "MXN";
     acc[moneda] = (acc[moneda] ?? 0) + sub1 + sub2;
     return acc;
@@ -323,6 +457,24 @@ export default function AsignacionForm({
 
   const margen = licitacion.importeVenta != null ? licitacion.importeVenta - costoTotal : null;
   const pctMargen = margen != null && licitacion.importeVenta ? (margen / licitacion.importeVenta) * 100 : null;
+
+  // Conteo de precios/fechas modificados manualmente vs. la oferta original — para
+  // el aviso superior y para el indicador "modificado" en cada celda.
+  let totalModificaciones = 0;
+  for (const item of items as any[]) {
+    const fila = asignacion[item.licitacionItemId];
+    if (!fila) continue;
+    const o1 = fila.primary.proveedorId ? getOferta(item, fila.primary.proveedorId) : undefined;
+    if (o1) {
+      if (fila.primary.precioUnitario !== precioDefault(o1)) totalModificaciones++;
+      if (fila.primary.fechaEstimada !== fechaDefault(o1)) totalModificaciones++;
+    }
+    const o2 = fila.secondary?.proveedorId ? getOferta(item, fila.secondary.proveedorId) : undefined;
+    if (o2 && fila.secondary) {
+      if (fila.secondary.precioUnitario !== precioDefault(o2)) totalModificaciones++;
+      if (fila.secondary.fechaEstimada !== fechaDefault(o2)) totalModificaciones++;
+    }
+  }
 
   const CELL = "px-3 py-2 text-sm";
   const INPUT_CLS = "w-full rounded border border-zinc-200 bg-white px-2 py-1 text-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -363,6 +515,18 @@ export default function AsignacionForm({
         </div>
       </div>
 
+      {/* Aviso de modificaciones manuales */}
+      {totalModificaciones > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
+          <IconPencil className="h-4 w-4 shrink-0" />
+          <span>
+            Has modificado {totalModificaciones}{" "}
+            {totalModificaciones === 1 ? "precio/fecha" : "precios/fechas"} respecto a
+            las ofertas originales.
+          </span>
+        </div>
+      )}
+
       {/* Tabla de asignación */}
       <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
         <div className="overflow-x-auto">
@@ -374,10 +538,11 @@ export default function AsignacionForm({
               <th className="min-w-[280px] px-3 py-3">Proveedor asignado</th>
               <th className="min-w-[90px] px-3 py-3 text-right">Cant. asignada</th>
               <th className="min-w-[110px] px-3 py-3">Fecha objetivo</th>
-              <th className="min-w-[140px] px-3 py-3">Fecha estimada prov.</th>
-              <th className="min-w-[110px] px-3 py-3 text-right">Precio unit.</th>
+              <th className="min-w-[150px] px-3 py-3">Fecha estimada prov.</th>
+              <th className="min-w-[120px] px-3 py-3 text-right">Precio unit.</th>
               <th className="min-w-[60px] px-3 py-3 text-center">Ronda</th>
               <th className="min-w-[110px] px-3 py-3 text-right">Subtotal</th>
+              <th className="w-10 px-3 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -388,13 +553,18 @@ export default function AsignacionForm({
               const o1 = fila.primary.proveedorId
                 ? getOferta(item, fila.primary.proveedorId)
                 : null;
-              const sub1 = o1 ? fila.primary.cantidad * o1.precioUnitario : 0;
+              const sub1 = o1 ? fila.primary.cantidad * fila.primary.precioUnitario : 0;
+              const precioMod1 = !!o1 && fila.primary.precioUnitario !== precioDefault(o1);
+              const fechaMod1 = !!o1 && fila.primary.fechaEstimada !== fechaDefault(o1);
 
               const o2 =
                 fila.secondary?.proveedorId
                   ? getOferta(item, fila.secondary.proveedorId)
                   : null;
-              const sub2 = o2 && fila.secondary ? fila.secondary.cantidad * o2.precioUnitario : 0;
+              const sub2 =
+                o2 && fila.secondary ? fila.secondary.cantidad * fila.secondary.precioUnitario : 0;
+              const precioMod2 = !!o2 && !!fila.secondary && fila.secondary.precioUnitario !== precioDefault(o2);
+              const fechaMod2 = !!o2 && !!fila.secondary && fila.secondary.fechaEstimada !== fechaDefault(o2);
 
               const altParaSecundaria = item.ofertas.filter(
                 (o: any) => o.proveedorId !== fila.primary.proveedorId
@@ -452,21 +622,54 @@ export default function AsignacionForm({
                     </td>
                     <td className={CELL}>
                       {o1 ? (
-                        o1.puedeCumplirFecha ? (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                            Cumple fecha
-                          </span>
-                        ) : (
-                          <span className="text-xs text-amber-600">
-                            {formatFecha(o1.fechaEstimadaEntrega)}
-                          </span>
-                        )
+                        <div className="flex flex-col gap-0.5">
+                          <input
+                            type="date"
+                            value={fila.primary.fechaEstimada}
+                            onChange={(e) =>
+                              updatePrimaryFecha(item.licitacionItemId, e.target.value)
+                            }
+                            className={`${INPUT_CLS} ${fechaMod1 ? "border-amber-400 bg-amber-50/40" : ""}`}
+                          />
+                          {fechaMod1 ? (
+                            <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
+                              <IconPencil className="h-2.5 w-2.5" /> modificado
+                            </span>
+                          ) : fila.primary.fechaEstimada === "" ? (
+                            <span className="text-[10px] text-emerald-600">
+                              Cumple fecha objetivo
+                            </span>
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="text-zinc-300">—</span>
                       )}
                     </td>
-                    <td className={`${CELL} text-right font-medium text-zinc-800`}>
-                      {o1 ? formatImporte(o1.precioUnitario, item.moneda) : "—"}
+                    <td className={`${CELL} text-right`}>
+                      {o1 ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={fila.primary.precioUnitario}
+                            onChange={(e) =>
+                              updatePrimaryPrecio(
+                                item.licitacionItemId,
+                                Math.max(0, Number(e.target.value))
+                              )
+                            }
+                            className={`${INPUT_CLS} text-right ${precioMod1 ? "border-amber-400 bg-amber-50/40" : ""}`}
+                          />
+                          {precioMod1 && (
+                            <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
+                              <IconPencil className="h-2.5 w-2.5" /> modificado
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className={`${CELL} text-center`}>
                       {o1 && (
@@ -477,6 +680,19 @@ export default function AsignacionForm({
                     </td>
                     <td className={`${CELL} text-right font-semibold text-zinc-800`}>
                       {o1 ? formatImporte(sub1, item.moneda) : "—"}
+                    </td>
+                    <td className={CELL}>
+                      {o1 && (
+                        <button
+                          type="button"
+                          onClick={() => resetPrimary(item.licitacionItemId)}
+                          disabled={!precioMod1 && !fechaMod1}
+                          title="Restablecer a la oferta original"
+                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <IconRefresh className="h-4 w-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
 
@@ -529,21 +745,54 @@ export default function AsignacionForm({
                       </td>
                       <td className={CELL}>
                         {o2 ? (
-                          o2.puedeCumplirFecha ? (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                              Cumple fecha
-                            </span>
-                          ) : (
-                            <span className="text-xs text-amber-600">
-                              {formatFecha(o2.fechaEstimadaEntrega)}
-                            </span>
-                          )
+                          <div className="flex flex-col gap-0.5">
+                            <input
+                              type="date"
+                              value={fila.secondary.fechaEstimada}
+                              onChange={(e) =>
+                                updateSecondaryFecha(item.licitacionItemId, e.target.value)
+                              }
+                              className={`${INPUT_CLS} text-xs ${fechaMod2 ? "border-amber-400 bg-amber-50/40" : ""}`}
+                            />
+                            {fechaMod2 ? (
+                              <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
+                                <IconPencil className="h-2.5 w-2.5" /> modificado
+                              </span>
+                            ) : fila.secondary.fechaEstimada === "" ? (
+                              <span className="text-[10px] text-emerald-600">
+                                Cumple fecha objetivo
+                              </span>
+                            ) : null}
+                          </div>
                         ) : (
                           <span className="text-zinc-300">—</span>
                         )}
                       </td>
-                      <td className={`${CELL} text-right text-xs font-medium text-zinc-700`}>
-                        {o2 ? formatImporte(o2.precioUnitario, item.moneda) : "—"}
+                      <td className={`${CELL} text-right`}>
+                        {o2 ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={fila.secondary.precioUnitario}
+                              onChange={(e) =>
+                                updateSecondaryPrecio(
+                                  item.licitacionItemId,
+                                  Math.max(0, Number(e.target.value))
+                                )
+                              }
+                              className={`${INPUT_CLS} text-right text-xs ${precioMod2 ? "border-amber-400 bg-amber-50/40" : ""}`}
+                            />
+                            {precioMod2 && (
+                              <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
+                                <IconPencil className="h-2.5 w-2.5" /> modificado
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className={`${CELL} text-center`}>
                         {o2 && (
@@ -554,6 +803,19 @@ export default function AsignacionForm({
                       </td>
                       <td className={`${CELL} text-right text-sm font-semibold text-zinc-700`}>
                         {o2 && fila.secondary ? formatImporte(sub2, item.moneda) : "—"}
+                      </td>
+                      <td className={CELL}>
+                        {o2 && (
+                          <button
+                            type="button"
+                            onClick={() => resetSecondary(item.licitacionItemId)}
+                            disabled={!precioMod2 && !fechaMod2}
+                            title="Restablecer a la oferta original"
+                            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <IconRefresh className="h-4 w-4" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -566,7 +828,7 @@ export default function AsignacionForm({
           <tfoot>
             {Object.entries(totalesPorMoneda).map(([moneda, total], i) => (
               <tr key={moneda} className={`${i === 0 ? "border-t-2 border-zinc-200" : "border-t border-zinc-100"} bg-zinc-50`}>
-                <td colSpan={8} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">
+                <td colSpan={9} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">
                   {i === 0 ? "Costo total de la licitación" : ""}
                   {Object.keys(totalesPorMoneda).length > 1 && (
                     <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">{moneda}</span>
@@ -579,13 +841,13 @@ export default function AsignacionForm({
             ))}
             {Object.keys(totalesPorMoneda).length === 0 && (
               <tr className="border-t-2 border-zinc-200 bg-zinc-50">
-                <td colSpan={8} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">Costo total de la licitación</td>
+                <td colSpan={9} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">Costo total de la licitación</td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-zinc-400">—</td>
               </tr>
             )}
             {margen != null && (
               <tr className="border-t border-zinc-100 bg-zinc-50">
-                <td colSpan={8} className="px-3 py-2 text-right text-xs text-zinc-500">
+                <td colSpan={9} className="px-3 py-2 text-right text-xs text-zinc-500">
                   $ Margen (Importe de venta {formatImporte(licitacion.importeVenta ?? 0, "MXN")} − Costo)
                 </td>
                 <td className={`px-3 py-2 text-right text-sm font-semibold ${margen >= 0 ? "text-emerald-700" : "text-red-600"}`}>

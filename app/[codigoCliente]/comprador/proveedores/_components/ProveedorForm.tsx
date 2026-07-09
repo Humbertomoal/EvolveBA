@@ -16,8 +16,10 @@ import {
   actualizarProveedorAction,
   crearProveedorAction,
 } from "@/src/lib/proveedoresActions";
+import type { AccesoProveedor } from "@/src/lib/proveedores";
 import { isNextRedirectError } from "@/src/lib/isNextRedirectError";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import AccesoPortalSection from "./AccesoPortalSection";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +84,8 @@ export default function ProveedorForm({
   materialesIniciales = [],
   familiasCatalogo = [],
   familiasIniciales = [],
+  esAdmin = false,
+  acceso = null,
 }: {
   basePath: string;
   proveedorExistente?: Proveedor;
@@ -89,6 +93,8 @@ export default function ProveedorForm({
   materialesIniciales?: string[];
   familiasCatalogo?: { codigo: string; nombre: string }[];
   familiasIniciales?: string[];
+  esAdmin?: boolean;
+  acceso?: AccesoProveedor | null;
 }) {
   usePageTitle(proveedorExistente ? "Editar proveedor" : "Agregar proveedor");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -471,6 +477,27 @@ export default function ProveedorForm({
             </Campo>
           </div>
         </fieldset>
+
+        {/* ── Acceso al Portal ─────────────────────────────────────────────── */}
+        {esAdmin &&
+          (proveedorExistente ? (
+            <AccesoPortalSection
+              proveedorId={proveedorExistente.id}
+              acceso={acceso}
+              correoSugerido={proveedorExistente.vendedorCorreo}
+              basePath={basePath}
+            />
+          ) : (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold text-zinc-900">
+                Acceso al Portal
+              </legend>
+              <p className="text-xs text-zinc-500">
+                Podrás generar el acceso al portal para este proveedor después de
+                guardarlo.
+              </p>
+            </fieldset>
+          ))}
 
         {/* ── Datos fiscales ───────────────────────────────────────────────── */}
         <fieldset className="space-y-4">

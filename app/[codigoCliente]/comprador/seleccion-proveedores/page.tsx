@@ -1,21 +1,10 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { getCompradorSession } from "@/src/lib/compradorSession";
+import { buscarSeleccionAction } from "@/src/lib/seleccionActions";
+import { FILTROS_SELECCION_DEFAULT } from "@/src/lib/seleccionTypes";
 import SeleccionTabla from "./_components/SeleccionTabla";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
-
-export type LicitacionCerrada = {
-  id: string;
-  numero: string;
-  tipoLicitacion: string | null;
-  fechaEjecucion: string | null;
-  fechaCerrada: string | null;
-  jerarquia: string | null;
-  importeVenta: number | null;
-  costoObjetivo: number | null;
-  estado: string;
-  costoLicitacion: number;
-};
 
 export default async function SeleccionProveedoresPage({
   params,
@@ -28,49 +17,32 @@ export default async function SeleccionProveedoresPage({
 
   const { compradorId, puedeVerTodo } = await getCompradorSession();
 
-  const licitaciones = await prisma.licitacion.findMany({
-    where: {
-      eliminado: false,
-      estado: { in: ["Cerrada", "Finalizada", "Cancelada"] },
-      ...(puedeVerTodo ? {} : { compradorId }),
-    },
-    orderBy: { fechaEjecucion: "desc" },
-    select: {
-      id: true,
-      numero: true,
-      tipoLicitacion: true,
-      fechaEjecucion: true,
-      fechaCerrada: true,
-      jerarquia: true,
-      importeVenta: true,
-      costoObjetivo: true,
-      estado: true,
-      asignaciones: {
-        select: { cantidadAsignada: true, precioUnitario: true },
+  const [initialResult, jerarquiaRows] = await Promise.all([
+    buscarSeleccionAction(FILTROS_SELECCION_DEFAULT, null),
+    prisma.licitacion.findMany({
+      where: {
+        eliminado: false,
+        estado: { in: ["Cerrada", "Finalizada", "Cancelada"] },
+        ...(puedeVerTodo ? {} : { compradorId }),
       },
-    },
-  });
+      select: { jerarquia: true },
+      distinct: ["jerarquia"],
+    }),
+  ]);
 
-  const rows: LicitacionCerrada[] = licitaciones.map((l: any) => ({
-    id: l.id,
-    numero: l.numero,
-    tipoLicitacion: l.tipoLicitacion,
-    fechaEjecucion: l.fechaEjecucion?.toISOString() ?? null,
-    fechaCerrada: l.fechaCerrada?.toISOString() ?? null,
-    jerarquia: l.jerarquia,
-    importeVenta: l.importeVenta,
-    costoObjetivo: l.costoObjetivo,
-    estado: l.estado,
-    costoLicitacion: l.asignaciones.reduce(
-      (sum: any, a: any) => sum + a.precioUnitario * a.cantidadAsignada,
-      0
-    ),
-  }));
+  const jerarquias = jerarquiaRows
+    .map((r: any) => r.jerarquia)
+    .filter(Boolean) as string[];
 
   return (
     <div className="max-w-7xl space-y-6">
       <PageTitle title="Selección de Proveedores" />
-      <SeleccionTabla licitaciones={rows} basePath={basePath} />
+      <SeleccionTabla
+        initialData={initialResult.licitaciones}
+        initialCursor={initialResult.nextCursor}
+        jerarquias={jerarquias}
+        basePath={basePath}
+      />
     </div>
   );
 }

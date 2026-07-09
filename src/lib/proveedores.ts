@@ -101,6 +101,43 @@ export async function getProveedorById(id: string): Promise<Proveedor | null> {
   return mapear(row, domicilioComercial);
 }
 
+// ── Acceso al portal (Usuario vinculado) ─────────────────────────────────────
+
+export type AccesoProveedor = {
+  usuarioId: string;
+  email: string;
+  activo: boolean;
+  primerAcceso: boolean;
+  ultimoAcceso: string | null;
+};
+
+export async function getAccesoProveedor(
+  proveedorId: string
+): Promise<AccesoProveedor | null> {
+  const row = await db.proveedor.findUnique({
+    where: { id: proveedorId },
+    select: {
+      usuario: {
+        select: {
+          id: true,
+          email: true,
+          activo: true,
+          primerAcceso: true,
+          ultimoAcceso: true,
+        },
+      },
+    },
+  });
+  if (!row?.usuario) return null;
+  return {
+    usuarioId: row.usuario.id,
+    email: row.usuario.email,
+    activo: row.usuario.activo,
+    primerAcceso: row.usuario.primerAcceso,
+    ultimoAcceso: row.usuario.ultimoAcceso?.toISOString() ?? null,
+  };
+}
+
 export async function crearProveedor(datos: ProveedorInput): Promise<Proveedor> {
   const row = await prisma.proveedor.create({
     data: {

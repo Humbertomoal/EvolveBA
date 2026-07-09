@@ -3,6 +3,10 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
+import {
+  calcularAnalisisPorItem,
+  calcularResumenAhorro,
+} from "@/src/lib/licitacionesAhorro";
 import DetalleLicitacion from "./_components/DetalleLicitacion";
 import type {
   MejorPrecioItem,
@@ -84,86 +88,30 @@ export default async function DetalleLicitacionProcesoPage({
   const monedaPredominante =
     [...monedaCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "MXN";
 
-  // ── Análisis de ahorro por producto ────────────────────────────────────────
-  const analisisPorProducto: AnalisisProductoItem[] = licitacion.items.map((item: any) => {
-    const itemOfertas = todasLasOfertas.filter(
-      (o: any) => o.licitacionItemId === item.id
-    );
-    const precios = itemOfertas.map((o: any) => o.precioUnitario);
-    const mejorActualUnitario = precios.length > 0 ? Math.min(...precios) : null;
-
-    const preciosRonda1 = itemOfertas
-      .filter((o: any) => o.ronda === 1)
-      .map((o: any) => o.precioUnitario);
-    const primeraRondaUnitario =
-      preciosRonda1.length > 0 ? Math.min(...preciosRonda1) : null;
-
-    const objetivoUnitario: number | null = item.precioObjetivo ?? null;
-    const objetivoTotal = (objetivoUnitario ?? 0) * item.cantidadSolicitada;
-    const primeraRondaTotal =
-      primeraRondaUnitario != null
-        ? primeraRondaUnitario * item.cantidadSolicitada
-        : null;
-    const mejorActualTotal =
-      mejorActualUnitario != null
-        ? mejorActualUnitario * item.cantidadSolicitada
-        : null;
-    const variacionPct =
-      primeraRondaUnitario != null &&
-      mejorActualUnitario != null &&
-      primeraRondaUnitario > 0
-        ? ((mejorActualUnitario - primeraRondaUnitario) / primeraRondaUnitario) * 100
-        : null;
-    const ahorroTotal =
-      mejorActualTotal != null ? objetivoTotal - mejorActualTotal : null;
-
-    return {
-      productoNombre: item.producto.nombre,
-      moneda: item.moneda,
-      cantidadSolicitada: item.cantidadSolicitada,
-      objetivoUnitario,
-      objetivoTotal,
-      primeraRondaUnitario,
-      primeraRondaTotal,
-      mejorActualUnitario,
-      mejorActualTotal,
-      variacionPct,
-      ahorroTotal,
-    };
-  });
-
-  const presupuestoObjetivoTotal = analisisPorProducto.reduce(
-    (s, a) => s + a.objetivoTotal,
-    0
-  );
-  const mejorPrecioActualTotal = analisisPorProducto.reduce(
-    (s, a) => s + (a.mejorActualTotal ?? 0),
-    0
-  );
-  const primeraRondaTotalGeneral = analisisPorProducto.reduce(
-    (s, a) => s + (a.primeraRondaTotal ?? 0),
-    0
-  );
-  // Fallback a 1 para evitar división por cero al calcular porcentajes.
-  const presupuestoObjetivoSafe = presupuestoObjetivoTotal || 1;
-  const primeraRondaSafe = primeraRondaTotalGeneral || 1;
-
-  const ahorroTotalGeneral = presupuestoObjetivoTotal - mejorPrecioActualTotal;
-  const ahorroPctGeneral = (ahorroTotalGeneral / presupuestoObjetivoSafe) * 100;
-  const variacionPctGeneral =
-    primeraRondaTotalGeneral > 0
-      ? ((mejorPrecioActualTotal - primeraRondaTotalGeneral) / primeraRondaSafe) * 100
-      : null;
+  // ── Análisis de ahorro por producto (lógica compartida) ────────────────────
+  const analisisBase = calcularAnalisisPorItem(licitacion.items, todasLasOfertas);
+  const analisisPorProducto: AnalisisProductoItem[] = analisisBase.map((a, i) => ({
+    productoNombre: licitacion.items[i].producto.nombre,
+    moneda: a.moneda,
+    cantidadSolicitada: a.cantidadSolicitada,
+    objetivoUnitario: a.objetivoUnitario,
+    objetivoTotal: a.objetivoTotal,
+    primeraRondaUnitario: a.primeraRondaUnitario,
+    primeraRondaTotal: a.primeraRondaTotal,
+    mejorActualUnitario: a.mejorActualUnitario,
+    mejorActualTotal: a.mejorActualTotal,
+    variacionPct: a.variacionPct,
+    ahorroTotal: a.ahorroTotal,
+  }));
 
   const resumenAhorro: ResumenAhorro = {
-    presupuestoObjetivoTotal,
-    primeraRondaTotal: primeraRondaTotalGeneral,
-    mejorPrecioActualTotal,
-    ahorroTotal: ahorroTotalGeneral,
-    ahorroPct: ahorroPctGeneral,
-    variacionPct: variacionPctGeneral,
+    ...calcularResumenAhorro(analisisBase, todasLasOfertas.length > 0),
     monedaPredominante,
   };
+  const { presupuestoObjetivoTotal } = resumenAhorro;
+  // Fallback a 1 para evitar división por cero al calcular porcentajes (usado
+  // más abajo en el historial de rondas por proveedor).
+  const presupuestoObjetivoSafe = presupuestoObjetivoTotal || 1;
 
   // ── Participantes (con evolución de cotización por ronda) ─────────────────────
   const participantes: ProveedorParticipante[] =

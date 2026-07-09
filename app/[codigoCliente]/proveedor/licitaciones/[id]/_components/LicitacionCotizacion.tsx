@@ -30,6 +30,14 @@ export type ItemDetalle = {
     puedeCumplirFecha: boolean;
     fechaEstimadaEntrega: string | null;
   } | null;
+  // Oferta del mismo proveedor en la ronda inmediatamente anterior — solo se
+  // usa para pre-llenar los campos cuando aún no ha cotizado en la ronda actual.
+  ofertaAnterior: {
+    precioUnitario: number;
+    cantidadDisponible: number;
+    puedeCumplirFecha: boolean;
+    fechaEstimadaEntrega: string | null;
+  } | null;
 };
 
 type FilaState = {
@@ -137,18 +145,24 @@ export default function LicitacionCotizacion({
   }
 
   // ── Per-row editable state ────────────────────────────────────────────────
+  // Fuente de pre-llenado: la oferta ya guardada en esta ronda si existe
+  // (editando lo que ya envió), o si no, la de la ronda anterior (punto de
+  // partida editable). En la primera ronda, sin oferta previa, se mantiene
+  // el comportamiento original: cantidad = solicitada, precio vacío.
   const [filas, setFilas] = useState<FilaState[]>(() =>
-    items.map((item: any) => ({
-      // Prefill cantidadDisponible with requested qty; reduce only if needed
-      cantidadDisponible: item.oferta
-        ? String(item.oferta.cantidadDisponible)
-        : String(item.cantidadSolicitada),
-      precioUnitario: item.oferta ? String(item.oferta.precioUnitario) : "",
-      puedeCumplirFecha: item.oferta ? item.oferta.puedeCumplirFecha : true,
-      fechaEstimadaEntrega: item.oferta?.fechaEstimadaEntrega
-        ? new Date(item.oferta.fechaEstimadaEntrega).toISOString().split("T")[0]
-        : "",
-    }))
+    items.map((item: any) => {
+      const base = item.oferta ?? item.ofertaAnterior;
+      return {
+        cantidadDisponible: base
+          ? String(Math.min(base.cantidadDisponible, item.cantidadSolicitada))
+          : String(item.cantidadSolicitada),
+        precioUnitario: base ? String(base.precioUnitario) : "",
+        puedeCumplirFecha: base ? base.puedeCumplirFecha : true,
+        fechaEstimadaEntrega: base?.fechaEstimadaEntrega
+          ? new Date(base.fechaEstimadaEntrega).toISOString().split("T")[0]
+          : "",
+      };
+    })
   );
 
   // ── Round timer state ─────────────────────────────────────────────────────

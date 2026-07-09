@@ -174,8 +174,26 @@ export default async function DetalleLicitacionPage({
       )
     : new Map(ofertasExistentes.map((o: any) => [o.licitacionItemId, o]));
 
+  // Oferta de la ronda INMEDIATAMENTE ANTERIOR del mismo proveedor, para
+  // pre-llenar los campos cuando aún no ha cotizado en la ronda actual.
+  const ofertaAnteriorMap =
+    proveedorId && !licitacion.esperandoDecision && licitacion.rondaActual > 1
+      ? new Map(
+          (
+            await prisma.ofertaItem.findMany({
+              where: {
+                proveedorId,
+                ronda: licitacion.rondaActual - 1,
+                licitacionItem: { licitacionId: id },
+              },
+            })
+          ).map((o: any) => [o.licitacionItemId, o])
+        )
+      : new Map<string, any>();
+
   const items: ItemDetalle[] = itemsFiltrados.map((item: any) => {
     const oferta = ofertaMap.get(item.id);
+    const ofertaAnterior = ofertaAnteriorMap.get(item.id);
     return {
       licitacionItemId: item.id,
       nombre: item.producto.nombre,
@@ -191,6 +209,15 @@ export default async function DetalleLicitacionPage({
             cantidadDisponible: oferta.cantidadDisponible,
             puedeCumplirFecha: oferta.puedeCumplirFecha,
             fechaEstimadaEntrega: oferta.fechaEstimadaEntrega?.toISOString() ?? null,
+          }
+        : null,
+      ofertaAnterior: ofertaAnterior
+        ? {
+            precioUnitario: ofertaAnterior.precioUnitario,
+            cantidadDisponible: ofertaAnterior.cantidadDisponible,
+            puedeCumplirFecha: ofertaAnterior.puedeCumplirFecha,
+            fechaEstimadaEntrega:
+              ofertaAnterior.fechaEstimadaEntrega?.toISOString() ?? null,
           }
         : null,
     };
