@@ -100,6 +100,17 @@ function duracionEnMinutos(valor: string, unidad: UnidadDuracion): number {
   return n;
 }
 
+// Suma minutos a un valor de <input type="datetime-local"> ("YYYY-MM-DDTHH:mm")
+// y devuelve el resultado en el mismo formato — usado para el "min" del campo
+// de fecha fin (debe ser estrictamente posterior a la fecha de inicio).
+function sumarMinutos(datetimeLocal: string, minutos: number): string {
+  if (!datetimeLocal) return "";
+  const d = new Date(datetimeLocal);
+  d.setMinutes(d.getMinutes() + minutos);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function fmt(n: number) {
   return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -611,12 +622,14 @@ Asistente de Inteligencia Artificial`;
     numero: !numero.trim() ? "Número de Licitación requerido" : null,
     jerarquia: !jerarquia.trim() ? "Criticidad requerida" : null,
     tipoLicitacion: !tipoLicitacion ? "Selecciona un Tipo de Licitación" : null,
-    fechaEjecucion: esManual ? null : !fechaEjecucion ? "Fecha de Ejecución requerida" : null,
+    fechaEjecucion: esManual ? null : !fechaEjecucion ? "Fecha Inicio Licitación requerida" : null,
     fechaFinLicitacion: esManual
       ? null
       : !fechaFinLicitacion
         ? "Fecha de Fin de Licitación requerida"
-        : null,
+        : fechaEjecucion && new Date(fechaFinLicitacion) <= new Date(fechaEjecucion)
+          ? "La fecha fin debe ser posterior a la fecha de inicio"
+          : null,
     fechaInicioRango: !fechaInicioRango ? "Inicio del Rango de Entrega requerido" : null,
     fechaFinRango: !fechaFinRango ? "Fin del Rango de Entrega requerido" : null,
     duracionValor: esManual
@@ -910,7 +923,7 @@ Asistente de Inteligencia Artificial`;
           {!esManual && (
             <>
               <Campo
-                label="Fecha de Ejecución"
+                label="Fecha Inicio Licitación"
                 required
                 error={intentoGuardar ? errores.fechaEjecucion : null}
               >
@@ -925,14 +938,26 @@ Asistente de Inteligencia Artificial`;
               <Campo
                 label="Fecha de Fin de Licitación"
                 required
-                error={intentoGuardar ? errores.fechaFinLicitacion : null}
+                error={
+                  // El error de "posterior a la fecha de inicio" se muestra de
+                  // inmediato (no espera al intento de guardar); el de "requerida"
+                  // sigue el patrón del resto del formulario.
+                  errores.fechaFinLicitacion === "La fecha fin debe ser posterior a la fecha de inicio"
+                    ? errores.fechaFinLicitacion
+                    : intentoGuardar
+                      ? errores.fechaFinLicitacion
+                      : null
+                }
               >
                 <input
                   type="datetime-local"
                   value={fechaFinLicitacion}
-                  min={fechaEjecucion || undefined}
+                  min={fechaEjecucion ? sumarMinutos(fechaEjecucion, 1) : undefined}
                   onChange={(e) => handleFechaFinLicitacionChange(e.target.value)}
-                  className={iClass(intentoGuardar && !!errores.fechaFinLicitacion)}
+                  className={iClass(
+                    (intentoGuardar || errores.fechaFinLicitacion === "La fecha fin debe ser posterior a la fecha de inicio") &&
+                      !!errores.fechaFinLicitacion
+                  )}
                 />
               </Campo>
             </>

@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
+import { parsearFechaMexico } from "@/src/lib/dateUtils";
 
 type ItemInput = {
   productoId: string;
@@ -32,10 +33,27 @@ export type LicitacionInput = {
   proveedoresInvitados: string[];
 };
 
+// Reglas de validación que también se hacen en el cliente, pero se repiten
+// aquí por seguridad — un cliente modificado no debe poder saltárselas.
+function validarFechas(datos: LicitacionInput) {
+  if (
+    datos.fechaEjecucion &&
+    datos.fechaFinLicitacion &&
+    parsearFechaMexico(datos.fechaFinLicitacion)! <=
+      parsearFechaMexico(datos.fechaEjecucion)!
+  ) {
+    throw new Error(
+      "La fecha fin de licitación debe ser posterior a la fecha de inicio."
+    );
+  }
+}
+
 export async function crearLicitacionAction(
   basePath: string,
   datos: LicitacionInput
 ): Promise<string> {
+  validarFechas(datos);
+
   const cookieStore = await cookies();
   const rawCompradorId = cookieStore.get("cyrgo_comprador_id")?.value ?? "default";
   // "__todos__" means the user has supervisor access — attribute to "default" on create
@@ -50,8 +68,8 @@ export async function crearLicitacionAction(
       jerarquia: datos.jerarquia,
       tipoLicitacion: datos.tipoLicitacion,
       costoObjetivo: datos.costoObjetivo,
-      fechaEjecucion: datos.fechaEjecucion ? new Date(datos.fechaEjecucion) : null,
-      fechaFinLicitacion: datos.fechaFinLicitacion ? new Date(datos.fechaFinLicitacion) : null,
+      fechaEjecucion: parsearFechaMexico(datos.fechaEjecucion),
+      fechaFinLicitacion: parsearFechaMexico(datos.fechaFinLicitacion),
       fechaInicioRangoEntrega: datos.fechaInicioRangoEntrega
         ? new Date(datos.fechaInicioRangoEntrega)
         : null,
@@ -111,7 +129,9 @@ export async function actualizarLicitacionAction(
   basePath: string,
   datos: LicitacionInput
 ): Promise<string> {
-  const nuevaFechaEjecucion = datos.fechaEjecucion ? new Date(datos.fechaEjecucion) : null;
+  validarFechas(datos);
+
+  const nuevaFechaEjecucion = parsearFechaMexico(datos.fechaEjecucion);
   const esFutura = nuevaFechaEjecucion !== null && nuevaFechaEjecucion > new Date();
 
   await prisma.licitacion.update({
@@ -122,7 +142,7 @@ export async function actualizarLicitacionAction(
       tipoLicitacion: datos.tipoLicitacion,
       costoObjetivo: datos.costoObjetivo,
       fechaEjecucion: nuevaFechaEjecucion,
-      fechaFinLicitacion: datos.fechaFinLicitacion ? new Date(datos.fechaFinLicitacion) : null,
+      fechaFinLicitacion: parsearFechaMexico(datos.fechaFinLicitacion),
       fechaInicioRangoEntrega: datos.fechaInicioRangoEntrega
         ? new Date(datos.fechaInicioRangoEntrega)
         : null,
