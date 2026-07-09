@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconEye,
   IconMessageCircle,
   IconPlayerSkipForward,
   IconReceipt,
@@ -26,12 +27,49 @@ export type OfertaDetalle = {
   fechaEstimadaEntrega: string | null;
 };
 
+export type RondaHistorial = {
+  ronda: number;
+  totalCotizado: number;
+  vsObjetivoMonto: number;
+  vsObjetivoPct: number;
+  cercaniaPct: number;
+  esActual: boolean;
+};
+
 export type ProveedorParticipante = {
   id: string;
   razonSocial: string;
   cotizó: boolean;
   ultimaCotizacion: string | null;
+  totalInicial: number | null;
+  mejorTotalActual: number | null;
+  variacionPct: number | null;
+  historialRondas: RondaHistorial[];
   ofertaDetalle: OfertaDetalle[];
+};
+
+export type AnalisisProductoItem = {
+  productoNombre: string;
+  moneda: string;
+  cantidadSolicitada: number;
+  objetivoUnitario: number | null;
+  objetivoTotal: number;
+  primeraRondaUnitario: number | null;
+  primeraRondaTotal: number | null;
+  mejorActualUnitario: number | null;
+  mejorActualTotal: number | null;
+  variacionPct: number | null;
+  ahorroTotal: number | null;
+};
+
+export type ResumenAhorro = {
+  presupuestoObjetivoTotal: number;
+  primeraRondaTotal: number;
+  mejorPrecioActualTotal: number;
+  ahorroTotal: number;
+  ahorroPct: number | null;
+  variacionPct: number | null;
+  monedaPredominante: string;
 };
 
 export type MejorPrecioItem = {
@@ -70,6 +108,39 @@ function formatFechaHora(iso: string): string {
   });
 }
 
+function formatMoneda(n: number, moneda: string = "MXN"): string {
+  try {
+    return n.toLocaleString("es-MX", { style: "currency", currency: moneda });
+  } catch {
+    return formatPeso(n);
+  }
+}
+
+function formatPct(n: number | null): string {
+  if (n == null) return "—";
+  return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
+}
+
+// Para valores donde bajar es bueno (variación de precio, vs. objetivo): negativo = verde.
+function varColorClass(n: number | null): string {
+  if (n == null) return "text-zinc-400";
+  if (n === 0) return "text-zinc-500";
+  return n < 0 ? "text-emerald-600" : "text-red-600";
+}
+
+// Para ahorro: positivo (se ahorró dinero) = verde.
+function ahorroColorClass(n: number | null): string {
+  if (n == null) return "text-zinc-400";
+  if (n === 0) return "text-zinc-500";
+  return n > 0 ? "text-emerald-600" : "text-red-600";
+}
+
+function cercaniaBadgeClass(pct: number): string {
+  if (pct >= 100) return "bg-emerald-100 text-emerald-700";
+  if (pct >= 90) return "bg-amber-100 text-amber-700";
+  return "bg-red-100 text-red-700";
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function DetalleLicitacion({
@@ -82,6 +153,8 @@ export default function DetalleLicitacion({
   esperandoDecision,
   participantes,
   mejoresPrecioItems,
+  analisisPorProducto,
+  resumenAhorro,
   basePath,
   noLeidosPorProveedor = {},
 }: {
@@ -94,6 +167,8 @@ export default function DetalleLicitacion({
   esperandoDecision: boolean;
   participantes: ProveedorParticipante[];
   mejoresPrecioItems: MejorPrecioItem[];
+  analisisPorProducto: AnalisisProductoItem[];
+  resumenAhorro: ResumenAhorro;
   basePath: string;
   noLeidosPorProveedor?: Record<string, number>;
 }) {
@@ -101,6 +176,8 @@ export default function DetalleLicitacion({
   usePageTitle(`Licitación ${numero}`);
   const [tab, setTab] = useState<"participantes" | "mejores">("participantes");
   const [modalProveedor, setModalProveedor] =
+    useState<ProveedorParticipante | null>(null);
+  const [modalHistorial, setModalHistorial] =
     useState<ProveedorParticipante | null>(null);
   const [chatProveedorId, setChatProveedorId] = useState<string | null>(null);
   const [forzando, setForzando] = useState(false);
@@ -222,7 +299,10 @@ export default function DetalleLicitacion({
                   <th className="px-4 py-3">Proveedor</th>
                   <th className="px-4 py-3">Estado en ronda</th>
                   <th className="min-w-[160px] px-4 py-3">Última cotización</th>
-                  <th className="w-24 px-4 py-3" />
+                  <th className="px-4 py-3 text-right">Total Inicial</th>
+                  <th className="px-4 py-3 text-right">Mejor Total Actual</th>
+                  <th className="px-4 py-3 text-right">Variación</th>
+                  <th className="w-28 px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -249,8 +329,35 @@ export default function DetalleLicitacion({
                           ? formatFechaHora(p.ultimaCotizacion)
                           : "—"}
                       </td>
+                      <td className="px-4 py-3 text-right text-zinc-600">
+                        {p.totalInicial != null
+                          ? formatMoneda(p.totalInicial, resumenAhorro.monedaPredominante)
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-zinc-800">
+                        {p.mejorTotalActual != null
+                          ? formatMoneda(p.mejorTotalActual, resumenAhorro.monedaPredominante)
+                          : "—"}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${varColorClass(p.variacionPct)}`}>
+                        {formatPct(p.variacionPct)}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          {/* Ver detalle por ronda */}
+                          <button
+                            type="button"
+                            onClick={() => setModalHistorial(p)}
+                            disabled={p.historialRondas.length === 0}
+                            title={
+                              p.historialRondas.length > 0
+                                ? "Ver detalle por ronda"
+                                : "Sin cotizaciones registradas"
+                            }
+                            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <IconEye className="h-4 w-4" />
+                          </button>
                           {/* Chat button */}
                           <div className="relative">
                             <button
@@ -290,7 +397,121 @@ export default function DetalleLicitacion({
 
         {/* ── Tab: Mejores Precios ───────────────────────────────────────── */}
         {tab === "mejores" && (
-          <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
+          <div className="mt-4 space-y-6">
+            {/* KPIs de ahorro */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-card border border-border bg-white shadow-card p-4">
+                <p className="text-xs font-medium text-zinc-500">Presupuesto objetivo</p>
+                <p className="mt-1 text-xl font-semibold text-zinc-900">
+                  {formatMoneda(
+                    resumenAhorro.presupuestoObjetivoTotal,
+                    resumenAhorro.monedaPredominante
+                  )}
+                </p>
+              </div>
+              <div className="rounded-card border border-border bg-white shadow-card p-4">
+                <p className="text-xs font-medium text-zinc-500">Mejor precio actual</p>
+                <p className="mt-1 text-xl font-semibold text-zinc-900">
+                  {formatMoneda(
+                    resumenAhorro.mejorPrecioActualTotal,
+                    resumenAhorro.monedaPredominante
+                  )}
+                </p>
+              </div>
+              <div className="rounded-card border border-border bg-white shadow-card p-4">
+                <p className="text-xs font-medium text-zinc-500">Ahorro total</p>
+                <p className={`mt-1 text-xl font-semibold ${ahorroColorClass(resumenAhorro.ahorroTotal)}`}>
+                  {formatMoneda(resumenAhorro.ahorroTotal, resumenAhorro.monedaPredominante)}
+                  <span className="ml-1.5 text-sm font-medium">
+                    ({formatPct(resumenAhorro.ahorroPct)})
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Tabla de ahorro por producto */}
+            <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                      <th className="min-w-[180px] px-4 py-3">Producto</th>
+                      <th className="px-4 py-3 text-right">Objetivo</th>
+                      <th className="px-4 py-3 text-right">1ª Ronda</th>
+                      <th className="px-4 py-3 text-right">Mejor Actual</th>
+                      <th className="px-4 py-3 text-right">Variación</th>
+                      <th className="px-4 py-3 text-right">Ahorro</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {analisisPorProducto.map((a, i) => (
+                      <tr key={i} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                        <td className="px-4 py-3 font-medium text-zinc-800">
+                          {a.productoNombre}
+                        </td>
+                        <td className="px-4 py-3 text-right text-zinc-600">
+                          {a.objetivoUnitario != null
+                            ? formatMoneda(a.objetivoTotal, a.moneda)
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right text-zinc-600">
+                          {a.primeraRondaTotal != null
+                            ? formatMoneda(a.primeraRondaTotal, a.moneda)
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-zinc-800">
+                          {a.mejorActualTotal != null ? (
+                            formatMoneda(a.mejorActualTotal, a.moneda)
+                          ) : (
+                            <span className="text-zinc-300">Sin ofertas</span>
+                          )}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${varColorClass(a.variacionPct)}`}>
+                          {formatPct(a.variacionPct)}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${ahorroColorClass(a.ahorroTotal)}`}>
+                          {a.ahorroTotal != null
+                            ? formatMoneda(a.ahorroTotal, a.moneda)
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border bg-surface-muted font-semibold text-zinc-800">
+                      <td className="px-4 py-3">Totales</td>
+                      <td className="px-4 py-3 text-right">
+                        {formatMoneda(
+                          resumenAhorro.presupuestoObjetivoTotal,
+                          resumenAhorro.monedaPredominante
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatMoneda(
+                          resumenAhorro.primeraRondaTotal,
+                          resumenAhorro.monedaPredominante
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatMoneda(
+                          resumenAhorro.mejorPrecioActualTotal,
+                          resumenAhorro.monedaPredominante
+                        )}
+                      </td>
+                      <td className={`px-4 py-3 text-right ${varColorClass(resumenAhorro.variacionPct)}`}>
+                        {formatPct(resumenAhorro.variacionPct)}
+                      </td>
+                      <td className={`px-4 py-3 text-right ${ahorroColorClass(resumenAhorro.ahorroTotal)}`}>
+                        {formatMoneda(resumenAhorro.ahorroTotal, resumenAhorro.monedaPredominante)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Detalle mejor precio por producto (incluye complemento por cantidad parcial) */}
+          <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -387,6 +608,7 @@ export default function DetalleLicitacion({
               </tbody>
             </table>
             </div>
+          </div>
           </div>
         )}
       </div>
@@ -489,6 +711,87 @@ export default function DetalleLicitacion({
               <button
                 type="button"
                 onClick={() => setModalProveedor(null)}
+                className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Historial de rondas por proveedor ──────────────────────────── */}
+      {modalHistorial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-zinc-900">
+                Detalle · {modalHistorial.razonSocial}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setModalHistorial(null)}
+                className="shrink-0 rounded-md p-1 text-zinc-400 hover:text-zinc-700"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Tabla por ronda */}
+            <div className="overflow-x-auto px-5 py-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                    <th className="pb-2">Ronda</th>
+                    <th className="pb-2 text-right">Total Cotizado</th>
+                    <th className="pb-2 text-right">vs Objetivo</th>
+                    <th className="pb-2 text-center">Cercanía al objetivo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {modalHistorial.historialRondas.map((r) => (
+                    <tr
+                      key={r.ronda}
+                      className={
+                        r.esActual
+                          ? "bg-emerald-50/70"
+                          : "hover:bg-zinc-50/50 transition-colors duration-150"
+                      }
+                    >
+                      <td className="py-2 font-medium text-zinc-800">
+                        R{r.ronda}
+                        {r.esActual && (
+                          <span className="ml-1.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                            Actual
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right font-medium text-zinc-800">
+                        {formatMoneda(r.totalCotizado, resumenAhorro.monedaPredominante)}
+                      </td>
+                      <td className={`py-2 text-right font-medium ${varColorClass(r.vsObjetivoMonto)}`}>
+                        {r.vsObjetivoMonto > 0 ? "+" : ""}
+                        {formatMoneda(r.vsObjetivoMonto, resumenAhorro.monedaPredominante)}{" "}
+                        ({formatPct(r.vsObjetivoPct)})
+                      </td>
+                      <td className="py-2 text-center">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cercaniaBadgeClass(r.cercaniaPct)}`}
+                        >
+                          {r.cercaniaPct.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end border-t border-zinc-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setModalHistorial(null)}
                 className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               >
                 Cerrar

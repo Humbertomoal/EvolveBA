@@ -7,6 +7,9 @@ import DetalleLicitacion from "./_components/DetalleLicitacion";
 import type {
   MejorPrecioItem,
   ProveedorParticipante,
+  AnalisisProductoItem,
+  ResumenAhorro,
+  RondaHistorial,
 } from "./_components/DetalleLicitacion";
 
 export default async function DetalleLicitacionProcesoPage({
@@ -64,31 +67,195 @@ export default async function DetalleLicitacionProcesoPage({
         })
       : [];
 
-  // ── Participantes ────────────────────────────────────────────────────────────
+  // ── Todas las ofertas (todas las rondas) — base para participantes y análisis ──
+  const todasLasOfertas = await prisma.ofertaItem.findMany({
+    where: { licitacionItem: { licitacionId: id } },
+    include: { proveedor: { select: { razonSocial: true } } },
+    orderBy: { precioUnitario: "asc" },
+  });
+
+  const itemsPorId = new Map(licitacion.items.map((item: any) => [item.id, item]));
+
+  // ── Presupuesto objetivo y moneda predominante ─────────────────────────────
+  const monedaCounts = new Map<string, number>();
+  for (const item of licitacion.items) {
+    monedaCounts.set(item.moneda, (monedaCounts.get(item.moneda) ?? 0) + 1);
+  }
+  const monedaPredominante =
+    [...monedaCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "MXN";
+
+  // ── Análisis de ahorro por producto ────────────────────────────────────────
+  const analisisPorProducto: AnalisisProductoItem[] = licitacion.items.map((item: any) => {
+    const itemOfertas = todasLasOfertas.filter(
+      (o: any) => o.licitacionItemId === item.id
+    );
+    const precios = itemOfertas.map((o: any) => o.precioUnitario);
+    const mejorActualUnitario = precios.length > 0 ? Math.min(...precios) : null;
+
+    const preciosRonda1 = itemOfertas
+      .filter((o: any) => o.ronda === 1)
+      .map((o: any) => o.precioUnitario);
+    const primeraRondaUnitario =
+      preciosRonda1.length > 0 ? Math.min(...preciosRonda1) : null;
+
+    const objetivoUnitario: number | null = item.precioObjetivo ?? null;
+    const objetivoTotal = (objetivoUnitario ?? 0) * item.cantidadSolicitada;
+    const primeraRondaTotal =
+      primeraRondaUnitario != null
+        ? primeraRondaUnitario * item.cantidadSolicitada
+        : null;
+    const mejorActualTotal =
+      mejorActualUnitario != null
+        ? mejorActualUnitario * item.cantidadSolicitada
+        : null;
+    const variacionPct =
+      primeraRondaUnitario != null &&
+      mejorActualUnitario != null &&
+      primeraRondaUnitario > 0
+        ? ((mejorActualUnitario - primeraRondaUnitario) / primeraRondaUnitario) * 100
+        : null;
+    const ahorroTotal =
+      mejorActualTotal != null ? objetivoTotal - mejorActualTotal : null;
+
+    return {
+      productoNombre: item.producto.nombre,
+      moneda: item.moneda,
+      cantidadSolicitada: item.cantidadSolicitada,
+      objetivoUnitario,
+      objetivoTotal,
+      primeraRondaUnitario,
+      primeraRondaTotal,
+      mejorActualUnitario,
+      mejorActualTotal,
+      variacionPct,
+      ahorroTotal,
+    };
+  });
+
+  const presupuestoObjetivoTotal = analisisPorProducto.reduce(
+    (s, a) => s + a.objetivoTotal,
+    0
+  );
+  const mejorPrecioActualTotal = analisisPorProducto.reduce(
+    (s, a) => s + (a.mejorActualTotal ?? 0),
+    0
+  );
+  const primeraRondaTotalGeneral = analisisPorProducto.reduce(
+    (s, a) => s + (a.primeraRondaTotal ?? 0),
+    0
+  );
+  // Fallback a 1 para evitar división por cero al calcular porcentajes.
+  const presupuestoObjetivoSafe = presupuestoObjetivoTotal || 1;
+  const primeraRondaSafe = primeraRondaTotalGeneral || 1;
+
+  const ahorroTotalGeneral = presupuestoObjetivoTotal - mejorPrecioActualTotal;
+  const ahorroPctGeneral = (ahorroTotalGeneral / presupuestoObjetivoSafe) * 100;
+  const variacionPctGeneral =
+    primeraRondaTotalGeneral > 0
+      ? ((mejorPrecioActualTotal - primeraRondaTotalGeneral) / primeraRondaSafe) * 100
+      : null;
+
+  const resumenAhorro: ResumenAhorro = {
+    presupuestoObjetivoTotal,
+    primeraRondaTotal: primeraRondaTotalGeneral,
+    mejorPrecioActualTotal,
+    ahorroTotal: ahorroTotalGeneral,
+    ahorroPct: ahorroPctGeneral,
+    variacionPct: variacionPctGeneral,
+    monedaPredominante,
+  };
+
+  // ── Participantes (con evolución de cotización por ronda) ─────────────────────
   const participantes: ProveedorParticipante[] =
     licitacion.proveedoresInvitados.map((lp: any) => {
       const proveedorId = lp.proveedor.id;
-      const ofertasProveedor = ofertasRondaActual.filter(
+      const ofertasProveedorRondaActual = ofertasRondaActual.filter(
         (o: any) => o.proveedorId === proveedorId
       );
-      const cotizó = ofertasProveedor.length > 0;
+      const cotizó = ofertasProveedorRondaActual.length > 0;
 
       const ultimaCotizacion = cotizó
-        ? ofertasProveedor
+        ? ofertasProveedorRondaActual
             .reduce(
               (latest: any, o: any) => (o.updatedAt > latest ? o.updatedAt : latest),
-              ofertasProveedor[0].updatedAt
+              ofertasProveedorRondaActual[0].updatedAt
             )
             .toISOString()
         : null;
+
+      // ── Historial completo de este proveedor (todas las rondas) ──────────────
+      const ofertasProveedor = todasLasOfertas.filter(
+        (o: any) => o.proveedorId === proveedorId
+      );
+
+      const ofertasR1 = ofertasProveedor.filter((o: any) => o.ronda === 1);
+      const totalInicial =
+        ofertasR1.length > 0
+          ? ofertasR1.reduce((sum: number, o: any) => {
+              const item = itemsPorId.get(o.licitacionItemId);
+              return sum + o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+            }, 0)
+          : null;
+
+      const itemIdsCotizados = [
+        ...new Set(ofertasProveedor.map((o: any) => o.licitacionItemId)),
+      ];
+      const mejorTotalActual =
+        itemIdsCotizados.length > 0
+          ? itemIdsCotizados.reduce((sum: number, itemId: string) => {
+              const item = itemsPorId.get(itemId);
+              const preciosItem = ofertasProveedor
+                .filter((o: any) => o.licitacionItemId === itemId)
+                .map((o: any) => o.precioUnitario);
+              const mejor = Math.min(...preciosItem);
+              return sum + mejor * (item?.cantidadSolicitada ?? 0);
+            }, 0)
+          : null;
+
+      const variacionPct =
+        totalInicial != null && mejorTotalActual != null && totalInicial > 0
+          ? ((mejorTotalActual - totalInicial) / totalInicial) * 100
+          : null;
+
+      const rondasParticipadas = [
+        ...new Set(ofertasProveedor.map((o: any) => o.ronda as number)),
+      ].sort((a, b) => a - b);
+      const ultimaRondaProveedor = rondasParticipadas[rondasParticipadas.length - 1];
+
+      const historialRondas: RondaHistorial[] = rondasParticipadas.map((r) => {
+        const ofertasEnRonda = ofertasProveedor.filter((o: any) => o.ronda === r);
+        const totalCotizado = ofertasEnRonda.reduce((sum: number, o: any) => {
+          const item = itemsPorId.get(o.licitacionItemId);
+          return sum + o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+        }, 0);
+        const vsObjetivoMonto = totalCotizado - presupuestoObjetivoTotal;
+        const vsObjetivoPct = (vsObjetivoMonto / presupuestoObjetivoSafe) * 100;
+        const cercaniaPct =
+          totalCotizado <= presupuestoObjetivoTotal
+            ? 100
+            : (presupuestoObjetivoSafe / totalCotizado) * 100;
+
+        return {
+          ronda: r,
+          totalCotizado,
+          vsObjetivoMonto,
+          vsObjetivoPct,
+          cercaniaPct,
+          esActual: r === ultimaRondaProveedor,
+        };
+      });
 
       return {
         id: proveedorId,
         razonSocial: lp.proveedor.razonSocial,
         cotizó,
         ultimaCotizacion,
+        totalInicial,
+        mejorTotalActual,
+        variacionPct,
+        historialRondas,
         ofertaDetalle: licitacion.items.map((item: any) => {
-          const oferta = ofertasProveedor.find(
+          const oferta = ofertasProveedorRondaActual.find(
             (o: any) => o.licitacionItemId === item.id
           );
           return {
@@ -104,13 +271,6 @@ export default async function DetalleLicitacionProcesoPage({
         }),
       };
     });
-
-  // ── Mejores precios (todas las rondas) ───────────────────────────────────────
-  const todasLasOfertas = await prisma.ofertaItem.findMany({
-    where: { licitacionItem: { licitacionId: id } },
-    include: { proveedor: { select: { razonSocial: true } } },
-    orderBy: { precioUnitario: "asc" },
-  });
 
   const mejoresPrecioItems: MejorPrecioItem[] = licitacion.items.map((item: any) => {
     const itemOfertas = todasLasOfertas.filter(
@@ -198,6 +358,8 @@ export default async function DetalleLicitacionProcesoPage({
       esperandoDecision={licitacion.esperandoDecision}
       participantes={participantes}
       mejoresPrecioItems={mejoresPrecioItems}
+      analisisPorProducto={analisisPorProducto}
+      resumenAhorro={resumenAhorro}
       basePath={basePath}
       noLeidosPorProveedor={noLeidosPorProveedor}
     />
