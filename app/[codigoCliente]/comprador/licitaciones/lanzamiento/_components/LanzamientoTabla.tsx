@@ -81,8 +81,7 @@ function LicitacionFila({
     function tick() {
       const remaining = Math.max(0, targetMs! - Date.now());
       setMs(remaining);
-      const delay = remaining < 60_000 ? 1_000 : 60_000;
-      timerRef.current = setTimeout(tick, delay);
+      timerRef.current = setTimeout(tick, 1_000);
     }
     tick();
     return () => {
@@ -119,8 +118,8 @@ function LicitacionFila({
     const secs = totalSec % 60;
 
     let text: string;
-    if (days > 0) text = `${days}d ${hours}h ${mins}m`;
-    else if (hours > 0) text = `${hours}h ${mins}m`;
+    if (days > 0) text = `${days}d ${hours}h ${mins}m ${secs}s`;
+    else if (hours > 0) text = `${hours}h ${mins}m ${secs}s`;
     else text = `${mins}m ${secs}s`;
 
     countdownNode = (
