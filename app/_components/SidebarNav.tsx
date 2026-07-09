@@ -91,27 +91,48 @@ export default function SidebarNav({
         />
 
         <div className="relative z-10 flex h-full flex-col overflow-hidden">
-          <Link
-            href={panelHref}
-            onClick={closeMobile}
-            title={collapsed ? nombreEmpresa : undefined}
-            className="flex items-center gap-3 border-b border-white/15 px-4 py-5 transition-colors duration-150 ease-out hover:bg-white/10"
+          <div
+            className={`flex items-center border-b border-white/15 px-4 py-5 ${
+              collapsed ? "flex-col gap-2" : "gap-3"
+            }`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoUrl}
-              alt={nombreEmpresa}
-              width={32}
-              height={32}
-              className="shrink-0 rounded-md"
-            />
-            <div className={`flex flex-col ${labelCls}`}>
-              <span className="text-sm font-semibold text-white">
-                {nombreEmpresa}
-              </span>
-              <span className="text-xs text-white/70">{seccion}</span>
-            </div>
-          </Link>
+            <Link
+              href={panelHref}
+              onClick={closeMobile}
+              title={collapsed ? nombreEmpresa : undefined}
+              className={`flex items-center gap-3 rounded-md transition-colors duration-150 ease-out hover:bg-white/10 ${
+                collapsed ? "" : "min-w-0 flex-1"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={logoUrl}
+                alt={nombreEmpresa}
+                width={32}
+                height={32}
+                className="shrink-0 rounded-md"
+              />
+              <div className={`flex flex-col ${labelCls}`}>
+                <span className="text-sm font-semibold text-white">
+                  {nombreEmpresa}
+                </span>
+                <span className="text-xs text-white/70">{seccion}</span>
+              </div>
+            </Link>
+
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              title={collapsed ? "Expandir menú" : "Colapsar menú"}
+              className="hidden shrink-0 items-center justify-center rounded-md p-1.5 text-white/80 transition-colors duration-150 ease-out hover:bg-white/10 md:flex"
+            >
+              {collapsed ? (
+                <IconLayoutSidebarLeftExpand className="h-4 w-4 shrink-0" />
+              ) : (
+                <IconLayoutSidebarLeftCollapse className="h-4 w-4 shrink-0" />
+              )}
+            </button>
+          </div>
 
           <div className="px-3 pt-3">
             <Link
@@ -225,24 +246,6 @@ export default function SidebarNav({
               );
             })}
           </nav>
-
-          <div className="border-t border-white/15 p-3">
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              title={collapsed ? "Expandir menú" : undefined}
-              className={`hidden w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/80 transition-colors duration-150 ease-out hover:bg-white/10 md:flex ${
-                collapsed ? "justify-center" : ""
-              }`}
-            >
-              {collapsed ? (
-                <IconLayoutSidebarLeftExpand className="h-4 w-4 shrink-0" />
-              ) : (
-                <IconLayoutSidebarLeftCollapse className="h-4 w-4 shrink-0" />
-              )}
-              <span className={labelCls}>Colapsar</span>
-            </button>
-          </div>
         </div>
       </aside>
     </>
