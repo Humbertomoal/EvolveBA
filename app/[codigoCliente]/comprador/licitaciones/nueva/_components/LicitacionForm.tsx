@@ -1174,11 +1174,13 @@ Asistente de Inteligencia Artificial`;
                           className={cellInputClass(intentoGuardar && !item.productoId, "w-44 max-w-44 truncate")}
                         >
                           <option value="">Seleccionar…</option>
-                          {productos.map((p: any)=> (
-                            <option key={p.id} value={p.id}>
-                              {p.nombre}
-                            </option>
-                          ))}
+                          {productos
+                            .filter((p: any) => p.activo !== false || p.id === item.productoId)
+                            .map((p: any) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nombre}
+                              </option>
+                            ))}
                         </select>
                       </td>
                       <td className="px-2 py-2">

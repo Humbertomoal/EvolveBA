@@ -12,10 +12,11 @@ export type Producto = {
   especificacionesTecnicas?: string;
   archivosEspecificaciones?: string;
   monedaPredeterminada?: string;
+  activo: boolean;
   createdAt?: Date;
 };
 
-export type ProductoInput = Omit<Producto, "id" | "createdAt">;
+export type ProductoInput = Omit<Producto, "id" | "createdAt" | "activo">;
 
 export const productosMock: Producto[] = [
   {
@@ -23,6 +24,7 @@ export const productosMock: Producto[] = [
     codigo: "MAT-001",
     nombre: "Acero inoxidable 304",
     tipoItem: "Producto",
+    activo: true,
     familia: "Materias Primas",
     unidadMedida: "Toneladas",
     descripcion: "Acero inoxidable austenítico para aplicaciones de alta resistencia a la corrosión.",
@@ -33,6 +35,7 @@ export const productosMock: Producto[] = [
     codigo: "EMP-001",
     nombre: "Caja de cartón corrugado T3",
     tipoItem: "Producto",
+    activo: true,
     familia: "Empaques",
     unidadMedida: "Piezas",
     createdAt: new Date("2024-11-10"),
@@ -42,6 +45,7 @@ export const productosMock: Producto[] = [
     codigo: "QUI-001",
     nombre: "Solvente industrial dieléctrico",
     tipoItem: "Producto",
+    activo: true,
     familia: "Químicos",
     unidadMedida: "Litros",
     descripcion: "Solvente para limpieza de superficies metálicas y componentes electrónicos.",
@@ -52,6 +56,7 @@ export const productosMock: Producto[] = [
     codigo: "SRV-001",
     nombre: "Mantenimiento preventivo de maquinaria",
     tipoItem: "Servicio",
+    activo: true,
     familia: "Mantenimiento",
     unidadMedida: "Servicio",
     descripcion: "Servicio periódico de mantenimiento preventivo para líneas de producción.",
@@ -62,6 +67,7 @@ export const productosMock: Producto[] = [
     codigo: "EQP-001",
     nombre: "Compresor de aire industrial",
     tipoItem: "Producto",
+    activo: true,
     familia: "Equipos",
     unidadMedida: "Piezas",
     descripcion: "Compresor de tornillo 50 HP para sistemas neumáticos industriales.",
@@ -72,6 +78,7 @@ export const productosMock: Producto[] = [
     codigo: "PAP-001",
     nombre: "Resma de papel bond 75g",
     tipoItem: "Producto",
+    activo: true,
     familia: "Papelería",
     unidadMedida: "Resmas",
     createdAt: new Date("2025-01-20"),
@@ -81,6 +88,7 @@ export const productosMock: Producto[] = [
     codigo: "SRV-002",
     nombre: "Servicio de transporte y logística",
     tipoItem: "Servicio",
+    activo: true,
     familia: "Logística",
     unidadMedida: "Viaje",
     descripcion: "Transporte terrestre de mercancía en rutas nacionales.",
@@ -91,6 +99,7 @@ export const productosMock: Producto[] = [
     codigo: "MAT-002",
     nombre: "Polipropileno homopolímero",
     tipoItem: "Producto",
+    activo: true,
     familia: "Materias Primas",
     unidadMedida: "kg",
     descripcion: "Resina plástica grado inyección para fabricación de piezas industriales.",
@@ -101,6 +110,7 @@ export const productosMock: Producto[] = [
     codigo: "EMP-002",
     nombre: "Bolsa de polietileno 30x40 cm",
     tipoItem: "Producto",
+    activo: true,
     familia: "Empaques",
     unidadMedida: "Millar",
     createdAt: new Date("2025-03-02"),
@@ -110,6 +120,7 @@ export const productosMock: Producto[] = [
     codigo: "SRV-003",
     nombre: "Limpieza industrial de instalaciones",
     tipoItem: "Servicio",
+    activo: true,
     familia: "Mantenimiento",
     unidadMedida: "Servicio",
     createdAt: new Date("2025-03-14"),
@@ -119,6 +130,7 @@ export const productosMock: Producto[] = [
     codigo: "QUI-002",
     nombre: "Aceite hidráulico ISO VG 46",
     tipoItem: "Producto",
+    activo: true,
     familia: "Químicos",
     unidadMedida: "Litros",
     createdAt: new Date("2025-04-07"),
@@ -128,6 +140,7 @@ export const productosMock: Producto[] = [
     codigo: "EQP-002",
     nombre: "Montacargas eléctrico 2.5 ton",
     tipoItem: "Producto",
+    activo: true,
     familia: "Equipos",
     unidadMedida: "Piezas",
     descripcion: "Montacargas eléctrico de contrapeso con capacidad de 2,500 kg.",

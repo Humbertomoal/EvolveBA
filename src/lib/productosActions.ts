@@ -60,3 +60,51 @@ export async function verificarCodigoDisponibleAction(
   });
   return !existing;
 }
+
+export async function toggleActivoProductoAction(
+  id: string,
+  activo: boolean,
+  basePath: string
+): Promise<void> {
+  await prisma.producto.update({ where: { id }, data: { activo } });
+  revalidatePath(`${basePath}/comprador/catalogo`);
+}
+
+export type UsoProducto = {
+  enUso: boolean;
+  licitaciones: number;
+  proveedores: number;
+};
+
+/** Reports whether a product is referenced by any licitación item or provider catalog. */
+export async function getProductoUsoAction(id: string): Promise<UsoProducto> {
+  const [licitacionItems, proveedores] = await Promise.all([
+    prisma.licitacionItem.findMany({
+      where: { productoId: id },
+      select: { licitacionId: true },
+      distinct: ["licitacionId"],
+    }),
+    prisma.proveedorMaterial.count({ where: { productoId: id } }),
+  ]);
+  const licitaciones = licitacionItems.length;
+  return { enUso: licitaciones > 0 || proveedores > 0, licitaciones, proveedores };
+}
+
+/**
+ * Soft-deletes a product. Re-validates usage server-side (in case it changed
+ * since the client last checked) and refuses to delete a product in use.
+ */
+export async function eliminarProductoAction(
+  id: string,
+  basePath: string
+): Promise<{ ok: boolean } & UsoProducto> {
+  const uso = await getProductoUsoAction(id);
+  if (uso.enUso) return { ok: false, ...uso };
+
+  await prisma.producto.update({
+    where: { id },
+    data: { eliminado: true, eliminadoEn: new Date() },
+  });
+  revalidatePath(`${basePath}/comprador/catalogo`);
+  return { ok: true, ...uso };
+}

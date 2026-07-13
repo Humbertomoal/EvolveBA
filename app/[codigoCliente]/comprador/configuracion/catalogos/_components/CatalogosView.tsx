@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import type { CatalogoValorDTO } from "@/src/lib/getCatalogos";
@@ -25,6 +25,10 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "MONEDA", label: "Monedas" },
 ];
 
+function tabDesdeParam(v: string | null): TabKey {
+  return TABS.some((t) => t.key === v) ? (v as TabKey) : "JERARQUIA";
+}
+
 type ModalState =
   | { open: false }
   | { open: true; modo: "crear"; tipo: TabKey }
@@ -39,8 +43,10 @@ export default function CatalogosView({
   basePath: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   usePageTitle("Catálogo de Valores");
-  const [tab, setTab] = useState<TabKey>("JERARQUIA");
+  const [tab, setTab] = useState<TabKey>(() => tabDesdeParam(searchParams.get("tab")));
   const [modal, setModal] = useState<ModalState>({ open: false });
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
@@ -61,6 +67,15 @@ export default function CatalogosView({
   const esMonedaModal =
     modal.open &&
     (modal.modo === "crear" ? modal.tipo === "MONEDA" : modal.valor.tipo === "MONEDA");
+
+  function cambiarTab(key: TabKey) {
+    setTab(key);
+    setBannerError(null);
+    setConfirmandoId(null);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", key);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   function abrirCrear() {
     setFormCodigo("");
@@ -177,11 +192,7 @@ export default function CatalogosView({
             <button
               key={key}
               type="button"
-              onClick={() => {
-                setTab(key);
-                setBannerError(null);
-                setConfirmandoId(null);
-              }}
+              onClick={() => cambiarTab(key)}
               className={`whitespace-nowrap border-b-2 px-5 py-3 text-sm font-medium transition-all duration-150 ${
                 tab === key
                   ? "border-[var(--color-primario)] text-[var(--color-primario)]"

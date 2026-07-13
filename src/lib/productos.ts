@@ -13,6 +13,7 @@ type ProductoDB = {
   especificacionesTecnicas: string | null;
   archivosEspecificaciones: string | null;
   monedaPredeterminada: string | null;
+  activo: boolean;
   createdAt: Date;
 };
 
@@ -28,6 +29,7 @@ const PRODUCTO_SELECT = {
   especificacionesTecnicas: true,
   archivosEspecificaciones: true,
   monedaPredeterminada: true,
+  activo: true,
   createdAt: true,
 } as const;
 
@@ -44,6 +46,7 @@ function mapear(p: ProductoDB): Producto {
     especificacionesTecnicas: p.especificacionesTecnicas ?? undefined,
     archivosEspecificaciones: p.archivosEspecificaciones ?? undefined,
     monedaPredeterminada: p.monedaPredeterminada ?? "MXN",
+    activo: p.activo,
     createdAt: p.createdAt,
   };
 }

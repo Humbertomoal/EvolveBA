@@ -1,0 +1,114 @@
+▲ Next.js 16.2.9
+- Local:         http://localhost:3000
+- Network:       http://192.168.100.15:3000
+✓ Ready in 277ms
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\ssr\_1ipg54s._.js:411:52083
+    at e9 (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\ssr\_1ipg54s._.js:411:55026)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[getCompradorSession] cookie cyrgo_comprador_id = default
+[getCompradorSession] devolviendo puedeVerTodo=false para default
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\ssr\_1ipg54s._.js:411:52083
+    at e9 (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\ssr\_1ipg54s._.js:411:55026)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3000/api/auth/session. Read more at https://errors.authjs.dev#untrustedhost
+    at C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:51445
+    at Cq (C:\Users\Humberto MA\OneDrive - Evolve BA\Documentos\Software- Compras\App - Compras\cyrgo-compras\.next\server\chunks\[root-of-the-server]__06wnhzz._.js:421:54110)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

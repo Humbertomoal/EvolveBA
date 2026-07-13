@@ -174,22 +174,26 @@ export default async function DetalleLicitacionPage({
       )
     : new Map(ofertasExistentes.map((o: any) => [o.licitacionItemId, o]));
 
-  // Oferta de la ronda INMEDIATAMENTE ANTERIOR del mismo proveedor, para
-  // pre-llenar los campos cuando aún no ha cotizado en la ronda actual.
-  const ofertaAnteriorMap =
-    proveedorId && !licitacion.esperandoDecision && licitacion.rondaActual > 1
-      ? new Map(
-          (
-            await prisma.ofertaItem.findMany({
-              where: {
-                proveedorId,
-                ronda: licitacion.rondaActual - 1,
-                licitacionItem: { licitacionId: id },
-              },
-            })
-          ).map((o: any) => [o.licitacionItemId, o])
-        )
-      : new Map<string, any>();
+  // Oferta previa del mismo proveedor para pre-llenar los campos cuando aún
+  // no ha cotizado en la ronda actual: se usa la ronda inmediatamente
+  // anterior, o si no participó en ella, la última ronda anterior en que sí
+  // tenga una oferta guardada para ese ítem.
+  const ofertaAnteriorMap = new Map<string, any>();
+  if (proveedorId && !licitacion.esperandoDecision && licitacion.rondaActual > 1) {
+    const ofertasPrevias = await prisma.ofertaItem.findMany({
+      where: {
+        proveedorId,
+        ronda: { lt: licitacion.rondaActual },
+        licitacionItem: { licitacionId: id },
+      },
+      orderBy: { ronda: "desc" },
+    });
+    for (const o of ofertasPrevias as any[]) {
+      if (!ofertaAnteriorMap.has(o.licitacionItemId)) {
+        ofertaAnteriorMap.set(o.licitacionItemId, o);
+      }
+    }
+  }
 
   const items: ItemDetalle[] = itemsFiltrados.map((item: any) => {
     const oferta = ofertaMap.get(item.id);
