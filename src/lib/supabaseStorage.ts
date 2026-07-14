@@ -35,12 +35,18 @@ export async function subirArchivo(file: File, carpeta: string): Promise<string>
   const nombreUnico = `${Date.now()}-${sanitizarNombre(file.name)}`;
   const ruta = `${carpeta.replace(/^\/|\/$/g, "")}/${nombreUnico}`;
 
+  // TODO: quitar — logs temporales para diagnosticar el 404 al subir
+  console.log("[diag] Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log("[diag] Bucket:", BUCKET);
+  console.log("[diag] Path completo:", ruta);
+
   const { error } = await supabase.storage.from(BUCKET).upload(ruta, file, {
     cacheControl: "3600",
     upsert: false,
   });
 
   if (error) {
+    console.log("[diag] Error completo:", error);
     throw new Error(`No se pudo subir "${file.name}": ${error.message}`);
   }
 
