@@ -2,6 +2,7 @@
 
 import {
   IconMessageCircle,
+  IconPaperclip,
   IconX,
 } from "@tabler/icons-react";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
@@ -13,6 +14,7 @@ import CountdownTimer from "@/src/components/CountdownTimer";
 import { enviarOfertaAction } from "@/src/lib/ofertasActions";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -24,6 +26,8 @@ export type ItemDetalle = {
   cantidadSolicitada: number;
   fechaEntrega: string | null;
   moneda: string;
+  especificacionesTecnicas: string | null;
+  archivosEspecificaciones: string[];
   oferta: {
     precioUnitario: number;
     cantidadDisponible: number;
@@ -85,6 +89,15 @@ function formatPeso(n: number): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
 
+function nombreDesdeUrl(url: string): string {
+  try {
+    const archivo = decodeURIComponent(url.split("?")[0].split("/").pop() ?? "");
+    return archivo.replace(/^\d+-/, "") || archivo;
+  } catch {
+    return url;
+  }
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function LicitacionCotizacion({
@@ -98,7 +111,8 @@ export default function LicitacionCotizacion({
   maxRondas,
   rondaFinMs,
   esperandoDecision,
-  instrucciones: _instrucciones,
+  instrucciones,
+  archivosAdjuntos = [],
   proveedorId,
   basePath,
   items,
@@ -116,6 +130,7 @@ export default function LicitacionCotizacion({
   rondaFinMs: number | null;
   esperandoDecision: boolean;
   instrucciones: string | null;
+  archivosAdjuntos?: string[];
   proveedorId: string;
   basePath: string;
   items: ItemDetalle[];
@@ -375,6 +390,53 @@ export default function LicitacionCotizacion({
           </div>
         ))}
       </div>
+
+      {/* ── Instrucciones y materiales ──────────────────────────────────── */}
+      {(instrucciones || items.length > 0) && (
+        <div className="space-y-4 rounded-card border border-border bg-white p-4 shadow-card">
+          {instrucciones && (
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-zinc-900">Instrucciones</p>
+              <p className="whitespace-pre-wrap text-sm text-zinc-600">{instrucciones}</p>
+            </div>
+          )}
+          {archivosAdjuntos.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-zinc-900">Archivos adjuntos</p>
+              <ul className="space-y-1.5">
+                {archivosAdjuntos.map((url) => (
+                  <li key={url}>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                      className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                    >
+                      <IconPaperclip className="h-4 w-4 shrink-0 text-zinc-400" />
+                      <span className="truncate">{nombreDesdeUrl(url)}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <MaterialesResumenTabla
+            materiales={items.map((item) => ({
+              id: item.licitacionItemId,
+              nombre: item.nombre,
+              cantidadSolicitada: item.cantidadSolicitada,
+              unidadMedida: item.unidadMedida,
+              fechaEntrega: item.fechaEntrega,
+              moneda: item.moneda,
+              especificacionesTecnicas: item.especificacionesTecnicas,
+              archivosEspecificaciones: item.archivosEspecificaciones,
+            }))}
+            mensajeVacio="No hay materiales asignados a tu catálogo en esta licitación."
+            mostrarEspecificaciones
+          />
+        </div>
+      )}
 
       {/* ── Quotation table ──────────────────────────────────────────────── */}
       <div className="space-y-2">

@@ -27,6 +27,7 @@ export type LicitacionInput = {
   duracionRondaMinutos: number;
   maxRondas: number;
   instrucciones: string | null;
+  archivosAdjuntos: string[];
   estado: string;
   modoLicitacion: string;
   items: ItemInput[];
@@ -79,7 +80,8 @@ export async function crearLicitacionAction(
       duracionRondaMinutos: datos.duracionRondaMinutos,
       maxRondas: datos.maxRondas,
       instrucciones: datos.instrucciones,
-      archivosAdjuntos: null,
+      archivosAdjuntos:
+        datos.archivosAdjuntos.length > 0 ? JSON.stringify(datos.archivosAdjuntos) : null,
       estado: datos.estado,
       modoLicitacion: datos.modoLicitacion,
       compradorId,
@@ -152,6 +154,8 @@ export async function actualizarLicitacionAction(
       duracionRondaMinutos: datos.duracionRondaMinutos,
       maxRondas: datos.maxRondas,
       instrucciones: datos.instrucciones,
+      archivosAdjuntos:
+        datos.archivosAdjuntos.length > 0 ? JSON.stringify(datos.archivosAdjuntos) : null,
       modoLicitacion: datos.modoLicitacion,
       estado: esFutura ? "Programada" : datos.estado,
       ...(esFutura ? { rondaActual: 0, inicioRondaActual: null, esperandoDecision: false } : {}),

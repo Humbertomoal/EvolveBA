@@ -61,6 +61,7 @@ export default async function CapturaManualPage({
       proveedorId: true,
       precioUnitario: true,
       cantidadDisponible: true,
+      fechaEstimadaEntrega: true,
     },
   });
 
@@ -74,6 +75,14 @@ export default async function CapturaManualPage({
     fechaEntrega: item.fechaEntrega?.toISOString() ?? null,
   }));
 
+  const ofertasExistentesDTO = ofertasExistentes.map((o: any) => ({
+    licitacionItemId: o.licitacionItemId,
+    proveedorId: o.proveedorId,
+    precioUnitario: o.precioUnitario,
+    cantidadDisponible: o.cantidadDisponible,
+    fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
+  }));
+
   return (
     <CapturaManualForm
       licitacion={{
@@ -85,7 +94,7 @@ export default async function CapturaManualPage({
       }}
       items={items}
       proveedores={proveedores}
-      ofertasExistentes={ofertasExistentes}
+      ofertasExistentes={ofertasExistentesDTO}
       basePath={basePath}
     />
   );

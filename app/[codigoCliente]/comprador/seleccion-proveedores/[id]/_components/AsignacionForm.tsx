@@ -477,7 +477,7 @@ export default function AsignacionForm({
   }
 
   const CELL = "px-3 py-2 text-sm";
-  const INPUT_CLS = "w-full rounded border border-zinc-200 bg-white px-2 py-1 text-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
+  const INPUT_CLS = "w-full rounded border border-zinc-200 bg-white px-2 py-1 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
   return (
     <div className="flex max-w-7xl flex-col gap-6">
@@ -508,7 +508,7 @@ export default function AsignacionForm({
               max={720}
               value={tiempoHoras}
               onChange={(e) => setTiempoHoras(Math.max(1, Number(e.target.value)))}
-              className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm text-center text-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <span className="text-sm text-zinc-500">horas</span>
           </div>

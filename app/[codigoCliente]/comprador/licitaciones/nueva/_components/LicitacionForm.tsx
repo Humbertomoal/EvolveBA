@@ -3,14 +3,12 @@
 import {
   IconAlertTriangle,
   IconCheck,
-  IconFile,
   IconFileText,
   IconInfoCircle,
   IconPencil,
   IconPlus,
   IconRefresh,
   IconTrash,
-  IconUpload,
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
@@ -27,6 +25,19 @@ import {
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { MONEDAS } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
+import FileUpload from "@/src/components/FileUpload";
+
+const TIPOS_ADJUNTOS = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -57,6 +68,7 @@ export type PreDatos = {
   duracionUnidad: UnidadDuracion;
   maxRondas: string;
   instrucciones: string;
+  archivosAdjuntos: string[];
   estado: string;
   modoLicitacion: string;
   items: ItemFila[];
@@ -192,9 +204,9 @@ export default function LicitacionForm({
   const [instrucciones, setInstrucciones] = useState(inicial?.instrucciones ?? "");
   const [instruccionesTemp, setInstruccionesTemp] = useState("");
   const [confirmarRestablecerInstrucciones, setConfirmarRestablecerInstrucciones] = useState(false);
-  const [archivos, setArchivos] = useState<File[]>([]);
-  const [archivosTemp, setArchivosTemp] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [archivosAdjuntos, setArchivosAdjuntos] = useState<string[]>(
+    inicial?.archivosAdjuntos ?? []
+  );
 
   // ── Validation state ─────────────────────────────────────────────────────────
   const [intentoGuardar, setIntentoGuardar] = useState(false);
@@ -420,18 +432,12 @@ Asistente de Inteligencia Artificial`;
 
   function abrirModalInstrucciones() {
     setInstruccionesTemp(instrucciones || generarPlantilla());
-    setArchivosTemp([...archivos]);
     setConfirmarRestablecerInstrucciones(false);
     setModalInstruccionesAbierto(true);
   }
 
-  function quitarArchivoTemp(i: number) {
-    setArchivosTemp((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
   function guardarInstrucciones() {
     setInstrucciones(instruccionesTemp);
-    setArchivos([...archivosTemp]);
     setConfirmarRestablecerInstrucciones(false);
     setModalInstruccionesAbierto(false);
   }
@@ -451,6 +457,7 @@ Asistente de Inteligencia Artificial`;
       duracionRondaMinutos: duracionEnMinutos(duracionValor, duracionUnidad),
       maxRondas: parseInt(maxRondas) || 3,
       instrucciones: instrucciones || null,
+      archivosAdjuntos: archivosAdjuntos,
       estado,
       modoLicitacion,
       items: items.map(({ _id, ...rest }) => rest),
@@ -670,7 +677,7 @@ Asistente de Inteligencia Artificial`;
 
   const tieneProductos = items.some((i) => i.productoId !== "");
   const tieneProveedores = proveedoresSeleccionados.length > 0;
-  const tieneInstrucciones = instrucciones.trim().length > 0 || archivos.length > 0;
+  const tieneInstrucciones = instrucciones.trim().length > 0 || archivosAdjuntos.length > 0;
   const puedeToggleMateriales = productosEnLicitacion.length > 0;
 
   // Auto-reset toggle when licitacion has no products (nothing to preselect)
@@ -1720,54 +1727,35 @@ Asistente de Inteligencia Artificial`;
                 />
               </div>
 
+              <MaterialesResumenTabla
+                materiales={items
+                  .filter((i) => i.productoId)
+                  .map((i) => ({
+                    id: i._id,
+                    nombre:
+                      productos.find((p: any) => p.id === i.productoId)?.nombre ??
+                      "Producto sin nombre",
+                    cantidadSolicitada: parseFloat(i.cantidadSolicitada) || 0,
+                    unidadMedida: i.unidadMedida,
+                    fechaEntrega: i.fechaEntrega || null,
+                    moneda: i.moneda,
+                  }))}
+              />
+
               <div className="space-y-3">
                 <p className="text-sm font-medium text-zinc-700">Archivos adjuntos</p>
                 <p className="text-xs text-zinc-500">
                   Especificaciones técnicas, planos, condiciones de compra u otros documentos de
                   referencia.
                 </p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
+                <FileUpload
+                  carpeta="licitaciones/adjuntos"
+                  tiposPermitidos={TIPOS_ADJUNTOS}
+                  maxSizeMB={10}
                   multiple
-                  onChange={(e) => {
-                    if (!e.target.files) return;
-                    setArchivosTemp((prev) => [...prev, ...Array.from(e.target.files!)]);
-                    e.target.value = "";
-                  }}
-                  className="hidden"
+                  archivosExistentes={archivosAdjuntos}
+                  onUploadComplete={setArchivosAdjuntos}
                 />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-                >
-                  <IconUpload className="h-4 w-4" />
-                  Seleccionar archivos
-                </button>
-                {archivosTemp.length > 0 && (
-                  <ul className="space-y-1.5">
-                    {archivosTemp.map((archivo, i) => (
-                      <li
-                        key={`${archivo.name}-${i}`}
-                        className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 text-sm"
-                      >
-                        <span className="flex min-w-0 items-center gap-2 text-zinc-700">
-                          <IconFile className="h-4 w-4 shrink-0 text-zinc-400" />
-                          <span className="truncate">{archivo.name}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => quitarArchivoTemp(i)}
-                          aria-label={`Quitar ${archivo.name}`}
-                          className="ml-2 shrink-0 text-zinc-400 hover:text-zinc-700"
-                        >
-                          <IconX className="h-4 w-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
             </div>
 

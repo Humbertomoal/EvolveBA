@@ -21,6 +21,16 @@ function minutosAValorYUnidad(minutos: number): { valor: string; unidad: UnidadD
   return { valor: String(minutos), unidad: "minutos" };
 }
 
+function parsearArchivosAdjuntos(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function EditarLicitacionPage({
@@ -77,6 +87,7 @@ export default async function EditarLicitacionPage({
     duracionUnidad,
     maxRondas: String(licitacion.maxRondas),
     instrucciones: licitacion.instrucciones ?? "",
+    archivosAdjuntos: parsearArchivosAdjuntos(licitacion.archivosAdjuntos),
     estado: licitacion.estado,
     modoLicitacion: licitacion.modoLicitacion,
     items: licitacion.items.map((item: any) => ({

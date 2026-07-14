@@ -12,6 +12,10 @@ function extraerDatos(formData: FormData): ProductoInput {
   const especificacionesTecnicas = String(
     formData.get("especificacionesTecnicas") ?? ""
   ).trim();
+  const imagenUrl = String(formData.get("imagenUrl") ?? "").trim();
+  const archivosEspecificaciones = String(
+    formData.get("archivosEspecificaciones") ?? ""
+  ).trim();
 
   return {
     nombre: String(formData.get("nombre") ?? "").trim(),
@@ -20,8 +24,12 @@ function extraerDatos(formData: FormData): ProductoInput {
     unidadMedida: String(formData.get("unidadMedida") ?? "").trim(),
     codigo: String(formData.get("codigo") ?? "").trim(),
     descripcion: descripcion || undefined,
-    imagenUrl: undefined,
+    imagenUrl: imagenUrl || undefined,
     especificacionesTecnicas: especificacionesTecnicas || undefined,
+    archivosEspecificaciones:
+      archivosEspecificaciones && archivosEspecificaciones !== "[]"
+        ? archivosEspecificaciones
+        : undefined,
     monedaPredeterminada: String(formData.get("monedaPredeterminada") ?? "").trim() || "MXN",
   };
 }

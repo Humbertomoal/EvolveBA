@@ -1,6 +1,5 @@
 "use client";
 
-import { IconFile, IconPackage, IconUpload, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -13,6 +12,29 @@ import {
 import { isNextRedirectError } from "@/src/lib/isNextRedirectError";
 import { MONEDAS } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import FileUpload from "@/src/components/FileUpload";
+
+const TIPOS_IMAGEN = ["image/jpeg", "image/png", "image/webp"];
+const TIPOS_ESPECIFICACIONES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
+function parsearJsonArray(json?: string): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -43,10 +65,9 @@ export default function ProductoForm({
   usePageTitle(productoExistente ? "Editar producto" : "Agregar producto");
 
   // ── Image state ───────────────────────────────────────────────────────────────
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    productoExistente?.imagenUrl ?? null
+  const [imagenUrl, setImagenUrl] = useState<string>(
+    productoExistente?.imagenUrl ?? ""
   );
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Field state ───────────────────────────────────────────────────────────────
   const [nombre, setNombre] = useState(productoExistente?.nombre ?? "");
@@ -67,8 +88,9 @@ export default function ProductoForm({
   const [especificacionesTecnicas, setEspecificacionesTecnicas] = useState(
     productoExistente?.especificacionesTecnicas ?? ""
   );
-  const [archivosEspecificaciones, setArchivosEspecificaciones] = useState<File[]>([]);
-  const especificacionesFileInputRef = useRef<HTMLInputElement>(null);
+  const [archivosEspecificaciones, setArchivosEspecificaciones] = useState<string[]>(
+    () => parsearJsonArray(productoExistente?.archivosEspecificaciones)
+  );
 
   // ── Validation state ──────────────────────────────────────────────────────────
   const [tocados, setTocados] = useState<Set<string>>(new Set());
@@ -132,32 +154,6 @@ export default function ProductoForm({
   function handleCodigoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value.replace(/\s/g, "-");
     setCodigo(raw);
-  }
-
-  // ── Image handlers ────────────────────────────────────────────────────────────
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPreviewUrl(URL.createObjectURL(file));
-  }
-
-  function quitarImagen() {
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  // ── Especificaciones técnicas: file handlers ─────────────────────────────────
-  // `nuevos` must already be a materialized array (not the live FileList) — by
-  // the time React invokes this functional updater, the input's value reset
-  // (done right after picking files, to allow re-selecting the same file) has
-  // already cleared the live FileList.
-  function agregarArchivosEspecificaciones(nuevos: File[]) {
-    if (nuevos.length === 0) return;
-    setArchivosEspecificaciones((actuales) => [...actuales, ...nuevos]);
-  }
-
-  function quitarArchivoEspecificaciones(indice: number) {
-    setArchivosEspecificaciones((actuales) => actuales.filter((_, i) => i !== indice));
   }
 
   // ── Action ────────────────────────────────────────────────────────────────────
@@ -332,45 +328,15 @@ export default function ProductoForm({
             Imagen del producto
           </legend>
 
-          {previewUrl ? (
-            <div className="relative w-40">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt="Vista previa"
-                className="h-40 w-40 rounded-lg border border-zinc-200 object-cover"
-              />
-              <button
-                type="button"
-                onClick={quitarImagen}
-                aria-label="Quitar imagen"
-                className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-white hover:bg-zinc-900"
-              >
-                <IconX className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex h-40 w-40 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50">
-              <IconPackage className="h-10 w-10 text-zinc-300" />
-              <span className="text-xs text-zinc-400">Sin imagen</span>
-            </div>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="hidden"
+          <input type="hidden" name="imagenUrl" value={imagenUrl} />
+          <FileUpload
+            carpeta="productos/imagenes"
+            tiposPermitidos={TIPOS_IMAGEN}
+            maxSizeMB={5}
+            multiple={false}
+            archivosExistentes={imagenUrl ? [imagenUrl] : []}
+            onUploadComplete={(urls) => setImagenUrl(urls[0] ?? "")}
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            <IconUpload className="h-4 w-4" />
-            {previewUrl ? "Cambiar imagen" : "Seleccionar imagen"}
-          </button>
         </fieldset>
 
         <fieldset className="space-y-4">
@@ -394,49 +360,18 @@ export default function ProductoForm({
             </span>
 
             <input
-              ref={especificacionesFileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-              onChange={(event) => {
-                const nuevos = Array.from(event.target.files ?? []);
-                event.target.value = "";
-                agregarArchivosEspecificaciones(nuevos);
-              }}
-              className="hidden"
+              type="hidden"
+              name="archivosEspecificaciones"
+              value={JSON.stringify(archivosEspecificaciones)}
             />
-            <button
-              type="button"
-              onClick={() => especificacionesFileInputRef.current?.click()}
-              className="flex w-fit items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              <IconUpload className="h-4 w-4" />
-              Seleccionar archivos
-            </button>
-
-            {archivosEspecificaciones.length > 0 && (
-              <ul className="space-y-2">
-                {archivosEspecificaciones.map((archivo, indice) => (
-                  <li
-                    key={`${archivo.name}-${indice}`}
-                    className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 text-sm"
-                  >
-                    <span className="flex items-center gap-2 text-zinc-700">
-                      <IconFile className="h-4 w-4 text-zinc-400" />
-                      {archivo.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => quitarArchivoEspecificaciones(indice)}
-                      aria-label={`Quitar ${archivo.name}`}
-                      className="text-zinc-400 hover:text-zinc-700"
-                    >
-                      <IconX className="h-4 w-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <FileUpload
+              carpeta="productos/especificaciones"
+              tiposPermitidos={TIPOS_ESPECIFICACIONES}
+              maxSizeMB={10}
+              multiple
+              archivosExistentes={archivosEspecificaciones}
+              onUploadComplete={setArchivosEspecificaciones}
+            />
           </div>
         </fieldset>
 

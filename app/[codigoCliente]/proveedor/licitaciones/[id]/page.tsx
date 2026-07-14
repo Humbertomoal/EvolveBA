@@ -9,6 +9,16 @@ import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import LicitacionCotizacion, { type ItemDetalle } from "./_components/LicitacionCotizacion";
 import ResumenOfertasView, { type MejorOfertaItem } from "./_components/ResumenOfertasView";
 
+function parsearJsonArray(json?: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function DetalleLicitacionPage({
   params,
 }: {
@@ -26,7 +36,16 @@ export default async function DetalleLicitacionPage({
       where: { id },
       include: {
         items: {
-          include: { producto: { select: { nombre: true, unidadMedida: true } } },
+          include: {
+            producto: {
+              select: {
+                nombre: true,
+                unidadMedida: true,
+                especificacionesTecnicas: true,
+                archivosEspecificaciones: true,
+              },
+            },
+          },
         },
         _count: { select: { proveedoresInvitados: true } },
       },
@@ -207,6 +226,8 @@ export default async function DetalleLicitacionPage({
       fechaEntrega: item.fechaEntrega?.toISOString() ?? null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       moneda: (item as any).moneda ?? "MXN",
+      especificacionesTecnicas: item.producto.especificacionesTecnicas ?? null,
+      archivosEspecificaciones: parsearJsonArray(item.producto.archivosEspecificaciones),
       oferta: oferta
         ? {
             precioUnitario: oferta.precioUnitario,
@@ -263,6 +284,7 @@ export default async function DetalleLicitacionPage({
       rondaFinMs={rondaFinMs}
       esperandoDecision={licitacion.esperandoDecision}
       instrucciones={licitacion.instrucciones}
+      archivosAdjuntos={parsearJsonArray(licitacion.archivosAdjuntos)}
       proveedorId={proveedorId}
       basePath={basePath}
       items={items}

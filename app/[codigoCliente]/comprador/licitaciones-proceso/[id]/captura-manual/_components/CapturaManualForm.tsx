@@ -1,12 +1,19 @@
 "use client";
 
-import { IconCheck, IconChevronDown, IconChevronRight, IconX } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconChevronDown,
+  IconChevronRight,
+  IconX,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   guardarAvanceCapturaAction,
   finalizarCapturaManualAction,
+  type FechaRequeridaManual,
   type OfertaManual,
 } from "@/src/lib/capturaManualActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
@@ -28,6 +35,7 @@ type OfertaExistente = {
   proveedorId: string;
   precioUnitario: number;
   cantidadDisponible: number;
+  fechaEstimadaEntrega: string | null;
 };
 
 type LicitacionInfo = {
@@ -38,21 +46,26 @@ type LicitacionInfo = {
   estado: string;
 };
 
-type CeldaState = { precioUnitario: string; cantidadDisponible: string };
+type CeldaState = {
+  precioUnitario: string;
+  cantidadDisponible: string;
+  fechaEstimadaEntrega: string;
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatFecha(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+function isoAInputDate(iso: string | null): string {
+  return iso ? iso.split("T")[0] : "";
 }
 
 function formatPeso(n: number): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+}
+
+/** True cuando la fecha estimada del proveedor es posterior a la fecha requerida. */
+function excedeFechaRequerida(fechaRequerida: string, fechaEstimada: string): boolean {
+  if (!fechaRequerida || !fechaEstimada) return false;
+  return new Date(fechaEstimada) > new Date(fechaRequerida);
 }
 
 function initEstado(
@@ -70,8 +83,17 @@ function initEstado(
       s[p.id][item.licitacionItemId] = {
         precioUnitario: ex ? String(ex.precioUnitario) : "",
         cantidadDisponible: ex ? String(ex.cantidadDisponible) : "",
+        fechaEstimadaEntrega: isoAInputDate(ex?.fechaEstimadaEntrega ?? null),
       };
     }
+  }
+  return s;
+}
+
+function initFechasRequeridas(items: Item[]): Record<string, string> {
+  const s: Record<string, string> = {};
+  for (const item of items) {
+    s[item.licitacionItemId] = isoAInputDate(item.fechaEntrega);
   }
   return s;
 }
@@ -94,11 +116,22 @@ function buildOfertas(
           proveedorId: p.id,
           precioUnitario: precio || 0,
           cantidadDisponible: cantidad || 0,
+          fechaEstimadaEntrega: celda.fechaEstimadaEntrega || null,
         });
       }
     }
   }
   return ofertas;
+}
+
+function buildFechasRequeridas(
+  items: Item[],
+  fechasRequeridas: Record<string, string>
+): FechaRequeridaManual[] {
+  return items.map((item) => ({
+    licitacionItemId: item.licitacionItemId,
+    fechaEntrega: fechasRequeridas[item.licitacionItemId] || null,
+  }));
 }
 
 function proveedorTieneOfertas(
@@ -112,7 +145,7 @@ function proveedorTieneOfertas(
   });
 }
 
-const INPUT = "rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
+const INPUT = "rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -133,6 +166,9 @@ export default function CapturaManualForm({
   usePageTitle(`Captura de Cotización — Licitación ${licitacion.numero}`);
   const [estado, setEstado] = useState<Record<string, Record<string, CeldaState>>>(
     () => initEstado(proveedores, items, ofertasExistentes)
+  );
+  const [fechasRequeridas, setFechasRequeridas] = useState<Record<string, string>>(
+    () => initFechasRequeridas(items)
   );
   const [expandidos, setExpandidos] = useState<Set<string>>(
     () => new Set(proveedores.length > 0 ? [proveedores[0].id] : [])
@@ -165,17 +201,23 @@ export default function CapturaManualForm({
     }));
   }
 
+  function setFechaRequerida(itemId: string, valor: string) {
+    setFechasRequeridas((prev) => ({ ...prev, [itemId]: valor }));
+  }
+
   async function handleGuardar() {
     setGuardando(true);
     const ofertas = buildOfertas(proveedores, items, estado);
-    await guardarAvanceCapturaAction(licitacion.id, ofertas, basePath);
+    const fechas = buildFechasRequeridas(items, fechasRequeridas);
+    await guardarAvanceCapturaAction(licitacion.id, ofertas, fechas, basePath);
     setGuardando(false);
   }
 
   async function handleFinalizar() {
     setFinalizando(true);
     const ofertas = buildOfertas(proveedores, items, estado);
-    await finalizarCapturaManualAction(licitacion.id, ofertas, basePath);
+    const fechas = buildFechasRequeridas(items, fechasRequeridas);
+    await finalizarCapturaManualAction(licitacion.id, ofertas, fechas, basePath);
     setFinalizando(false);
     setModalFinalizar(false);
     router.push(`${basePath}/comprador/seleccion-proveedores`);
@@ -247,9 +289,10 @@ export default function CapturaManualForm({
                           Cant. solicitada
                         </th>
                         <th className="w-20 px-2 py-2.5">Unidad</th>
-                        <th className="w-28 px-2 py-2.5">Fecha entrega</th>
+                        <th className="w-36 px-2 py-2.5">Fecha requerida</th>
                         <th className="w-32 px-2 py-2.5">Precio unitario</th>
                         <th className="w-28 px-2 py-2.5">Cant. disponible</th>
+                        <th className="w-40 px-2 py-2.5">Fecha estimada proveedor</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
@@ -257,8 +300,14 @@ export default function CapturaManualForm({
                         const celda = estado[proveedor.id]?.[item.licitacionItemId] ?? {
                           precioUnitario: "",
                           cantidadDisponible: "",
+                          fechaEstimadaEntrega: "",
                         };
                         const precio = parseFloat(celda.precioUnitario) || 0;
+                        const fechaRequerida = fechasRequeridas[item.licitacionItemId] ?? "";
+                        const excede = excedeFechaRequerida(
+                          fechaRequerida,
+                          celda.fechaEstimadaEntrega
+                        );
                         return (
                           <tr key={item.licitacionItemId} className="hover:bg-zinc-50/50 transition-colors duration-150">
                             <td
@@ -273,8 +322,15 @@ export default function CapturaManualForm({
                             <td className="px-2 py-2.5 text-zinc-500">
                               {item.unidadMedida}
                             </td>
-                            <td className="px-2 py-2.5 text-zinc-500">
-                              {formatFecha(item.fechaEntrega)}
+                            <td className="px-2 py-2.5">
+                              <input
+                                type="date"
+                                value={fechaRequerida}
+                                onChange={(e) =>
+                                  setFechaRequerida(item.licitacionItemId, e.target.value)
+                                }
+                                className={`${INPUT} w-36`}
+                              />
                             </td>
                             <td className="px-2 py-2.5">
                               <div className="relative w-28">
@@ -321,6 +377,31 @@ export default function CapturaManualForm({
                                 placeholder="0"
                                 className={`${INPUT} w-24`}
                               />
+                            </td>
+                            <td className={`px-2 py-2.5 ${excede ? "bg-amber-50" : ""}`}>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="date"
+                                  value={celda.fechaEstimadaEntrega}
+                                  onChange={(e) =>
+                                    setCelda(
+                                      proveedor.id,
+                                      item.licitacionItemId,
+                                      "fechaEstimadaEntrega",
+                                      e.target.value
+                                    )
+                                  }
+                                  className={`${INPUT} w-36 ${excede ? "border-amber-300" : ""}`}
+                                />
+                                {excede && (
+                                  <span
+                                    className="shrink-0"
+                                    title="La fecha estimada excede la fecha requerida"
+                                  >
+                                    <IconAlertTriangle className="h-4 w-4 text-amber-500" />
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
