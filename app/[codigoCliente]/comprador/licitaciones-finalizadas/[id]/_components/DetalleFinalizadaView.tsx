@@ -6,6 +6,11 @@ import { IconArrowLeft } from "@tabler/icons-react";
 import Badge from "@/src/components/Badge";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import {
+  descargarComparativoOfertasPdfAction,
+  descargarResumenLicitacionPdfAction,
+} from "@/src/lib/pdfActions";
+import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -356,6 +361,18 @@ export default function DetalleFinalizadaView({
             <span>Finalizada: {formatFecha(licitacion.fechaFinalizacion)}</span>
           </div>
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <DescargarPdfButton
+            label="Descargar Resumen PDF"
+            accion={() => descargarResumenLicitacionPdfAction(licitacion.id, basePath)}
+          />
+          <DescargarPdfButton
+            label="Descargar Comparativo PDF"
+            accion={() => descargarComparativoOfertasPdfAction(licitacion.id, basePath)}
+          />
+        </div>
+
         {Object.keys(totalesPorMoneda).length > 0 && (
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-5 py-3 text-right">
             <p className="text-xs text-zinc-400">Costo total asignado</p>

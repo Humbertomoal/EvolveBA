@@ -1,13 +1,15 @@
 "use client";
 
-import { IconArrowLeft, IconDownload } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useTransition, useState } from "react";
 import type { OrdenCompradorDetalle } from "../page";
 import { actualizarEstatusOrdenAction } from "@/src/lib/ordenesActions";
+import { descargarOrdenCompraPdfAction } from "@/src/lib/pdfActions";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
+import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
 
 const ESTADOS = ["Pendiente", "En tránsito", "Entregada", "Recibida", "Cancelada"];
 
@@ -89,15 +91,9 @@ export default function OrdenCompradorDetalle({
               <span className="font-medium text-zinc-700">{orden.proveedorRazonSocial}</span>
             </p>
           </div>
-          <a
-            href={`${basePath}/comprador/ordenes/${orden.id}/imprimir`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            <IconDownload className="h-4 w-4" />
-            Descargar PDF
-          </a>
+          <DescargarPdfButton
+            accion={() => descargarOrdenCompraPdfAction(orden.id, basePath)}
+          />
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-4">

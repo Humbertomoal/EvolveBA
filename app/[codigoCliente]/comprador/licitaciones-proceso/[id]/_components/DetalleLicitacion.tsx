@@ -14,6 +14,11 @@ import { Fragment, useState } from "react";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
 import { forzarAvanceRondaAction } from "@/src/lib/rondasActions";
+import {
+  descargarComparativoOfertasPdfAction,
+  descargarResumenLicitacionPdfAction,
+} from "@/src/lib/pdfActions";
+import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types (exported for use in server page) ───────────────────────────────────
@@ -308,6 +313,11 @@ export default function DetalleLicitacion({
               Forzar cierre de ronda
             </button>
           )}
+
+          <DescargarPdfButton
+            label="Descargar Resumen PDF"
+            accion={() => descargarResumenLicitacionPdfAction(id, basePath)}
+          />
         </div>
       </div>
 
@@ -439,6 +449,13 @@ export default function DetalleLicitacion({
         {/* ── Tab: Mejores Precios ───────────────────────────────────────── */}
         {tab === "mejores" && (
           <div className="mt-4 space-y-6">
+            <div className="flex justify-end">
+              <DescargarPdfButton
+                label="Descargar Comparativo PDF"
+                accion={() => descargarComparativoOfertasPdfAction(id, basePath)}
+              />
+            </div>
+
             {/* KPIs de ahorro */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-card border border-border bg-white shadow-card p-4">

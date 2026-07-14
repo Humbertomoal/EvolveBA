@@ -2,15 +2,16 @@
 
 import {
   IconArrowLeft,
-  IconDownload,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useTransition, useState } from "react";
 import type { OrdenCompraDetalle } from "../page";
 import { actualizarEstatusOrdenAction } from "@/src/lib/ordenesActions";
+import { descargarOrdenCompraPdfAction } from "@/src/lib/pdfActions";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
+import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
 
 const ESTADOS = ["Pendiente", "En tránsito", "Entregada", "Cancelada"];
 
@@ -93,15 +94,9 @@ export default function OrdenDetalle({
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href={`${basePath}/proveedor/ordenes/${orden.id}/imprimir`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-            >
-              <IconDownload className="h-4 w-4" />
-              Descargar PDF
-            </a>
+            <DescargarPdfButton
+              accion={() => descargarOrdenCompraPdfAction(orden.id, basePath)}
+            />
           </div>
         </div>
 
