@@ -43,6 +43,7 @@ export type UsuarioDTO = {
   avatar: string | null;
   activo: boolean;
   usaMicrosoft: boolean;
+  tienePassword: boolean;
   rolId: string;
   rolNombre: string;
   ultimoAcceso: string | null;

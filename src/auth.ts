@@ -1,9 +1,12 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
 
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
@@ -60,10 +63,75 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         }
       },
     }),
+    MicrosoftEntraID({
+      clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
+      clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
+      issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
+    }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "microsoft-entra-id") return true;
+
+      const email = (profile?.email ?? user.email ?? "").toLowerCase().trim();
+      if (!email) return "/login?error=CuentaNoRegistrada";
+
+      const usuario = await prisma.usuario.findUnique({ where: { email } });
+      if (!usuario) return "/login?error=CuentaNoRegistrada";
+      if (!usuario.activo) return "/login?error=CuentaInactiva";
+
+      // Vinculación: guarda el microsoftId (oid u sub del token) si aún no lo tiene.
+      const microsoftId =
+        (profile as any)?.oid ?? (profile as any)?.sub ?? account.providerAccountId ?? null;
+
+      await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: {
+          ...(usuario.microsoftId || !microsoftId ? {} : { microsoftId }),
+          ultimoAcceso: new Date(),
+        },
+      });
+
+      // Mismo mecanismo de cookies que usa el login por correo/contraseña
+      // (varias partes de la app leen la identidad del comprador/proveedor
+      // desde estas cookies, no solo desde la sesión de NextAuth).
+      const cookieStore = await cookies();
+      if (usuario.tipoUsuario === "comprador") {
+        cookieStore.set("cyrgo_comprador_id", usuario.id, {
+          path: "/",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+      } else if (usuario.tipoUsuario === "proveedor") {
+        const proveedor = await prisma.proveedor.findFirst({
+          where: { usuarioId: usuario.id },
+          select: { id: true },
+        });
+        if (proveedor) {
+          cookieStore.set("cyrgo_proveedor_id", proveedor.id, {
+            path: "/",
+            sameSite: "lax",
+            maxAge: 60 * 60 * 24 * 7,
+          });
+        }
+      }
+
+      return usuario.tipoUsuario === "proveedor" ? "/proveedor" : "/comprador";
+    },
+    async jwt({ token, user, account, trigger, session }) {
+      if (account?.provider === "microsoft-entra-id" && token.email) {
+        // Los logins de Microsoft no pasan por authorize(), así que el token
+        // se completa aquí con los mismos datos que produce Credentials.
+        const usuario = await prisma.usuario.findUnique({
+          where: { email: (token.email as string).toLowerCase() },
+        });
+        if (usuario) {
+          token.id = usuario.id;
+          token.tipoUsuario = (usuario as any).tipoUsuario ?? "comprador";
+          token.primerAcceso = false; // El SSO nunca exige cambio de contraseña
+          token.esAdmin = false;
+        }
+      } else if (user) {
         token.id = user.id;
         token.tipoUsuario = (user as any).tipoUsuario;
         token.primerAcceso = (user as any).primerAcceso;

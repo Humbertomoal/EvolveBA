@@ -52,6 +52,7 @@ export async function getUsuarios(clienteId = "default"): Promise<UsuarioDTO[]> 
       avatar: u.avatar,
       activo: u.activo,
       usaMicrosoft: !!u.microsoftId,
+      tienePassword: !!u.password,
       rolId: u.rolId,
       rolNombre: u.rol.nombre,
       ultimoAcceso: u.ultimoAcceso ? (u.ultimoAcceso as Date).toISOString() : null,

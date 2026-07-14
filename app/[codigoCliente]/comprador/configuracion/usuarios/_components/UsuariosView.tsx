@@ -224,8 +224,20 @@ export default function UsuariosView({
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.usaMicrosoft ? "bg-blue-100 text-blue-700" : "bg-zinc-100 text-zinc-600"}`}>
-                        {u.usaMicrosoft ? "Microsoft" : "Contraseña"}
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          u.usaMicrosoft && u.tienePassword
+                            ? "bg-violet-100 text-violet-700"
+                            : u.usaMicrosoft
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-zinc-100 text-zinc-600"
+                        }`}
+                      >
+                        {u.usaMicrosoft && u.tienePassword
+                          ? "Ambos"
+                          : u.usaMicrosoft
+                            ? "Microsoft"
+                            : "Contraseña"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
