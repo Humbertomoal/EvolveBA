@@ -5,8 +5,24 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
 
+const enProduccion = process.env.NODE_ENV === "production";
+
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   trustHost: true,
+  useSecureCookies: enProduccion,
+  cookies: {
+    sessionToken: {
+      name: enProduccion
+        ? "__Secure-authjs.session-token"
+        : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: enProduccion,
+      },
+    },
+  },
   providers: [
     Credentials({
       credentials: {
@@ -131,12 +147,21 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         emailResuelto: email,
       });
 
-      if (!email) return "/login?error=CuentaNoRegistrada";
+      if (!email) {
+        console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
+        return "/login?error=CuentaNoRegistrada";
+      }
 
       const usuario = await prisma.usuario.findUnique({ where: { email } });
       console.log("Usuario encontrado en BD:", !!usuario, usuario?.email);
-      if (!usuario) return "/login?error=CuentaNoRegistrada";
-      if (!usuario.activo) return "/login?error=CuentaInactiva";
+      if (!usuario) {
+        console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
+        return "/login?error=CuentaNoRegistrada";
+      }
+      if (!usuario.activo) {
+        console.log("signIn (microsoft) retorna:", "/login?error=CuentaInactiva");
+        return "/login?error=CuentaInactiva";
+      }
 
       // Vinculación: guarda el microsoftId (oid u sub del token) si aún no lo tiene.
       const microsoftId =
@@ -150,36 +175,17 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         },
       });
 
-      // Mismo mecanismo de cookies que usa el login por correo/contraseña
-      // (varias partes de la app leen la identidad del comprador/proveedor
-      // desde estas cookies, no solo desde la sesión de NextAuth).
       // tipoUsuario solo debe ser "comprador" o "proveedor". Cualquier otro
       // valor (p.ej. un nombre de rol guardado ahí por error) se trata como
-      // comprador para no dejar al usuario sin cookie de panel asignada.
+      // comprador para no dejar al usuario sin panel asignado.
+      // Nota: la cookie cyrgo_comprador_id/cyrgo_proveedor_id NO se escribe
+      // aquí (a diferencia de antes) — se movió al callback jwt, para no
+      // mezclar mutaciones de cookies con la construcción de la respuesta
+      // de redirección que hace Auth.js a partir de este mismo callback.
       const esProveedor = usuario.tipoUsuario === "proveedor";
-
-      const cookieStore = await cookies();
-      if (!esProveedor) {
-        cookieStore.set("cyrgo_comprador_id", usuario.id, {
-          path: "/",
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7,
-        });
-      } else {
-        const proveedor = await prisma.proveedor.findFirst({
-          where: { usuarioId: usuario.id },
-          select: { id: true },
-        });
-        if (proveedor) {
-          cookieStore.set("cyrgo_proveedor_id", proveedor.id, {
-            path: "/",
-            sameSite: "lax",
-            maxAge: 60 * 60 * 24 * 7,
-          });
-        }
-      }
-
-      return esProveedor ? "/proveedor" : "/comprador";
+      const resultado = esProveedor ? "/proveedor" : "/comprador";
+      console.log("signIn (microsoft) retorna:", resultado);
+      return resultado;
     },
     async jwt({ token, user, account, trigger, session }) {
       if (account?.provider === "microsoft-entra-id" && token.email) {
@@ -214,6 +220,24 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
           token.clienteId = (usuario as any).clienteId;
           token.proveedorId = (usuario as any).proveedor?.id ?? null;
           token.primerAcceso = false; // El SSO nunca exige cambio de contraseña
+
+          // Mismo mecanismo de cookies que usa el login por correo/contraseña
+          // (varias partes de la app leen la identidad del comprador/proveedor
+          // desde estas cookies, no solo desde la sesión de NextAuth).
+          const cookieStore = await cookies();
+          if (!esProveedor) {
+            cookieStore.set("cyrgo_comprador_id", usuario.id, {
+              path: "/",
+              sameSite: "lax",
+              maxAge: 60 * 60 * 24 * 7,
+            });
+          } else if ((usuario as any).proveedor?.id) {
+            cookieStore.set("cyrgo_proveedor_id", (usuario as any).proveedor.id, {
+              path: "/",
+              sameSite: "lax",
+              maxAge: 60 * 60 * 24 * 7,
+            });
+          }
 
           console.log("=== JWT MICROSOFT: token final ===", {
             id: token.id,
