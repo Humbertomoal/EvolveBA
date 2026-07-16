@@ -6,6 +6,42 @@ import { prisma } from "@/src/lib/prisma";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 
+const DOMINIO_CORPORATIVO = "@evolveba.com.mx";
+
+export type MetodoAcceso =
+  | { metodo: "microsoft" }
+  | { metodo: "password" }
+  | { metodo: "no_encontrado"; mensaje: string };
+
+export async function verificarMetodoAcceso(
+  emailInput: string
+): Promise<MetodoAcceso> {
+  const email = emailInput?.trim().toLowerCase();
+  if (!email) {
+    return { metodo: "no_encontrado", mensaje: "Ingresa un correo válido." };
+  }
+
+  const usuario = await prisma.usuario.findUnique({
+    where: { email },
+    select: { tipoUsuario: true, microsoftId: true },
+  });
+
+  if (!usuario) {
+    return {
+      metodo: "no_encontrado",
+      mensaje: "Correo no registrado. Contacta al administrador.",
+    };
+  }
+
+  const esDominioCorporativo = email.endsWith(DOMINIO_CORPORATIVO);
+  const usaMicrosoft =
+    usuario.tipoUsuario === "comprador" ||
+    !!usuario.microsoftId ||
+    esDominioCorporativo;
+
+  return usaMicrosoft ? { metodo: "microsoft" } : { metodo: "password" };
+}
+
 export async function loginAction(
   _prev: string | null,
   formData: FormData

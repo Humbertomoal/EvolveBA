@@ -1,16 +1,17 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import {
   IconAlertCircle,
+  IconArrowLeft,
   IconEye,
   IconEyeOff,
   IconLoader2,
   IconLock,
   IconMail,
 } from "@tabler/icons-react";
-import { loginAction } from "../actions";
+import { loginAction, verificarMetodoAcceso } from "../actions";
 
 const INPUT =
   "w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors duration-150 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -26,20 +27,52 @@ function MicrosoftLogo() {
   );
 }
 
+type Paso = "correo" | "password" | "redirigiendo";
+
 export default function LoginForm({
   errorMicrosoft = null,
 }: {
   errorMicrosoft?: string | null;
 }) {
   const [error, action, pending] = useActionState(loginAction, null);
+
+  const [paso, setPaso] = useState<Paso>("correo");
+  const [email, setEmail] = useState("");
+  const [errorCorreo, setErrorCorreo] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [conectandoMicrosoft, setConectandoMicrosoft] = useState(false);
+  const [verificando, startVerificacion] = useTransition();
 
-  const mensajeError = error ?? errorMicrosoft;
+  const mensajeError = error;
 
-  async function handleMicrosoftSignIn() {
-    setConectandoMicrosoft(true);
-    await signIn("microsoft-entra-id");
+  function handleContinuar(e: React.FormEvent) {
+    e.preventDefault();
+    setErrorCorreo(null);
+
+    const correo = email.trim().toLowerCase();
+    if (!correo) return;
+
+    startVerificacion(async () => {
+      const resultado = await verificarMetodoAcceso(correo);
+
+      if (resultado.metodo === "no_encontrado") {
+        setErrorCorreo(resultado.mensaje);
+        return;
+      }
+
+      if (resultado.metodo === "microsoft") {
+        setPaso("redirigiendo");
+        await signIn("microsoft-entra-id", undefined, { login_hint: correo });
+        return;
+      }
+
+      setPaso("password");
+    });
+  }
+
+  function handleUsarOtroCorreo() {
+    setPaso("correo");
+    setErrorCorreo(null);
+    setShowPassword(false);
   }
 
   return (
@@ -52,106 +85,138 @@ export default function LoginForm({
         <p className="mt-1 text-sm text-zinc-400">Inicia sesión para continuar</p>
       </div>
 
-      <button
-        type="button"
-        onClick={handleMicrosoftSignIn}
-        disabled={conectandoMicrosoft}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-medium text-zinc-700 transition-colors duration-150 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {conectandoMicrosoft ? (
-          <IconLoader2 className="h-4 w-4 animate-spin text-zinc-400" />
-        ) : (
-          <MicrosoftLogo />
-        )}
-        {conectandoMicrosoft ? "Conectando…" : "Iniciar sesión con Microsoft"}
-      </button>
-
-      <div className="my-5 flex items-center gap-3">
-        <span className="h-px flex-1 bg-zinc-200" />
-        <span className="text-xs text-zinc-400">o continúa con tu correo</span>
-        <span className="h-px flex-1 bg-zinc-200" />
-      </div>
-
-      <form action={action} className="space-y-4">
-        <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-zinc-700"
-          >
-            Correo electrónico
-          </label>
-          <div className="relative mt-1">
-            <IconMail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="correo@empresa.com"
-              className={INPUT}
-            />
-          </div>
+      {paso === "redirigiendo" && (
+        <div className="flex animate-fade-in-up flex-col items-center gap-3 py-6 text-center">
+          <IconLoader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm text-zinc-600">
+            Te redirigiremos a Microsoft para iniciar sesión…
+          </p>
         </div>
+      )}
 
-        <div>
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-zinc-700"
+      {paso === "correo" && (
+        <form onSubmit={handleContinuar} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-zinc-700"
+            >
+              Correo electrónico
+            </label>
+            <div className="relative mt-1">
+              <IconMail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autoFocus
+                autoComplete="email"
+                placeholder="correo@empresa.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={INPUT}
+              />
+            </div>
+          </div>
+
+          {(errorCorreo || errorMicrosoft) && (
+            <div className="flex animate-fade-in-up items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{errorCorreo ?? errorMicrosoft}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={verificando}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Contraseña
-          </label>
-          <div className="relative mt-1">
-            <IconLock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className={`${INPUT} pr-10`}
-            />
+            {verificando && <IconLoader2 className="h-4 w-4 animate-spin" />}
+            {verificando ? "Verificando…" : "Continuar"}
+          </button>
+        </form>
+      )}
+
+      {paso === "password" && (
+        <form action={action} className="animate-fade-in-up space-y-4">
+          <input type="hidden" name="email" value={email.trim().toLowerCase()} />
+
+          <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2">
+            <div className="flex items-center gap-2 truncate text-sm text-zinc-700">
+              <IconMail className="h-4 w-4 shrink-0 text-zinc-400" />
+              <span className="truncate">{email.trim()}</span>
+            </div>
             <button
               type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors duration-150 hover:text-zinc-600"
-              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              onClick={handleUsarOtroCorreo}
+              className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary transition-colors duration-150 hover:text-primary-dark"
             >
-              {showPassword ? (
-                <IconEyeOff className="h-4 w-4" />
-              ) : (
-                <IconEye className="h-4 w-4" />
-              )}
+              <IconArrowLeft className="h-3 w-3" />
+              Usar otro correo
             </button>
           </div>
-        </div>
 
-        {mensajeError && (
-          <div className="flex animate-fade-in-up items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{mensajeError}</span>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-zinc-700"
+            >
+              Contraseña
+            </label>
+            <div className="relative mt-1">
+              <IconLock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoFocus
+                autoComplete="current-password"
+                placeholder="••••••••"
+                className={`${INPUT} pr-10`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors duration-150 hover:text-zinc-600"
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showPassword ? (
+                  <IconEyeOff className="h-4 w-4" />
+                ) : (
+                  <IconEye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-primary-dark disabled:opacity-60"
-        >
-          {pending && <IconLoader2 className="h-4 w-4 animate-spin" />}
-          {pending ? "Iniciando sesión..." : "Entrar"}
-        </button>
+          {mensajeError && (
+            <div className="flex animate-fade-in-up items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{mensajeError}</span>
+            </div>
+          )}
 
-        <div className="text-center">
           <button
-            type="button"
-            className="text-xs text-zinc-400 transition-colors duration-150 hover:text-primary"
+            type="submit"
+            disabled={pending}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-primary-dark disabled:opacity-60"
           >
-            ¿Olvidaste tu contraseña?
+            {pending && <IconLoader2 className="h-4 w-4 animate-spin" />}
+            {pending ? "Iniciando sesión..." : "Iniciar sesión"}
           </button>
-        </div>
-      </form>
+
+          <div className="text-center">
+            <button
+              type="button"
+              className="text-xs text-zinc-400 transition-colors duration-150 hover:text-primary"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

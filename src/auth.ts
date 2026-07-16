@@ -67,16 +67,74 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
       issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
+      async profile(profile, tokens) {
+        // Microsoft Entra ID no siempre manda el claim "email" en el ID token
+        // (depende de la config del tenant). Cuando falta, cae a
+        // preferred_username o upn, que casi siempre están presentes.
+        console.log("=== MICROSOFT PROFILE RAW ===", {
+          email: profile.email,
+          preferred_username: (profile as any).preferred_username,
+          upn: (profile as any).upn,
+        });
+
+        const email = (
+          profile.email ??
+          (profile as any).preferred_username ??
+          (profile as any).upn ??
+          ""
+        )
+          .toLowerCase()
+          .trim();
+
+        let image: string | undefined;
+        try {
+          const response = await fetch(
+            "https://graph.microsoft.com/v1.0/me/photos/48x48/$value",
+            { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+          );
+          if (response.ok) {
+            const pictureBuffer = await response.arrayBuffer();
+            image = `data:image/jpeg;base64, ${Buffer.from(pictureBuffer).toString("base64")}`;
+          }
+        } catch {
+          // Foto de perfil es opcional, no debe bloquear el login
+        }
+
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email,
+          image: image ?? null,
+        };
+      },
     }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider !== "microsoft-entra-id") return true;
 
-      const email = (profile?.email ?? user.email ?? "").toLowerCase().trim();
+      const email = (
+        profile?.email ??
+        (profile as any)?.preferred_username ??
+        (profile as any)?.upn ??
+        user.email ??
+        ""
+      )
+        .toLowerCase()
+        .trim();
+
+      console.log("=== SIGNIN MICROSOFT ===", {
+        "profile.email": profile?.email,
+        "profile.preferred_username": (profile as any)?.preferred_username,
+        "profile.upn": (profile as any)?.upn,
+        "user.email": user.email,
+        emailResuelto: email,
+      });
+
       if (!email) return "/login?error=CuentaNoRegistrada";
 
       const usuario = await prisma.usuario.findUnique({ where: { email } });
+      console.log("Usuario encontrado en BD:", !!usuario, usuario?.email);
       if (!usuario) return "/login?error=CuentaNoRegistrada";
       if (!usuario.activo) return "/login?error=CuentaInactiva";
 
