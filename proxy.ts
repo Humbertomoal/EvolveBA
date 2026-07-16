@@ -13,6 +13,14 @@ export default auth((req) => {
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
 
+  console.log("=== PROXY ===", {
+    pathname,
+    isPublic,
+    hayAuth: !!req.auth,
+    tipoUsuario: (req.auth?.user as any)?.tipoUsuario,
+    primerAcceso: (req.auth?.user as any)?.primerAcceso,
+  });
+
   if (!isPublic) {
     if (!req.auth) {
       const loginUrl = new URL("/login", nextUrl);
