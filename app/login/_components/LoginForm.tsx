@@ -16,17 +16,6 @@ import { loginAction, verificarMetodoAcceso } from "../actions";
 const INPUT =
   "w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors duration-150 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/30";
 
-function MicrosoftLogo() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true">
-      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-    </svg>
-  );
-}
-
 type Paso = "correo" | "password" | "redirigiendo";
 
 export default function LoginForm({
@@ -44,7 +33,7 @@ export default function LoginForm({
 
   const mensajeError = error;
 
-  function handleContinuar(e: React.FormEvent) {
+  function handleContinuar(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrorCorreo(null);
 
@@ -52,20 +41,26 @@ export default function LoginForm({
     if (!correo) return;
 
     startVerificacion(async () => {
-      const resultado = await verificarMetodoAcceso(correo);
+      try {
+        const resultado = await verificarMetodoAcceso(correo);
+        console.log("Respuesta verificarMetodoAcceso:", resultado);
 
-      if (resultado.metodo === "no_encontrado") {
-        setErrorCorreo(resultado.mensaje);
-        return;
+        if (resultado.metodo === "no_encontrado") {
+          setErrorCorreo(resultado.mensaje);
+          return;
+        }
+
+        if (resultado.metodo === "microsoft") {
+          setPaso("redirigiendo");
+          await signIn("microsoft-entra-id", undefined, { login_hint: correo });
+          return;
+        }
+
+        setPaso("password");
+      } catch (error) {
+        console.error("Error al verificar método de acceso:", error);
+        setErrorCorreo("Ocurrió un error al verificar tu correo. Intenta de nuevo.");
       }
-
-      if (resultado.metodo === "microsoft") {
-        setPaso("redirigiendo");
-        await signIn("microsoft-entra-id", undefined, { login_hint: correo });
-        return;
-      }
-
-      setPaso("password");
     });
   }
 

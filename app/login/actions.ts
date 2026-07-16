@@ -17,20 +17,36 @@ export async function verificarMetodoAcceso(
   emailInput: string
 ): Promise<MetodoAcceso> {
   const email = emailInput?.trim().toLowerCase();
+  console.log("=== VERIFICAR METODO ACCESO ===");
+  console.log("Email recibido:", email);
+
   if (!email) {
     return { metodo: "no_encontrado", mensaje: "Ingresa un correo válido." };
   }
 
-  const usuario = await prisma.usuario.findUnique({
-    where: { email },
-    select: { tipoUsuario: true, microsoftId: true },
-  });
+  let usuario: { tipoUsuario: string; microsoftId: string | null } | null;
+  try {
+    usuario = await prisma.usuario.findUnique({
+      where: { email },
+      select: { tipoUsuario: true, microsoftId: true },
+    });
+  } catch (error) {
+    console.error("ERROR consultando usuario en verificarMetodoAcceso:", error);
+    return {
+      metodo: "no_encontrado",
+      mensaje: "Error al verificar el correo. Intenta de nuevo.",
+    };
+  }
+
+  console.log("Usuario encontrado:", !!usuario);
 
   if (!usuario) {
-    return {
+    const resultado: MetodoAcceso = {
       metodo: "no_encontrado",
       mensaje: "Correo no registrado. Contacta al administrador.",
     };
+    console.log("Método decidido:", resultado.metodo);
+    return resultado;
   }
 
   const esDominioCorporativo = email.endsWith(DOMINIO_CORPORATIVO);
@@ -39,7 +55,11 @@ export async function verificarMetodoAcceso(
     !!usuario.microsoftId ||
     esDominioCorporativo;
 
-  return usaMicrosoft ? { metodo: "microsoft" } : { metodo: "password" };
+  const resultado: MetodoAcceso = usaMicrosoft
+    ? { metodo: "microsoft" }
+    : { metodo: "password" };
+  console.log("Método decidido:", resultado.metodo);
+  return resultado;
 }
 
 export async function loginAction(
