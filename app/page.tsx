@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { IconGavel, IconShieldCheck, IconTrendingDown } from "@tabler/icons-react";
+import { IconChartLine, IconRocket, IconShieldCheck } from "@tabler/icons-react";
 import { auth } from "@/src/auth";
 import { getConfigEmpresa } from "@/src/config/empresa";
 
 const BENEFICIOS = [
-  { icon: IconGavel, texto: "Licitaciones en tiempo real" },
-  { icon: IconTrendingDown, texto: "Ahorro competitivo" },
-  { icon: IconShieldCheck, texto: "Trazabilidad total" },
+  { icon: IconRocket, texto: "Eficiencia en el proceso comercial" },
+  { icon: IconChartLine, texto: "Seguimiento de licitaciones en tiempo real" },
+  { icon: IconShieldCheck, texto: "Transparencia y trazabilidad total" },
 ];
 
 export default async function Home() {
@@ -81,12 +81,13 @@ export default async function Home() {
               {empresa.nombreComercial}
             </h1>
             <p className="text-lg font-medium text-zinc-700">
-              Plataforma inteligente de gestión de compras y licitaciones
+              Plataforma inteligente de gestión de licitaciones y proceso comercial
             </p>
             <p className="mx-auto max-w-xl text-sm text-zinc-500">
-              Conecta compradores y proveedores en un entorno competitivo,
-              transparente y automatizado. Obtén los mejores precios del
-              mercado con trazabilidad total.
+              Plataforma digital que conecta compradores y proveedores en un
+              proceso de licitaciones ágil, transparente y en tiempo real.
+              Moderniza tu operación comercial con trazabilidad completa de
+              principio a fin.
             </p>
           </div>
 
