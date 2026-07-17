@@ -112,6 +112,12 @@ export default async function CompradorLayout({
           label: "Roles",
           icon: <IconShield className={ICON_CLASSNAME} />,
         },
+        {
+          // TEMPORAL: validar envío de correos vía Microsoft Graph — quitar después.
+          href: `${basePath}/comprador/configuracion/prueba-correo`,
+          label: "Prueba de Correo",
+          icon: <IconSend className={ICON_CLASSNAME} />,
+        },
       ],
     },
   ];
