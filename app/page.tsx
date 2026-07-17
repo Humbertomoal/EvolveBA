@@ -1,31 +1,122 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { IconGavel, IconShieldCheck, IconTrendingDown } from "@tabler/icons-react";
+import { auth } from "@/src/auth";
+import { getConfigEmpresa } from "@/src/config/empresa";
 
-export default function Home() {
+const BENEFICIOS = [
+  { icon: IconGavel, texto: "Licitaciones en tiempo real" },
+  { icon: IconTrendingDown, texto: "Ahorro competitivo" },
+  { icon: IconShieldCheck, texto: "Trazabilidad total" },
+];
+
+export default async function Home() {
+  const session = await auth();
+  if (session) {
+    const tipo = (session.user as any)?.tipoUsuario ?? "comprador";
+    redirect(tipo === "proveedor" ? "/proveedor" : "/comprador");
+  }
+
+  const empresa = getConfigEmpresa();
+  const inicial = empresa.nombreEmpresa.charAt(0).toUpperCase();
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 bg-zinc-50 px-6 text-center dark:bg-black">
-      <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Evolve BA App Comercial
-      </h1>
-      <div className="flex flex-col gap-4 sm:flex-row">
+    <div
+      className="flex min-h-screen flex-col bg-[#FEFBFB]"
+      style={{ "--color-primario": empresa.colorPrimario } as React.CSSProperties}
+    >
+      {/* Navbar */}
+      <header className="flex items-center justify-between px-6 py-5 sm:px-10">
+        <div className="flex items-center gap-3">
+          {empresa.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={empresa.logoUrl}
+              alt={empresa.nombreEmpresa}
+              className="h-10 w-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+              {inicial}
+            </div>
+          )}
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-semibold text-zinc-800">
+              {empresa.nombreEmpresa}
+            </span>
+            <span className="text-xs text-zinc-400">{empresa.nombreComercial}</span>
+          </div>
+        </div>
+
         <Link
-          href="/comprador"
-          className="rounded-md bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          href="/login"
+          className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors duration-150 hover:bg-zinc-50"
         >
-          Entrar como Comprador
+          Iniciar sesión
         </Link>
-        <Link
-          href="/proveedor"
-          className="rounded-md border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
-        >
-          Entrar como Proveedor
-        </Link>
-      </div>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Demo white-label:{" "}
-        <Link href="/grupo-andino/comprador" className="underline">
-          /grupo-andino/comprador
-        </Link>
-      </p>
+      </header>
+
+      {/* Hero */}
+      <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
+        <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-primary/10" />
+        <div className="pointer-events-none absolute -right-16 -bottom-32 h-96 w-96 rounded-full bg-primary/5" />
+        <div className="pointer-events-none absolute top-1/3 right-1/4 h-40 w-40 rounded-full bg-primary/5" />
+
+        <div className="relative z-10 flex max-w-2xl flex-col items-center gap-6">
+          {empresa.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={empresa.logoUrl}
+              alt={empresa.nombreEmpresa}
+              className="h-20 w-20 rounded-2xl object-cover shadow-card"
+            />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary text-3xl font-semibold text-white shadow-card">
+              {inicial}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <h1 className="text-4xl font-bold text-primary sm:text-5xl">
+              {empresa.nombreComercial}
+            </h1>
+            <p className="text-lg font-medium text-zinc-700">
+              Plataforma inteligente de gestión de compras y licitaciones
+            </p>
+            <p className="mx-auto max-w-xl text-sm text-zinc-500">
+              Conecta compradores y proveedores en un entorno competitivo,
+              transparente y automatizado. Obtén los mejores precios del
+              mercado con trazabilidad total.
+            </p>
+          </div>
+
+          <Link
+            href="/login"
+            className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white shadow-card transition-colors duration-150 hover:bg-primary-dark"
+          >
+            Iniciar sesión
+          </Link>
+
+          {/* Píldoras de beneficios */}
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {BENEFICIOS.map(({ icon: Icon, texto }) => (
+              <div
+                key={texto}
+                className="flex items-center gap-3 rounded-card border border-border bg-white px-5 py-4 shadow-card"
+              >
+                <Icon className="h-5 w-5 shrink-0 text-primary" />
+                <span className="text-sm font-medium text-zinc-700">{texto}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="px-6 py-6 text-center text-xs text-zinc-400">
+        {empresa.nombreEmpresa} © 2026 · Desarrollado para optimizar tu proceso
+        de compras
+      </footer>
     </div>
   );
 }
