@@ -5,24 +5,13 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
 
-const enProduccion = process.env.NODE_ENV === "production";
-
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
+  // trustHost hace que Auth.js derive el protocolo/host de los headers que
+  // reenvía Vercel (X-Forwarded-Proto, etc.), incluyendo si usar cookies
+  // seguras (__Secure-) — no hace falta configurar `cookies`/`useSecureCookies`
+  // a mano: los defaults de Auth.js ya cubren sessionToken, pkceCodeVerifier,
+  // state, nonce y callbackUrl de forma consistente entre sí.
   trustHost: true,
-  useSecureCookies: enProduccion,
-  cookies: {
-    sessionToken: {
-      name: enProduccion
-        ? "__Secure-authjs.session-token"
-        : "authjs.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: enProduccion,
-      },
-    },
-  },
   providers: [
     Credentials({
       credentials: {
