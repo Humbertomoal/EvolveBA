@@ -84,6 +84,7 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
       issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
       async profile(profile, tokens) {
+        console.log("###AUTH_DEBUG### profile() INICIADO");
         // Microsoft Entra ID no siempre manda el claim "email" en el ID token
         // (depende de la config del tenant). Cuando falta, cae a
         // preferred_username o upn, que casi siempre están presentes.
@@ -127,6 +128,9 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
+      console.log("###AUTH_DEBUG### signIn() INICIADO", {
+        provider: account?.provider,
+      });
       if (account?.provider !== "microsoft-entra-id") return true;
 
       const email = (
@@ -188,6 +192,11 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       return resultado;
     },
     async jwt({ token, user, account, trigger, session }) {
+      console.log("###AUTH_DEBUG### jwt() INICIADO", {
+        provider: account?.provider,
+        trigger,
+        tokenEmail: token.email,
+      });
       if (account?.provider === "microsoft-entra-id" && token.email) {
         // Los logins de Microsoft no pasan por authorize(), así que el token
         // se completa aquí con los mismos datos que produce Credentials.
@@ -259,6 +268,15 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         Object.assign(token, session.user);
       }
       return token;
+    },
+    async redirect({ url, baseUrl }) {
+      // Replica exacta del default de Auth.js (@auth/core/lib/init.js) —
+      // solo se agrega el log, el comportamiento es idéntico al que ya
+      // corría implícitamente cuando no había callback redirect propio.
+      console.log("###AUTH_DEBUG### redirect() INICIADO", { url, baseUrl });
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
     },
     async session({ session, token }) {
       session.user.id = token.id as string;
