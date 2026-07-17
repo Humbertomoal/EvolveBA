@@ -39,7 +39,9 @@ export default function LoginForm({
 
   async function handleMicrosoftSignIn() {
     setConectandoMicrosoft(true);
-    await signIn("microsoft-entra-id");
+    // callbackUrl explícito a /login: esa página ya redirige a
+    // /comprador o /proveedor según tipoUsuario una vez hay sesión válida.
+    await signIn("microsoft-entra-id", { callbackUrl: "/login" });
   }
 
   return (

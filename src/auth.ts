@@ -179,17 +179,18 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         },
       });
 
-      // tipoUsuario solo debe ser "comprador" o "proveedor". Cualquier otro
-      // valor (p.ej. un nombre de rol guardado ahí por error) se trata como
-      // comprador para no dejar al usuario sin panel asignado.
-      // Nota: la cookie cyrgo_comprador_id/cyrgo_proveedor_id NO se escribe
-      // aquí (a diferencia de antes) — se movió al callback jwt, para no
-      // mezclar mutaciones de cookies con la construcción de la respuesta
-      // de redirección que hace Auth.js a partir de este mismo callback.
-      const esProveedor = usuario.tipoUsuario === "proveedor";
-      const resultado = esProveedor ? "/proveedor" : "/comprador";
-      console.log("signIn (microsoft) retorna:", resultado);
-      return resultado;
+      // IMPORTANTE: en Auth.js, retornar un STRING desde signIn no significa
+      // "permite el login y ve a esta ruta" — significa "deniega el login
+      // normal, redirige a esta URL en su lugar" (handleAuthorized corta el
+      // flujo ANTES de llamar a jwt() y de crear la cookie de sesión). Por
+      // eso el login parecía completarse pero nunca había sesión: estábamos
+      // retornando "/comprador" como si fuera un destino, cuando en realidad
+      // eso le decía a Auth.js que NO iniciara sesión.
+      // El caso de éxito debe retornar `true`. El destino final (/comprador
+      // vs /proveedor según tipoUsuario) ya lo resuelve app/login/page.tsx
+      // al aterrizar de vuelta ahí con la sesión ya válida.
+      console.log("###AUTH_DEBUG### signIn() RETORNA true (login permitido)");
+      return true;
     },
     async jwt({ token, user, account, trigger, session }) {
       console.log("###AUTH_DEBUG### jwt() INICIADO", {
@@ -200,63 +201,61 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       if (account?.provider === "microsoft-entra-id" && token.email) {
         // Los logins de Microsoft no pasan por authorize(), así que el token
         // se completa aquí con los mismos datos que produce Credentials.
-        const usuario = await prisma.usuario.findUnique({
-          where: { email: (token.email as string).toLowerCase() },
-          include: {
-            rol: { select: { nombre: true, esAdmin: true, esSupervisor: true } },
-            proveedor: { select: { id: true } },
-          },
-        });
-
-        console.log("=== JWT MICROSOFT ===", {
-          email: token.email,
-          usuarioEncontrado: !!usuario,
-          tipoUsuarioEnBD: (usuario as any)?.tipoUsuario,
-        });
-
-        if (usuario) {
-          // tipoUsuario solo debe ser "comprador" o "proveedor" (define el panel).
-          // Cualquier otro valor guardado por error (p.ej. el nombre de un rol
-          // como "Administrador") se trata como comprador para no romper el login.
-          const esProveedor = (usuario as any).tipoUsuario === "proveedor";
-
-          token.id = usuario.id;
-          token.tipoUsuario = esProveedor ? "proveedor" : "comprador";
-          token.rolId = (usuario as any).rolId;
-          token.rolNombre = (usuario as any).rol?.nombre ?? null;
-          token.esAdmin = (usuario as any).rol?.esAdmin ?? false;
-          token.esSupervisor = (usuario as any).rol?.esSupervisor ?? false;
-          token.clienteId = (usuario as any).clienteId;
-          token.proveedorId = (usuario as any).proveedor?.id ?? null;
-          token.primerAcceso = false; // El SSO nunca exige cambio de contraseña
-
-          // Mismo mecanismo de cookies que usa el login por correo/contraseña
-          // (varias partes de la app leen la identidad del comprador/proveedor
-          // desde estas cookies, no solo desde la sesión de NextAuth).
-          const cookieStore = await cookies();
-          if (!esProveedor) {
-            cookieStore.set("cyrgo_comprador_id", usuario.id, {
-              path: "/",
-              sameSite: "lax",
-              maxAge: 60 * 60 * 24 * 7,
-            });
-          } else if ((usuario as any).proveedor?.id) {
-            cookieStore.set("cyrgo_proveedor_id", (usuario as any).proveedor.id, {
-              path: "/",
-              sameSite: "lax",
-              maxAge: 60 * 60 * 24 * 7,
-            });
-          }
-
-          console.log("=== JWT MICROSOFT: token final ===", {
-            id: token.id,
-            tipoUsuario: token.tipoUsuario,
-            rolNombre: token.rolNombre,
-            esAdmin: token.esAdmin,
-            esSupervisor: token.esSupervisor,
-            clienteId: token.clienteId,
-            proveedorId: token.proveedorId,
+        // Envuelto en try/catch: si la consulta a la BD falla, el token
+        // MÍNIMO (name/email/sub, ya poblado por Auth.js antes de llamar a
+        // este callback) debe seguir devolviéndose — nunca lanzar y dejar
+        // sin token/cookie de sesión por un problema de carga de datos extra.
+        try {
+          const usuario = await prisma.usuario.findUnique({
+            where: { email: (token.email as string).toLowerCase() },
+            include: {
+              rol: { select: { nombre: true, esAdmin: true, esSupervisor: true } },
+              proveedor: { select: { id: true } },
+            },
           });
+
+          console.log("=== JWT MICROSOFT ===", {
+            email: token.email,
+            usuarioEncontrado: !!usuario,
+            tipoUsuarioEnBD: (usuario as any)?.tipoUsuario,
+          });
+
+          if (usuario) {
+            // tipoUsuario solo debe ser "comprador" o "proveedor" (define el panel).
+            // Cualquier otro valor guardado por error (p.ej. el nombre de un rol
+            // como "Administrador") se trata como comprador para no romper el login.
+            const esProveedor = (usuario as any).tipoUsuario === "proveedor";
+
+            token.id = usuario.id;
+            token.tipoUsuario = esProveedor ? "proveedor" : "comprador";
+            token.rolId = (usuario as any).rolId;
+            token.rolNombre = (usuario as any).rol?.nombre ?? null;
+            token.esAdmin = (usuario as any).rol?.esAdmin ?? false;
+            token.esSupervisor = (usuario as any).rol?.esSupervisor ?? false;
+            token.clienteId = (usuario as any).clienteId;
+            token.proveedorId = (usuario as any).proveedor?.id ?? null;
+            token.primerAcceso = false; // El SSO nunca exige cambio de contraseña
+
+            // Mismo mecanismo de cookies que usa el login por correo/contraseña
+            // (varias partes de la app leen la identidad del comprador/proveedor
+            // desde estas cookies, no solo desde la sesión de NextAuth).
+            const cookieStore = await cookies();
+            if (!esProveedor) {
+              cookieStore.set("cyrgo_comprador_id", usuario.id, {
+                path: "/",
+                sameSite: "lax",
+                maxAge: 60 * 60 * 24 * 7,
+              });
+            } else if ((usuario as any).proveedor?.id) {
+              cookieStore.set("cyrgo_proveedor_id", (usuario as any).proveedor.id, {
+                path: "/",
+                sameSite: "lax",
+                maxAge: 60 * 60 * 24 * 7,
+              });
+            }
+          }
+        } catch (error) {
+          console.error("###AUTH_DEBUG### jwt ERROR", error);
         }
       } else if (user) {
         token.id = user.id;
@@ -267,6 +266,10 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       if (trigger === "update" && session?.user) {
         Object.assign(token, session.user);
       }
+      console.log("###AUTH_DEBUG### jwt() RETORNA", {
+        tokenTieneId: !!token.id,
+        tipoUsuario: token.tipoUsuario,
+      });
       return token;
     },
     async redirect({ url, baseUrl }) {
