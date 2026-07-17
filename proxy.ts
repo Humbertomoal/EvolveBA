@@ -9,9 +9,14 @@ export default auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
 
-  const isPublic = PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
+  // La raíz debe ser pública SOLO en coincidencia exacta ("/"), nunca como
+  // prefijo — de lo contrario "/comprador", "/proveedor", etc. (que también
+  // empiezan con "/") quedarían públicos. Por eso va aparte del array
+  // PUBLIC_PATHS (cuyas entradas sí matchean como prefijo, vía startsWith).
+  const esRaiz = pathname === "/";
+  const isPublic =
+    esRaiz ||
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   // DEBUG SSO - descomentar si falla el login de Microsoft
   // console.log("=== PROXY ===", {
