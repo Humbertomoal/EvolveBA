@@ -84,17 +84,15 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
       issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
       async profile(profile, tokens) {
-        // DEBUG SSO - descomentar si falla el login de Microsoft
-        // console.log("###AUTH_DEBUG### profile() INICIADO");
+        console.log("###AUTH_DEBUG### profile() INICIADO");
         // Microsoft Entra ID no siempre manda el claim "email" en el ID token
         // (depende de la config del tenant). Cuando falta, cae a
         // preferred_username o upn, que casi siempre están presentes.
-        // DEBUG SSO - descomentar si falla el login de Microsoft
-        // console.log("=== MICROSOFT PROFILE RAW ===", {
-        //   email: profile.email,
-        //   preferred_username: (profile as any).preferred_username,
-        //   upn: (profile as any).upn,
-        // });
+        console.log("=== MICROSOFT PROFILE RAW ===", {
+          email: profile.email,
+          preferred_username: (profile as any).preferred_username,
+          upn: (profile as any).upn,
+        });
 
         const email = (
           profile.email ??
@@ -130,10 +128,9 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      // DEBUG SSO - descomentar si falla el login de Microsoft
-      // console.log("###AUTH_DEBUG### signIn() INICIADO", {
-      //   provider: account?.provider,
-      // });
+      console.log("###AUTH_DEBUG### signIn() INICIADO", {
+        provider: account?.provider,
+      });
       if (account?.provider !== "microsoft-entra-id") return true;
 
       const email = (
@@ -146,32 +143,27 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         .toLowerCase()
         .trim();
 
-      // DEBUG SSO - descomentar si falla el login de Microsoft
-      // console.log("=== SIGNIN MICROSOFT ===", {
-      //   "profile.email": profile?.email,
-      //   "profile.preferred_username": (profile as any)?.preferred_username,
-      //   "profile.upn": (profile as any)?.upn,
-      //   "user.email": user.email,
-      //   emailResuelto: email,
-      // });
+      console.log("=== SIGNIN MICROSOFT ===", {
+        "profile.email": profile?.email,
+        "profile.preferred_username": (profile as any)?.preferred_username,
+        "profile.upn": (profile as any)?.upn,
+        "user.email": user.email,
+        emailResuelto: email,
+      });
 
       if (!email) {
-        // DEBUG SSO - descomentar si falla el login de Microsoft
-        // console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
+        console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
         return "/login?error=CuentaNoRegistrada";
       }
 
       const usuario = await prisma.usuario.findUnique({ where: { email } });
-      // DEBUG SSO - descomentar si falla el login de Microsoft
-      // console.log("Usuario encontrado en BD:", !!usuario, usuario?.email);
+      console.log("Usuario encontrado en BD:", !!usuario, usuario?.email);
       if (!usuario) {
-        // DEBUG SSO - descomentar si falla el login de Microsoft
-        // console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
+        console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
         return "/login?error=CuentaNoRegistrada";
       }
       if (!usuario.activo) {
-        // DEBUG SSO - descomentar si falla el login de Microsoft
-        // console.log("signIn (microsoft) retorna:", "/login?error=CuentaInactiva");
+        console.log("signIn (microsoft) retorna:", "/login?error=CuentaInactiva");
         return "/login?error=CuentaInactiva";
       }
 
@@ -197,17 +189,15 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       // El caso de éxito debe retornar `true`. El destino final (/comprador
       // vs /proveedor según tipoUsuario) ya lo resuelve app/login/page.tsx
       // al aterrizar de vuelta ahí con la sesión ya válida.
-      // DEBUG SSO - descomentar si falla el login de Microsoft
-      // console.log("###AUTH_DEBUG### signIn() RETORNA true (login permitido)");
+      console.log("###AUTH_DEBUG### signIn() RETORNA true (login permitido)");
       return true;
     },
     async jwt({ token, user, account, trigger, session }) {
-      // DEBUG SSO - descomentar si falla el login de Microsoft
-      // console.log("###AUTH_DEBUG### jwt() INICIADO", {
-      //   provider: account?.provider,
-      //   trigger,
-      //   tokenEmail: token.email,
-      // });
+      console.log("###AUTH_DEBUG### jwt() INICIADO", {
+        provider: account?.provider,
+        trigger,
+        tokenEmail: token.email,
+      });
       if (account?.provider === "microsoft-entra-id" && token.email) {
         // Los logins de Microsoft no pasan por authorize(), así que el token
         // se completa aquí con los mismos datos que produce Credentials.
@@ -224,12 +214,11 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
             },
           });
 
-          // DEBUG SSO - descomentar si falla el login de Microsoft
-          // console.log("=== JWT MICROSOFT ===", {
-          //   email: token.email,
-          //   usuarioEncontrado: !!usuario,
-          //   tipoUsuarioEnBD: (usuario as any)?.tipoUsuario,
-          // });
+          console.log("=== JWT MICROSOFT ===", {
+            email: token.email,
+            usuarioEncontrado: !!usuario,
+            tipoUsuarioEnBD: (usuario as any)?.tipoUsuario,
+          });
 
           if (usuario) {
             // tipoUsuario solo debe ser "comprador" o "proveedor" (define el panel).
@@ -266,8 +255,7 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
             }
           }
         } catch (error) {
-          // DEBUG SSO - descomentar si falla el login de Microsoft
-          // console.error("###AUTH_DEBUG### jwt ERROR", error);
+          console.error("###AUTH_DEBUG### jwt ERROR", error);
         }
       } else if (user) {
         token.id = user.id;
@@ -278,19 +266,17 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       if (trigger === "update" && session?.user) {
         Object.assign(token, session.user);
       }
-      // DEBUG SSO - descomentar si falla el login de Microsoft
-      // console.log("###AUTH_DEBUG### jwt() RETORNA", {
-      //   tokenTieneId: !!token.id,
-      //   tipoUsuario: token.tipoUsuario,
-      // });
+      console.log("###AUTH_DEBUG### jwt() RETORNA", {
+        tokenTieneId: !!token.id,
+        tipoUsuario: token.tipoUsuario,
+      });
       return token;
     },
     async redirect({ url, baseUrl }) {
       // Replica exacta del default de Auth.js (@auth/core/lib/init.js) —
       // solo se agrega el log, el comportamiento es idéntico al que ya
       // corría implícitamente cuando no había callback redirect propio.
-      // DEBUG SSO - descomentar si falla el login de Microsoft
-      // console.log("###AUTH_DEBUG### redirect() INICIADO", { url, baseUrl });
+      console.log("###AUTH_DEBUG### redirect() INICIADO", { url, baseUrl });
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       else if (new URL(url).origin === baseUrl) return url;
       return baseUrl;

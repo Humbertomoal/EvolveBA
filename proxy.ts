@@ -18,14 +18,13 @@ export default auth((req) => {
     esRaiz ||
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-  // DEBUG SSO - descomentar si falla el login de Microsoft
-  // console.log("=== PROXY ===", {
-  //   pathname,
-  //   isPublic,
-  //   hayAuth: !!req.auth,
-  //   tipoUsuario: (req.auth?.user as any)?.tipoUsuario,
-  //   primerAcceso: (req.auth?.user as any)?.primerAcceso,
-  // });
+  console.log("=== PROXY ===", {
+    pathname,
+    isPublic,
+    hayAuth: !!req.auth,
+    tipoUsuario: (req.auth?.user as any)?.tipoUsuario,
+    primerAcceso: (req.auth?.user as any)?.primerAcceso,
+  });
 
   if (!isPublic) {
     if (!req.auth) {
