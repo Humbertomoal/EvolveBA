@@ -17,6 +17,7 @@ import type {
   LicitacionInfo,
   OfertaParaDropdown,
 } from "./types";
+import HistoricoPujas from "./HistoricoPujas";
 
 function formatFecha(iso: string | null): string {
   if (!iso) return "—";
@@ -187,10 +188,12 @@ export default function AsignacionForm({
   licitacion,
   items,
   basePath,
+  proveedoresParticipantes,
 }: {
   licitacion: LicitacionInfo;
   items: ItemParaAsignacion[];
   basePath: string;
+  proveedoresParticipantes: { id: string; nombre: string }[];
 }) {
   const router = useRouter();
   usePageTitle(`Licitación ${licitacion.numero}`);
@@ -862,6 +865,12 @@ export default function AsignacionForm({
         </table>
         </div>
       </div>
+
+      <HistoricoPujas
+        licitacionId={licitacion.id}
+        licitacionNumero={licitacion.numero}
+        proveedoresParticipantes={proveedoresParticipantes}
+      />
 
       {/* Botones */}
       <div className="flex flex-wrap items-center gap-3">

@@ -26,3 +26,23 @@ export function fechaParaInput(fecha: Date | string | null): string {
   const local = new Date(d.getTime() - 6 * 60 * 60 * 1000);
   return local.toISOString().slice(0, 16);
 }
+
+/**
+ * Formatea un instante (Date/ISO string) para mostrarlo en hora de
+ * Ciudad de México, sin depender de la zona horaria del runtime (el
+ * server en Vercel corre en UTC).
+ */
+export function formatFechaMexico(
+  fecha: Date | string | null,
+  opciones: Intl.DateTimeFormatOptions = {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }
+): string {
+  if (!fecha) return "—";
+  return new Date(fecha).toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+    ...opciones,
+  });
+}

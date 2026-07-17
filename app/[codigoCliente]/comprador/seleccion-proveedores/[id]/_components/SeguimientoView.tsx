@@ -21,6 +21,7 @@ import type {
   AsignacionDetalle,
   LicitacionInfo,
 } from "./types";
+import HistoricoPujas from "./HistoricoPujas";
 
 function formatFecha(iso: string | null): string {
   if (!iso) return "—";
@@ -174,10 +175,12 @@ export default function SeguimientoView({
   licitacion,
   asignaciones,
   basePath,
+  proveedoresParticipantes,
 }: {
   licitacion: LicitacionInfo;
   asignaciones: AsignacionDetalle[];
   basePath: string;
+  proveedoresParticipantes: { id: string; nombre: string }[];
 }) {
   const router = useRouter();
   usePageTitle(`Licitación ${licitacion.numero} — Seguimiento`);
@@ -441,6 +444,12 @@ export default function SeguimientoView({
         </table>
         </div>
       </div>
+
+      <HistoricoPujas
+        licitacionId={licitacion.id}
+        licitacionNumero={licitacion.numero}
+        proveedoresParticipantes={proveedoresParticipantes}
+      />
 
       {/* Modal: Reasignar */}
       {modalReasignar && (

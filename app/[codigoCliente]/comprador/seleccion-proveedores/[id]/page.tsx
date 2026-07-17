@@ -115,6 +115,13 @@ export default async function DetalleSeleccionPage({
     };
   });
 
+  // Proveedores distintos que participaron (para el selector del histórico de pujas)
+  const proveedoresParticipantes = [
+    ...new Map(
+      todasLasOfertas.map((o: any) => [o.proveedorId, o.proveedor.razonSocial])
+    ).entries(),
+  ].map(([proveedorId, nombre]) => ({ id: proveedorId, nombre: nombre as string }));
+
   const licitacionInfo = {
     id: licitacion.id,
     numero: licitacion.numero,
@@ -203,6 +210,7 @@ export default async function DetalleSeleccionPage({
         licitacion={licitacionInfo}
         asignaciones={asignaciones}
         basePath={basePath}
+        proveedoresParticipantes={proveedoresParticipantes}
       />
     );
   }
@@ -213,6 +221,7 @@ export default async function DetalleSeleccionPage({
       licitacion={licitacionInfo}
       items={items}
       basePath={basePath}
+      proveedoresParticipantes={proveedoresParticipantes}
     />
   );
 }
