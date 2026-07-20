@@ -4,7 +4,11 @@ import {
   getFamiliasAsignadasProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getProductos } from "@/src/lib/productos";
-import { getAccesoProveedor, getProveedorById } from "@/src/lib/proveedores";
+import {
+  getAccesoProveedor,
+  getProveedorById,
+  getCatalogoValidadoProveedor,
+} from "@/src/lib/proveedores";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import ProveedorForm from "../../_components/ProveedorForm";
@@ -18,8 +22,16 @@ export default async function EditarProveedorPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [proveedor, productos, materialesIniciales, familiasCatalogo, familiasIniciales, usuarioActual, acceso] =
-    await Promise.all([
+  const [
+    proveedor,
+    productos,
+    materialesIniciales,
+    familiasCatalogo,
+    familiasIniciales,
+    usuarioActual,
+    acceso,
+    catalogoValidado,
+  ] = await Promise.all([
       getProveedorById(id),
       getProductos(),
       getMaterialesProveedor(id),
@@ -27,6 +39,7 @@ export default async function EditarProveedorPage({
       getFamiliasAsignadasProveedor(id),
       getUsuarioActual(),
       getAccesoProveedor(id),
+      getCatalogoValidadoProveedor(id),
     ]);
 
   if (!proveedor) {
@@ -53,6 +66,7 @@ export default async function EditarProveedorPage({
       familiasIniciales={familiasIniciales}
       esAdmin={usuarioActual?.esAdmin ?? false}
       acceso={acceso}
+      catalogoValidado={catalogoValidado}
     />
   );
 }

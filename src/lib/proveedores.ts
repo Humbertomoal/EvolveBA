@@ -158,6 +158,70 @@ export async function getAccesoProveedor(
   };
 }
 
+// ── Validación de catálogo ───────────────────────────────────────────────────
+
+export type CatalogoValidado = {
+  validado: boolean;
+  validadoEn: string | null;
+  validadoPor: string | null;
+};
+
+const CATALOGO_VALIDADO_VACIO: CatalogoValidado = {
+  validado: false,
+  validadoEn: null,
+  validadoPor: null,
+};
+
+export async function getCatalogoValidadoProveedor(
+  proveedorId: string
+): Promise<CatalogoValidado> {
+  try {
+    const row = await db.proveedor.findUnique({
+      where: { id: proveedorId },
+      select: {
+        catalogoValidado: true,
+        catalogoValidadoEn: true,
+        catalogoValidadoPor: true,
+      },
+    });
+    if (!row) return CATALOGO_VALIDADO_VACIO;
+    return {
+      validado: row.catalogoValidado ?? false,
+      validadoEn: row.catalogoValidadoEn?.toISOString() ?? null,
+      validadoPor: row.catalogoValidadoPor ?? null,
+    };
+  } catch {
+    return CATALOGO_VALIDADO_VACIO;
+  }
+}
+
+/** Mapa proveedorId → estado de validación de catálogo, para listas (evita N+1 consultas). */
+export async function getMapaCatalogoValidadoProveedores(): Promise<
+  Record<string, CatalogoValidado>
+> {
+  try {
+    const rows = await db.proveedor.findMany({
+      where: { eliminado: false },
+      select: {
+        id: true,
+        catalogoValidado: true,
+        catalogoValidadoEn: true,
+        catalogoValidadoPor: true,
+      },
+    });
+    return rows.reduce((acc: Record<string, CatalogoValidado>, r: any) => {
+      acc[r.id] = {
+        validado: r.catalogoValidado ?? false,
+        validadoEn: r.catalogoValidadoEn?.toISOString() ?? null,
+        validadoPor: r.catalogoValidadoPor ?? null,
+      };
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
 export async function crearProveedor(datos: ProveedorInput): Promise<Proveedor> {
   const row = await prisma.proveedor.create({
     data: {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   IconAlertCircle,
+  IconInfoCircle,
   IconLoader2,
   IconMail,
   IconPaperclip,
@@ -27,6 +28,8 @@ export default function ModalCorreo({
   adjuntos,
   onEnviado,
   aviso,
+  variablesPorDestinatario,
+  notaPersonalizacion,
 }: {
   abierto: boolean;
   onCerrar: () => void;
@@ -38,6 +41,17 @@ export default function ModalCorreo({
   onEnviado?: () => void;
   /** Aviso adicional resaltado arriba del contenido (p.ej. advertencias sobre datos que no se pudieron recuperar). */
   aviso?: string;
+  /**
+   * Overrides por destinatario (email → { variable: valor }) para variables
+   * que se personalizan por proveedor (p.ej. tablaMateriales). La vista
+   * previa/edición muestra el texto renderizado con `variables` (el
+   * destinatario de referencia); al enviar, cada destinatario recibe su
+   * propio valor sustituido dentro del texto ya editado — ver
+   * `enviarCorreoAction`.
+   */
+  variablesPorDestinatario?: Record<string, Record<string, string>>;
+  /** Nota informativa mostrada arriba del cuerpo cuando hay personalización por destinatario. */
+  notaPersonalizacion?: string;
 }) {
   const [cargando, setCargando] = useState(true);
   const [asuntoOriginal, setAsuntoOriginal] = useState("");
@@ -92,7 +106,16 @@ export default function ModalCorreo({
 
     const resultados = await Promise.all(
       destinatarios.map((para) =>
-        enviarCorreoAction({ tipo, para, asunto, cuerpo, codigoCliente, adjuntos })
+        enviarCorreoAction({
+          tipo,
+          para,
+          asunto,
+          cuerpo,
+          codigoCliente,
+          adjuntos,
+          variablesBase: variablesPorDestinatario ? variables : undefined,
+          variablesPorDestinatario,
+        })
       )
     );
 
@@ -156,6 +179,13 @@ export default function ModalCorreo({
                 <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
                   <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{aviso}</span>
+                </div>
+              )}
+
+              {notaPersonalizacion && (
+                <div className="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                  <IconInfoCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{notaPersonalizacion}</span>
                 </div>
               )}
 

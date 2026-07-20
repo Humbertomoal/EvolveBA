@@ -23,6 +23,12 @@ model Proveedor {
   // de ProveedorMaterial, para que la asignación persista aunque el
   // proveedor todavía no haya seleccionado ningún material específico.
   familiasAsignadas     String?
+  // Confirmación del catálogo asignado — true cuando el proveedor revisó y
+  // guardó su selección de materiales, o cuando el comprador lo marcó
+  // manualmente. Controla si aplica el recordatorio de catálogo.
+  catalogoValidado      Boolean  @default(false)
+  catalogoValidadoEn    DateTime?
+  catalogoValidadoPor   String?
   estado                String   @default("Activo")
   eliminado             Boolean  @default(false)
   eliminadoEn           DateTime?

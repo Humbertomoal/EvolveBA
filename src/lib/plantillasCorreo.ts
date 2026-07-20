@@ -32,7 +32,7 @@ export const VARIABLES_COMUNES = [
  * - Proveedor:   nombreProveedor, nombreContacto, usuarioAcceso, passwordTemporal
  * - Licitación:  numeroLicitacion, nombreComprador, correoComprador,
  *                telefonoComprador, fechaInicio, fechaFin, fechaAnterior,
- *                tablaMateriales, instruccionesLicitacion
+ *                cantidadMateriales, tablaMateriales, instruccionesLicitacion
  * - Resultado:   tablaGanadores, ahorroTotal, presupuestoObjetivo,
  *                totalPrimeraRonda, mejorCostoTotal, adherenciaPrecio
  */
@@ -43,6 +43,7 @@ export const VARIABLES_POR_TIPO: Record<TipoCorreo, readonly string[]> = {
     "numeroLicitacion",
     "fechaInicio",
     "fechaFin",
+    "cantidadMateriales",
     "tablaMateriales",
     "instruccionesLicitacion",
     "nombreComprador",

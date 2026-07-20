@@ -16,10 +16,11 @@ import {
   actualizarProveedorAction,
   crearProveedorAction,
 } from "@/src/lib/proveedoresActions";
-import type { AccesoProveedor } from "@/src/lib/proveedores";
+import type { AccesoProveedor, CatalogoValidado } from "@/src/lib/proveedores";
 import { isNextRedirectError } from "@/src/lib/isNextRedirectError";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import AccesoPortalSection from "./AccesoPortalSection";
+import CatalogoValidadoSection from "./CatalogoValidadoSection";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ export default function ProveedorForm({
   familiasIniciales = [],
   esAdmin = false,
   acceso = null,
+  catalogoValidado = { validado: false, validadoEn: null, validadoPor: null },
 }: {
   basePath: string;
   codigoCliente: string;
@@ -97,6 +99,7 @@ export default function ProveedorForm({
   familiasIniciales?: string[];
   esAdmin?: boolean;
   acceso?: AccesoProveedor | null;
+  catalogoValidado?: CatalogoValidado;
 }) {
   usePageTitle(proveedorExistente ? "Editar proveedor" : "Agregar proveedor");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -692,6 +695,21 @@ export default function ProveedorForm({
                 );
               })}
             </div>
+          )}
+
+          {proveedorExistente && (
+            <CatalogoValidadoSection
+              proveedorId={proveedorExistente.id}
+              catalogoValidado={catalogoValidado}
+              acceso={acceso}
+              basePath={basePath}
+              codigoCliente={codigoCliente}
+              nombreProveedor={proveedorExistente.razonSocial}
+              nombreContacto={
+                proveedorExistente.vendedorNombre || proveedorExistente.contactoAdminNombre
+              }
+              correoContacto={proveedorExistente.contactoAdminCorreo}
+            />
           )}
         </fieldset>
 

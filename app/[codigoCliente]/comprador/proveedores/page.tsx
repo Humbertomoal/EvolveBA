@@ -1,9 +1,9 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
-import { getProveedores, getMapaAccesoProveedores } from "@/src/lib/proveedores";
 import {
-  getMapaProveedorMateriales,
-  getMapaFamiliasAsignadasProveedores,
-} from "@/src/lib/proveedorMateriales";
+  getProveedores,
+  getMapaAccesoProveedores,
+  getMapaCatalogoValidadoProveedores,
+} from "@/src/lib/proveedores";
 import ProveedoresTabla from "./_components/ProveedoresTabla";
 
 export default async function AdministracionProveedoresPage({
@@ -15,11 +15,10 @@ export default async function AdministracionProveedoresPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [proveedores, mapaAcceso, mapaMateriales, mapaFamilias] = await Promise.all([
+  const [proveedores, mapaAcceso, mapaCatalogo] = await Promise.all([
     getProveedores(),
     getMapaAccesoProveedores(),
-    getMapaProveedorMateriales(),
-    getMapaFamiliasAsignadasProveedores(),
+    getMapaCatalogoValidadoProveedores(),
   ]);
 
   return (
@@ -28,8 +27,7 @@ export default async function AdministracionProveedoresPage({
       basePath={basePath}
       codigoCliente={codigoCliente}
       mapaAcceso={mapaAcceso}
-      mapaMateriales={mapaMateriales}
-      mapaFamilias={mapaFamilias}
+      mapaCatalogo={mapaCatalogo}
     />
   );
 }

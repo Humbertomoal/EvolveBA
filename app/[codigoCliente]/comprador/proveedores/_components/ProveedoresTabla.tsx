@@ -13,6 +13,8 @@ import type { SeccionFiltroConfig } from "@/app/_components/PanelFiltros";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
 import BotonEnviarCorreo from "@/src/components/BotonEnviarCorreo";
+import type { CatalogoValidado } from "@/src/lib/proveedores";
+import { formatFechaMexico } from "@/src/lib/dateUtils";
 
 const ETIQUETA_TIPO_PERSONA: Record<TipoPersona, string> = {
   Fisica: "Física",
@@ -38,20 +40,19 @@ export default function ProveedoresTabla({
   basePath,
   codigoCliente,
   mapaAcceso,
-  mapaMateriales,
-  mapaFamilias,
+  mapaCatalogo,
 }: {
   proveedores: Proveedor[];
   basePath: string;
   codigoCliente: string;
   mapaAcceso: Record<string, { email: string; activo: boolean }>;
-  mapaMateriales: Record<string, string[]>;
-  mapaFamilias: Record<string, string[]>;
+  mapaCatalogo: Record<string, CatalogoValidado>;
 }) {
   usePageTitle("Administración de Proveedores");
   const [busqueda, setBusqueda] = useState("");
   const [tiposPersona, setTiposPersona] = useState<string[]>([]);
   const [estados, setEstados] = useState<string[]>([]);
+  const [soloPendientesValidar, setSoloPendientesValidar] = useState(false);
 
   function toggleTipoPersona(value: string) {
     setTiposPersona((prev) =>
@@ -107,9 +108,16 @@ export default function ProveedoresTabla({
       const coincideEstado =
         estados.length === 0 || estados.includes(proveedor.estado);
 
-      return coincideTexto && coincideTipo && coincideEstado;
+      const acceso = mapaAcceso[proveedor.id];
+      const coincidePendienteValidar =
+        !soloPendientesValidar ||
+        (!!acceso?.activo && !mapaCatalogo[proveedor.id]?.validado);
+
+      return (
+        coincideTexto && coincideTipo && coincideEstado && coincidePendienteValidar
+      );
     });
-  }, [proveedores, busqueda, tiposPersona, estados]);
+  }, [proveedores, busqueda, tiposPersona, estados, soloPendientesValidar, mapaAcceso, mapaCatalogo]);
 
   return (
     <div className="space-y-6">
@@ -137,6 +145,16 @@ export default function ProveedoresTabla({
         <PanelFiltros secciones={secciones} onLimpiar={limpiarFiltros} />
       </div>
 
+      <label className="flex w-fit items-center gap-2 text-sm text-zinc-600">
+        <input
+          type="checkbox"
+          checked={soloPendientesValidar}
+          onChange={(event) => setSoloPendientesValidar(event.target.checked)}
+          className="rounded border-zinc-300 text-[var(--color-primario)] focus:ring-[var(--color-primario)]"
+        />
+        Solo pendientes de validar catálogo
+      </label>
+
       <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -155,12 +173,8 @@ export default function ProveedoresTabla({
             <tbody className="divide-y divide-zinc-100">
               {proveedoresFiltrados.map((proveedor) => {
                 const acceso = mapaAcceso[proveedor.id];
-                const tieneMateriales = (mapaMateriales[proveedor.id] ?? []).length > 0;
-                const tieneFamilias = (mapaFamilias[proveedor.id] ?? []).length > 0;
-                const catalogoPendiente =
-                  !!acceso?.activo && tieneFamilias && !tieneMateriales;
-                const sinFamiliasAsignadas =
-                  !!acceso?.activo && !tieneFamilias && !tieneMateriales;
+                const catalogo = mapaCatalogo[proveedor.id];
+                const catalogoPendiente = !!acceso?.activo && !catalogo?.validado;
 
                 return (
                   <tr key={proveedor.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
@@ -181,29 +195,27 @@ export default function ProveedoresTabla({
                       <BadgeEstado estado={proveedor.estado} />
                     </td>
                     <td className="px-4 py-3">
-                      {catalogoPendiente ? (
-                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                          Catálogo pendiente
-                        </span>
-                      ) : sinFamiliasAsignadas ? (
+                      {!acceso?.activo ? (
+                        <span className="text-xs text-zinc-300">—</span>
+                      ) : catalogo?.validado ? (
                         <span
-                          title="Asigna familias a este proveedor para que pueda cargar su catálogo"
-                          className="text-xs text-zinc-300"
+                          title={
+                            catalogo.validadoEn
+                              ? `Validado el ${formatFechaMexico(catalogo.validadoEn)}`
+                              : undefined
+                          }
+                          className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800"
                         >
-                          —
+                          Catálogo validado
                         </span>
-                      ) : null}
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                          Pendiente de validación
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {sinFamiliasAsignadas && (
-                          <span
-                            title="Asigna familias a este proveedor para que pueda cargar su catálogo"
-                            className="cursor-default px-2 py-1 text-xs text-zinc-300"
-                          >
-                            Sin familias asignadas
-                          </span>
-                        )}
                         {catalogoPendiente && acceso && (
                           <BotonEnviarCorreo
                             tipo="RECORDATORIO_PRODUCTOS"

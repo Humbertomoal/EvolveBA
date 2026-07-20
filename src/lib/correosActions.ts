@@ -41,8 +41,17 @@ export async function previsualizarCorreoAction(
 
 /**
  * Envía un correo ya editado por el usuario (asunto/cuerpo finales, NO se
- * vuelve a renderizar la plantilla). `tipo` se recibe solo para futura
- * auditoría/logging, no afecta el contenido enviado.
+ * vuelve a renderizar la plantilla completa). `tipo` se recibe solo para
+ * futura auditoría/logging, no afecta el contenido enviado.
+ *
+ * `variablesBase` + `variablesPorDestinatario` permiten personalizar SOLO
+ * ciertas variables (p.ej. la tabla de materiales) por destinatario, sin
+ * perder las ediciones manuales que el usuario haya hecho al resto del
+ * texto: se busca el valor ya renderizado en `variablesBase` dentro de
+ * asunto/cuerpo y se reemplaza por el valor específico de ese destinatario
+ * en `variablesPorDestinatario[para]`. Si el usuario editó esa parte del
+ * texto (el valor base ya no aparece tal cual), el reemplazo simplemente no
+ * encuentra coincidencia y el texto editado se respeta tal cual.
  */
 export async function enviarCorreoAction({
   tipo,
@@ -51,6 +60,8 @@ export async function enviarCorreoAction({
   cuerpo,
   codigoCliente,
   adjuntos,
+  variablesBase,
+  variablesPorDestinatario,
 }: {
   tipo: TipoCorreo;
   para: string;
@@ -58,6 +69,8 @@ export async function enviarCorreoAction({
   cuerpo: string;
   codigoCliente: string;
   adjuntos?: AdjuntoCorreo[];
+  variablesBase?: Record<string, string>;
+  variablesPorDestinatario?: Record<string, Record<string, string>>;
 }): Promise<ResultadoEnvioCorreo> {
   const session = await auth();
   if (!session) {
@@ -68,9 +81,22 @@ export async function enviarCorreoAction({
     return { exito: false, error: "Faltan datos para enviar el correo" };
   }
 
+  let asuntoFinal = asunto;
+  let cuerpoFinal = cuerpo;
+
+  const overrides = variablesPorDestinatario?.[para];
+  if (overrides && variablesBase) {
+    for (const [clave, valorPersonalizado] of Object.entries(overrides)) {
+      const valorBase = variablesBase[clave];
+      if (!valorBase || valorBase === valorPersonalizado) continue;
+      asuntoFinal = asuntoFinal.split(valorBase).join(valorPersonalizado);
+      cuerpoFinal = cuerpoFinal.split(valorBase).join(valorPersonalizado);
+    }
+  }
+
   try {
-    const cuerpoHtml = convertirTextoAHtml(cuerpo, codigoCliente);
-    return await enviarCorreo({ para, asunto, cuerpoHtml, adjuntos });
+    const cuerpoHtml = convertirTextoAHtml(cuerpoFinal, codigoCliente);
+    return await enviarCorreo({ para, asunto: asuntoFinal, cuerpoHtml, adjuntos });
   } catch (error) {
     return {
       exito: false,

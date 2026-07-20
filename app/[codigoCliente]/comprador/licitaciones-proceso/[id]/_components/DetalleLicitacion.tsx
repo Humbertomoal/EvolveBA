@@ -112,6 +112,13 @@ export type DatosInvitacionLicitacion = {
   instrucciones: string;
   archivosAdjuntos: string[];
   items: { producto: string; cantidad: number; unidad: string; fechaRequerida: string | null }[];
+  /** Items filtrados al catálogo de cada proveedor invitado, por correo — para personalizar la tabla de materiales del correo. */
+  itemsPorProveedor: Record<
+    string,
+    { producto: string; cantidad: number; unidad: string; fechaRequerida: string | null }[]
+  >;
+  /** Razón social del proveedor, por correo — para la nota de vista previa personalizada. */
+  nombrePorDestinatario: Record<string, string>;
   destinatarios: string[];
   excluidos: number;
   nombreComprador: string;
@@ -133,6 +140,21 @@ function fmtFechaHoraCorreo(iso: string | null): string {
 
 function formatPeso(n: number): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+}
+
+/** Variables {tablaMateriales, cantidadMateriales} personalizadas por destinatario. */
+function variablesInvitacionPorDestinatario(
+  datos: DatosInvitacionLicitacion
+): Record<string, Record<string, string>> {
+  const mapa: Record<string, Record<string, string>> = {};
+  for (const correo of datos.destinatarios) {
+    const itemsProveedor = datos.itemsPorProveedor[correo] ?? datos.items;
+    mapa[correo] = {
+      tablaMateriales: generarTablaMateriales(itemsProveedor),
+      cantidadMateriales: String(itemsProveedor.length),
+    };
+  }
+  return mapa;
 }
 
 function formatFechaHora(iso: string): string {
@@ -971,7 +993,15 @@ export default function DetalleLicitacion({
             numeroLicitacion: numero,
             fechaInicio: fmtFechaHoraCorreo(datosInvitacion.fechaInicio),
             fechaFin: fmtFechaHoraCorreo(datosInvitacion.fechaFin),
-            tablaMateriales: generarTablaMateriales(datosInvitacion.items),
+            cantidadMateriales: String(
+              (datosInvitacion.itemsPorProveedor[datosInvitacion.destinatarios[0]] ??
+                datosInvitacion.items
+              ).length
+            ),
+            tablaMateriales: generarTablaMateriales(
+              datosInvitacion.itemsPorProveedor[datosInvitacion.destinatarios[0]] ??
+                datosInvitacion.items
+            ),
             instruccionesLicitacion:
               datosInvitacion.instrucciones +
               (modalReenvio.omitidoPorTamano
@@ -986,6 +1016,15 @@ export default function DetalleLicitacion({
           aviso={
             datosInvitacion.excluidos > 0
               ? `${datosInvitacion.excluidos} proveedor${datosInvitacion.excluidos === 1 ? "" : "es"} sin correo de contacto ${datosInvitacion.excluidos === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
+              : undefined
+          }
+          variablesPorDestinatario={variablesInvitacionPorDestinatario(datosInvitacion)}
+          notaPersonalizacion={
+            datosInvitacion.destinatarios[0]
+              ? `Vista previa para ${
+                  datosInvitacion.nombrePorDestinatario[datosInvitacion.destinatarios[0]] ??
+                  "el proveedor"
+                }. La lista de materiales se personaliza automáticamente para cada proveedor según su catálogo.`
               : undefined
           }
         />

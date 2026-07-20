@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
-import { getMaterialesProveedor } from "@/src/lib/proveedorMateriales";
+import {
+  getMaterialesProveedor,
+  filtrarItemsPorMaterialesProveedor,
+} from "@/src/lib/proveedorMateriales";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import LicitacionCotizacion, { type ItemDetalle } from "./_components/LicitacionCotizacion";
@@ -73,11 +76,7 @@ export default async function DetalleLicitacionPage({
   // Filtrar items según catálogo del proveedor. Si el proveedor no tiene catálogo
   // definido o no hay coincidencias, se muestran todos los items.
   const materialesIds = proveedorId ? await getMaterialesProveedor(proveedorId) : [];
-  const itemsFiltrados = (() => {
-    if (materialesIds.length === 0) return licitacion.items;
-    const matches = licitacion.items.filter((i: any) => materialesIds.includes(i.productoId));
-    return matches.length > 0 ? matches : licitacion.items;
-  })();
+  const itemsFiltrados = filtrarItemsPorMaterialesProveedor(licitacion.items, materialesIds);
 
   // ── Vista de resultados para licitaciones cerradas/finalizadas ──────────────
   if (licitacion.estado === "Cerrada" || licitacion.estado === "Finalizada") {

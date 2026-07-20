@@ -5,6 +5,10 @@ import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import {
+  getMapaProveedorMateriales,
+  filtrarItemsPorMaterialesProveedor,
+} from "@/src/lib/proveedorMateriales";
+import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,
 } from "@/src/lib/licitacionesAhorro";
@@ -314,17 +318,38 @@ export default async function DetalleLicitacionProcesoPage({
   const correosProveedoresInvitados = licitacion.proveedoresInvitados
     .map((lp: any) => lp.proveedor.contactoAdminCorreo?.trim())
     .filter((c: any): c is string => !!c);
+
+  const itemsConProductoId = licitacion.items.map((item: any) => ({
+    productoId: item.productoId,
+    producto: item.producto.nombre,
+    cantidad: item.cantidadSolicitada,
+    unidad: item.producto.unidadMedida,
+    fechaRequerida: item.fechaEntrega?.toISOString() ?? null,
+  }));
+
+  // Items filtrados al catálogo de cada proveedor invitado (misma lógica que
+  // ve el proveedor en su portal), para personalizar tablaMateriales por
+  // destinatario en el correo de invitación/reenvío.
+  const mapaMaterialesProveedores = await getMapaProveedorMateriales();
+  const itemsPorProveedor: Record<string, DatosInvitacionLicitacion["items"]> = {};
+  const nombrePorDestinatario: Record<string, string> = {};
+  for (const lp of licitacion.proveedoresInvitados) {
+    const correo = (lp as any).proveedor.contactoAdminCorreo?.trim();
+    if (!correo) continue;
+    const materialesIds = mapaMaterialesProveedores[(lp as any).proveedor.id] ?? [];
+    const itemsFiltrados = filtrarItemsPorMaterialesProveedor(itemsConProductoId, materialesIds);
+    itemsPorProveedor[correo] = itemsFiltrados.map(({ productoId: _productoId, ...resto }) => resto);
+    nombrePorDestinatario[correo] = (lp as any).proveedor.razonSocial;
+  }
+
   const datosInvitacion: DatosInvitacionLicitacion = {
     fechaInicio: licitacion.fechaEjecucion?.toISOString() ?? null,
     fechaFin: licitacion.fechaFinLicitacion?.toISOString() ?? null,
     instrucciones: licitacion.instrucciones ?? "",
     archivosAdjuntos: parsearArchivosAdjuntos(licitacion.archivosAdjuntos),
-    items: licitacion.items.map((item: any) => ({
-      producto: item.producto.nombre,
-      cantidad: item.cantidadSolicitada,
-      unidad: item.producto.unidadMedida,
-      fechaRequerida: item.fechaEntrega?.toISOString() ?? null,
-    })),
+    items: itemsConProductoId.map(({ productoId: _productoId, ...resto }) => resto),
+    itemsPorProveedor,
+    nombrePorDestinatario,
     destinatarios: [...new Set(correosProveedoresInvitados)],
     excluidos: licitacion.proveedoresInvitados.length - correosProveedoresInvitados.length,
     nombreComprador: usuarioActual?.nombre ?? "",

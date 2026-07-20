@@ -28,6 +28,7 @@ import { getConfigEmpresa } from "@/src/config/empresa";
 import { MONEDAS } from "@/src/lib/monedas";
 import { formatFechaMexico, parsearFechaMexico } from "@/src/lib/dateUtils";
 import { generarTablaMateriales, type ItemTablaMaterial } from "@/src/lib/plantillasCorreo";
+import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
 import { prepararAdjuntosCorreoAction } from "@/src/lib/adjuntosCorreoActions";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 import type { UsuarioActual } from "@/src/lib/usuarioActual";
@@ -487,15 +488,44 @@ Asistente de Inteligencia Artificial`;
     return { destinatarios: [...new Set(conCorreo)], excluidos };
   }
 
-  function itemsParaTablaMateriales(): ItemTablaMaterial[] {
-    return items
-      .filter((i) => i.productoId)
-      .map((i) => ({
-        producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
-        cantidad: parseFloat(i.cantidadSolicitada) || 0,
-        unidad: i.unidadMedida,
-        fechaRequerida: i.fechaEntrega ? new Date(i.fechaEntrega) : null,
-      }));
+  // Si se pasa proveedorId, filtra a solo los items que corresponden al
+  // catálogo de ese proveedor (misma lógica que ve el proveedor en el
+  // portal) — con fallback a todos los items si no tiene catálogo asignado
+  // o ninguno coincide.
+  function itemsParaTablaMateriales(proveedorId?: string): ItemTablaMaterial[] {
+    const itemsValidos = items.filter((i) => i.productoId);
+    const itemsFiltrados = proveedorId
+      ? filtrarItemsPorMaterialesProveedor(itemsValidos, proveedorMateriales[proveedorId] ?? [])
+      : itemsValidos;
+    return itemsFiltrados.map((i) => ({
+      producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
+      cantidad: parseFloat(i.cantidadSolicitada) || 0,
+      unidad: i.unidadMedida,
+      fechaRequerida: i.fechaEntrega ? new Date(i.fechaEntrega) : null,
+    }));
+  }
+
+  /** proveedorId → correo, en el mismo orden/filtro que destinatariosSeleccionados(). */
+  function proveedoresConCorreo(): { proveedorId: string; correo: string }[] {
+    const resultado: { proveedorId: string; correo: string }[] = [];
+    for (const id of proveedoresSeleccionados) {
+      const correo = proveedores.find((p: any) => p.id === id)?.contactoAdminCorreo?.trim();
+      if (correo) resultado.push({ proveedorId: id, correo });
+    }
+    return resultado;
+  }
+
+  /** Variables {tablaMateriales, cantidadMateriales} personalizadas por destinatario. */
+  function variablesInvitacionPorDestinatario(): Record<string, Record<string, string>> {
+    const mapa: Record<string, Record<string, string>> = {};
+    for (const { proveedorId, correo } of proveedoresConCorreo()) {
+      const itemsProveedor = itemsParaTablaMateriales(proveedorId);
+      mapa[correo] = {
+        tablaMateriales: generarTablaMateriales(itemsProveedor),
+        cantidadMateriales: String(itemsProveedor.length),
+      };
+    }
+    return mapa;
   }
 
   async function abrirCorreoInvitacion(destino: string) {
@@ -856,11 +886,15 @@ Asistente de Inteligencia Artificial`;
           minute: "2-digit",
         })
       : "";
+  // Vista previa de referencia: el primer destinatario con correo válido.
+  const primerProveedorInvitado = proveedoresConCorreo()[0];
+  const itemsInvitacionPreview = itemsParaTablaMateriales(primerProveedorInvitado?.proveedorId);
   const variablesInvitacion = {
     numeroLicitacion: numero,
     fechaInicio: fmtFechaHoraCorreo(fechaEjecucion),
     fechaFin: fmtFechaHoraCorreo(fechaFinLicitacion),
-    tablaMateriales: generarTablaMateriales(itemsParaTablaMateriales()),
+    cantidadMateriales: String(itemsInvitacionPreview.length),
+    tablaMateriales: generarTablaMateriales(itemsInvitacionPreview),
     instruccionesLicitacion:
       instrucciones +
       (adjuntosOmitidos
@@ -868,6 +902,12 @@ Asistente de Inteligencia Artificial`;
         : ""),
     ...datosComprador(),
   };
+  const notaPersonalizacionInvitacion = primerProveedorInvitado
+    ? `Vista previa para ${
+        proveedores.find((p: any) => p.id === primerProveedorInvitado.proveedorId)?.razonSocial ??
+        "el proveedor"
+      }. La lista de materiales se personaliza automáticamente para cada proveedor según su catálogo.`
+    : undefined;
   const variablesCambioFecha = {
     numeroLicitacion: numero,
     fechaAnterior: fmtFechaHoraCorreoISO(fechaAnteriorCambio),
@@ -2006,6 +2046,8 @@ Asistente de Inteligencia Artificial`;
           destinatarios={destinatariosCorreo}
           adjuntos={adjuntosInvitacion}
           aviso={avisoExcluidos}
+          variablesPorDestinatario={variablesInvitacionPorDestinatario()}
+          notaPersonalizacion={notaPersonalizacionInvitacion}
         />
       )}
 

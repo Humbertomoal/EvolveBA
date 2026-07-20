@@ -51,14 +51,14 @@ Sin más por ahora, agradezco tu tiempo.
 
 Te escribe {nombreAsistente}, {tituloAsistente} de {nombreEmpresa}.
 
-Me he dado cuenta de que aún no nos has confirmado qué productos puedes proveernos dentro de las categorías habilitadas para tu perfil. Te dejo de nuevo los pasos para ingresar al portal de proveedores y dar de alta tu catálogo:
+Me he dado cuenta de que aún no has confirmado tu catálogo de productos asignados. Te dejo de nuevo los pasos para ingresar al portal de proveedores y confirmarlo:
 
 1. Ingresa a: {urlPortal}
 2. Usuario: {usuarioAcceso}
 3. Contraseña: {passwordTemporal}
-4. Selecciona los productos que nos puedes proveer dentro de las categorías asignadas a tu perfil.
+4. Revisa y confirma los productos que tienes asignados en tu perfil.
 
-Como aún no nos has indicado qué productos puedes proveer, has perdido la oportunidad de participar en las licitaciones realizadas desde tu alta como proveedor. Si quieres que te consideremos en las próximas, es importante que ingreses hoy mismo al portal y concluyas este proceso.
+Como aún no nos has confirmado tu catálogo, has perdido la oportunidad de participar en las licitaciones realizadas desde tu alta como proveedor. Si quieres que te consideremos en las próximas, es importante que ingreses hoy mismo al portal y concluyas este proceso.
 
 Que tengas excelente día, agradezco tu tiempo y atención.
 
@@ -73,36 +73,36 @@ Que tengas excelente día, agradezco tu tiempo y atención.
     asunto: "Invitación Licitación {numeroLicitacion} - {nombreEmpresa}",
     cuerpo: `Estimado Proveedor.
 
-Bienvenido a nuestro proceso de licitación digital. Nos da gusto que seas uno de los proveedores que estará participando y compitiendo en esta licitación.
+Nos da gusto saludarte. Por medio del presente le informamos que ha sido invitado a participar en la Licitación {numeroLicitacion}.
+
+La licitación iniciará el {fechaInicio} y finalizará el {fechaFin}. Se le solicita cotizar {cantidadMateriales} material(es) incluidos en esta licitación.
+
+Nuestro comprador asignado a la licitación es: {nombreComprador}
+Teléfono: {telefonoComprador}
+Correo: {correoComprador}
 
 A continuación, te compartimos las instrucciones, con el objetivo de que cuentes con toda la información que necesitas para realizar la mejor propuesta posible:
 
 1. Ingresa a la plataforma el día {fechaInicio}, 30 minutos antes de la hora de inicio.
 2. El acceso a la licitación iniciará 15 minutos antes de la hora programada.
-3. La modalidad de la licitación es simultánea y de subasta: habrá varias rondas en las que tendrás la oportunidad de mejorar tu oferta, y todos los participantes ofertan al mismo tiempo.
+3. La modalidad de la licitación es simultánea y de subasta: habrá varias rondas en las que tendrás la oportunidad de mejorar tu oferta, y todos los participantes ofertan al mismo tiempo para garantizar que compitan de forma correcta y justa.
 4. Cada vez que alguno de los competidores mejore la oferta anterior, se activará una nueva ronda para darles la oportunidad de mejorar de nuevo.
-5. Te recomendamos revisar los materiales y cantidades que se licitarán, así como los archivos adjuntos, para tener claro cuál puede ser tu mejor precio para cada producto.
+5. Revisa los materiales y cantidades que se licitarán, así como los archivos adjuntos.
+6. Te recomendamos que llegues preparado teniendo a la mano la lista de productos con sus precios más competitivos, ya que los demás proveedores llegarán listos con sus ofertas para cada ronda. Si no llegas preparado, incrementa la probabilidad de que otro competidor gane la licitación.
 
 Fecha de inicio: {fechaInicio}
 Fecha de cierre: {fechaFin}
 
-Materiales a licitar:
+Materiales a licitar (los que corresponden a tu catálogo):
 {tablaMateriales}
 
 {instruccionesLicitacion}
 
-Si deseas entender cómo funciona la plataforma, contacta al comprador asignado para agendar una sesión de tutorial.
-
-Comprador asignado: {nombreComprador}
-Teléfono: {telefonoComprador}
-Correo: {correoComprador}
-
-Cualquier duda quedamos atentos.
+Cualquier duda o aclaración, comuníquese con el comprador asignado a esta licitación a través del chat disponible en el portal.
 
 Atentamente,
-{nombreAsistente}
-{tituloAsistente} - {nombreEmpresa}
-{urlPortal}
+{nombreAsistente} - {tituloAsistente}
+{nombreEmpresa}
 {firmaCorreo}`,
     activo: true,
   },
