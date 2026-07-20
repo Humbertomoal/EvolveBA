@@ -18,6 +18,8 @@ import {
   toggleActivoAccesoProveedorAction,
 } from "@/src/lib/proveedorAccesoActions";
 import type { AccesoProveedor } from "@/src/lib/proveedores";
+import ModalCorreo from "@/src/components/ModalCorreo";
+import BotonEnviarCorreo from "@/src/components/BotonEnviarCorreo";
 
 const BTN_PRIMARIO =
   "rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60";
@@ -25,6 +27,9 @@ const BTN_SECUNDARIO =
   "rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 const INPUT =
   "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
+
+const AVISO_PASSWORD_NO_RECUPERABLE =
+  'La contraseña temporal no se puede recuperar. Si el proveedor la perdió, usa "Restablecer contraseña" primero — así generas una nueva y puedes reenviar el correo con la contraseña real.';
 
 function formatFechaHora(iso: string | null): string {
   if (!iso) return "Nunca ha ingresado";
@@ -38,16 +43,33 @@ function formatFechaHora(iso: string | null): string {
   });
 }
 
+/** Prefiere el correo de contacto administrativo; si coincide con el de
+ * acceso o no existe, cae al de acceso (el mismo que se usó como usuario). */
+function resolverDestinatario(correoContacto: string, correoAcceso: string): string {
+  const contacto = correoContacto.trim();
+  return contacto && contacto.toLowerCase() !== correoAcceso.toLowerCase()
+    ? contacto
+    : correoAcceso;
+}
+
 export default function AccesoPortalSection({
   proveedorId,
   acceso,
   correoSugerido,
   basePath,
+  codigoCliente,
+  nombreProveedor,
+  nombreContacto,
+  correoContacto,
 }: {
   proveedorId: string;
   acceso: AccesoProveedor | null;
   correoSugerido: string;
   basePath: string;
+  codigoCliente: string;
+  nombreProveedor: string;
+  nombreContacto: string;
+  correoContacto: string;
 }) {
   const router = useRouter();
   const [activarToggle, setActivarToggle] = useState(false);
@@ -57,6 +79,7 @@ export default function AccesoPortalSection({
   const [credenciales, setCredenciales] = useState<
     { email: string; passwordTemporal: string } | null
   >(null);
+  const [mostrarModalCorreo, setMostrarModalCorreo] = useState(false);
 
   async function handleGenerarAcceso() {
     setError(null);
@@ -125,6 +148,8 @@ export default function AccesoPortalSection({
     }
   }
 
+  const correoContactoValido = correoContacto.trim().length > 0;
+
   return (
     <fieldset className="space-y-4">
       <legend className="text-sm font-semibold text-zinc-900">Acceso al Portal</legend>
@@ -185,6 +210,26 @@ export default function AccesoPortalSection({
                 </>
               )}
             </button>
+            <BotonEnviarCorreo
+              tipo="ALTA_PROVEEDOR"
+              etiqueta="Reenviar correo de bienvenida"
+              codigoCliente={codigoCliente}
+              variables={{
+                nombreProveedor,
+                nombreContacto,
+                usuarioAcceso: acceso.email,
+                passwordTemporal:
+                  '(usa la opción "Restablecer contraseña" para generar una nueva)',
+              }}
+              destinatarios={[resolverDestinatario(correoContacto, acceso.email)]}
+              deshabilitado={!correoContactoValido}
+              tooltipDeshabilitado={
+                !correoContactoValido
+                  ? "Este proveedor no tiene un correo de contacto registrado."
+                  : undefined
+              }
+              aviso={AVISO_PASSWORD_NO_RECUPERABLE}
+            />
           </div>
         </div>
       ) : (
@@ -230,7 +275,7 @@ export default function AccesoPortalSection({
       )}
 
       {/* ── Modal: credenciales generadas (se muestran una sola vez) ──────── */}
-      {credenciales && (
+      {credenciales && !mostrarModalCorreo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
@@ -266,7 +311,7 @@ export default function AccesoPortalSection({
               </p>
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4">
+            <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-200 px-5 py-4">
               <button
                 type="button"
                 onClick={() => setCredenciales(null)}
@@ -277,14 +322,42 @@ export default function AccesoPortalSection({
               <button
                 type="button"
                 onClick={copiarCredenciales}
-                className={`${BTN_PRIMARIO} flex items-center gap-2`}
+                className={`${BTN_SECUNDARIO} flex items-center gap-2`}
               >
                 <IconCopy className="h-4 w-4" />
                 Copiar credenciales
               </button>
+              <button
+                type="button"
+                onClick={() => setMostrarModalCorreo(true)}
+                className={`${BTN_PRIMARIO} flex items-center gap-2`}
+              >
+                Enviar correo de bienvenida
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Modal: vista previa/edición/envío del correo de bienvenida ────── */}
+      {credenciales && (
+        <ModalCorreo
+          abierto={mostrarModalCorreo}
+          onCerrar={() => setMostrarModalCorreo(false)}
+          tipo="ALTA_PROVEEDOR"
+          codigoCliente={codigoCliente}
+          variables={{
+            nombreProveedor,
+            nombreContacto,
+            usuarioAcceso: credenciales.email,
+            passwordTemporal: credenciales.passwordTemporal,
+          }}
+          destinatarios={[resolverDestinatario(correoContacto, credenciales.email)]}
+          onEnviado={() => {
+            setMostrarModalCorreo(false);
+            setCredenciales(null);
+          }}
+        />
       )}
     </fieldset>
   );

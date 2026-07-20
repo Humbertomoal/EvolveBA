@@ -79,6 +79,7 @@ function errRfc(val: string, tipo: string): string | null {
 
 export default function ProveedorForm({
   basePath,
+  codigoCliente,
   proveedorExistente,
   productos = [],
   materialesIniciales = [],
@@ -88,6 +89,7 @@ export default function ProveedorForm({
   acceso = null,
 }: {
   basePath: string;
+  codigoCliente: string;
   proveedorExistente?: Proveedor;
   productos?: Producto[];
   materialesIniciales?: string[];
@@ -486,6 +488,12 @@ export default function ProveedorForm({
               acceso={acceso}
               correoSugerido={proveedorExistente.vendedorCorreo}
               basePath={basePath}
+              codigoCliente={codigoCliente}
+              nombreProveedor={proveedorExistente.razonSocial}
+              nombreContacto={
+                proveedorExistente.vendedorNombre || proveedorExistente.contactoAdminNombre
+              }
+              correoContacto={proveedorExistente.contactoAdminCorreo}
             />
           ) : (
             <fieldset className="space-y-2">

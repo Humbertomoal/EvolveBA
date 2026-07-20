@@ -45,6 +45,7 @@ export default async function EditarProveedorPage({
   return (
     <ProveedorForm
       basePath={basePath}
+      codigoCliente={codigoCliente}
       proveedorExistente={proveedor}
       productos={productos}
       materialesIniciales={materialesIniciales}

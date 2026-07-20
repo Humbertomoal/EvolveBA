@@ -14,6 +14,9 @@ export default function BotonEnviarCorreo({
   adjuntos,
   onEnviado,
   etiqueta = "Enviar correo",
+  aviso,
+  deshabilitado = false,
+  tooltipDeshabilitado,
 }: {
   tipo: TipoCorreo;
   variables: Record<string, string>;
@@ -22,6 +25,10 @@ export default function BotonEnviarCorreo({
   adjuntos?: AdjuntoCorreo[];
   onEnviado?: () => void;
   etiqueta?: string;
+  /** Aviso adicional resaltado dentro del modal (ver ModalCorreo). */
+  aviso?: string;
+  deshabilitado?: boolean;
+  tooltipDeshabilitado?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
 
@@ -30,7 +37,9 @@ export default function BotonEnviarCorreo({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors duration-150 hover:bg-zinc-50"
+        disabled={deshabilitado}
+        title={deshabilitado ? tooltipDeshabilitado : undefined}
+        className="flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors duration-150 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <IconMail className="h-4 w-4" />
         {etiqueta}
@@ -45,6 +54,7 @@ export default function BotonEnviarCorreo({
         codigoCliente={codigoCliente}
         adjuntos={adjuntos}
         onEnviado={onEnviado}
+        aviso={aviso}
       />
     </>
   );

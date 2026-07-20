@@ -22,6 +22,7 @@ export default async function NuevoProveedorPage({
   return (
     <ProveedorForm
       basePath={basePath}
+      codigoCliente={codigoCliente}
       productos={productos}
       familiasCatalogo={familiasCatalogo}
       esAdmin={usuarioActual?.esAdmin ?? false}

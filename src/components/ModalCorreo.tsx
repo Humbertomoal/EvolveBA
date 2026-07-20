@@ -26,6 +26,7 @@ export default function ModalCorreo({
   codigoCliente,
   adjuntos,
   onEnviado,
+  aviso,
 }: {
   abierto: boolean;
   onCerrar: () => void;
@@ -35,6 +36,8 @@ export default function ModalCorreo({
   codigoCliente: string;
   adjuntos?: AdjuntoCorreo[];
   onEnviado?: () => void;
+  /** Aviso adicional resaltado arriba del contenido (p.ej. advertencias sobre datos que no se pudieron recuperar). */
+  aviso?: string;
 }) {
   const [cargando, setCargando] = useState(true);
   const [asuntoOriginal, setAsuntoOriginal] = useState("");
@@ -149,6 +152,13 @@ export default function ModalCorreo({
             </div>
           ) : (
             <div className="space-y-4">
+              {aviso && (
+                <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{aviso}</span>
+                </div>
+              )}
+
               {/* Para */}
               <div>
                 <label className="block text-xs font-medium text-zinc-500">Para</label>
