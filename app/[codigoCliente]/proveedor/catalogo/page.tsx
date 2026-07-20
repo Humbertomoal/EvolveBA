@@ -1,7 +1,7 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import {
   getMaterialesProveedor,
-  getFamiliasProveedor,
+  getFamiliasAsignadasProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedorById } from "@/src/lib/proveedores";
@@ -40,7 +40,7 @@ export default async function MiCatalogoMiInformacionPage({
   const [materialesIds, familiasCatalogo, familiasProveedor] = await Promise.all([
     getMaterialesProveedor(proveedor.id),
     getCatalogosActivos("FAMILIA"),
-    getFamiliasProveedor(proveedor.id),
+    getFamiliasAsignadasProveedor(proveedor.id),
   ]);
   const materialesAsignados = productos.filter((p: any) =>
     materialesIds.includes(p.id)

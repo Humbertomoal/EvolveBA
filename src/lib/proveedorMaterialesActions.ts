@@ -7,9 +7,17 @@ import {
   getMaterialesProveedor,
   getMapaProveedorMateriales,
   getFamiliasProveedor,
+  getFamiliasAsignadasProveedor,
+  getMapaFamiliasAsignadasProveedores,
 } from "@/src/lib/proveedorMateriales";
 
-export { getMaterialesProveedor, getMapaProveedorMateriales, getFamiliasProveedor };
+export {
+  getMaterialesProveedor,
+  getMapaProveedorMateriales,
+  getFamiliasProveedor,
+  getFamiliasAsignadasProveedor,
+  getMapaFamiliasAsignadasProveedores,
+};
 
 export async function sincronizarMaterialesAction(
   proveedorId: string,

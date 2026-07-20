@@ -19,6 +19,10 @@ model Proveedor {
   rfc                   String   @unique
   domicilio             String
   domicilioComercial    String?
+  // JSON con las familias/categorías asignadas al proveedor — independiente
+  // de ProveedorMaterial, para que la asignación persista aunque el
+  // proveedor todavía no haya seleccionado ningún material específico.
+  familiasAsignadas     String?
   estado                String   @default("Activo")
   eliminado             Boolean  @default(false)
   eliminadoEn           DateTime?

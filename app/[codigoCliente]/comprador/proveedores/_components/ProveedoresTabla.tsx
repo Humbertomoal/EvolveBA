@@ -39,12 +39,14 @@ export default function ProveedoresTabla({
   codigoCliente,
   mapaAcceso,
   mapaMateriales,
+  mapaFamilias,
 }: {
   proveedores: Proveedor[];
   basePath: string;
   codigoCliente: string;
   mapaAcceso: Record<string, { email: string; activo: boolean }>;
   mapaMateriales: Record<string, string[]>;
+  mapaFamilias: Record<string, string[]>;
 }) {
   usePageTitle("Administración de Proveedores");
   const [busqueda, setBusqueda] = useState("");
@@ -154,7 +156,11 @@ export default function ProveedoresTabla({
               {proveedoresFiltrados.map((proveedor) => {
                 const acceso = mapaAcceso[proveedor.id];
                 const tieneMateriales = (mapaMateriales[proveedor.id] ?? []).length > 0;
-                const catalogoPendiente = !!acceso?.activo && !tieneMateriales;
+                const tieneFamilias = (mapaFamilias[proveedor.id] ?? []).length > 0;
+                const catalogoPendiente =
+                  !!acceso?.activo && tieneFamilias && !tieneMateriales;
+                const sinFamiliasAsignadas =
+                  !!acceso?.activo && !tieneFamilias && !tieneMateriales;
 
                 return (
                   <tr key={proveedor.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
@@ -175,14 +181,29 @@ export default function ProveedoresTabla({
                       <BadgeEstado estado={proveedor.estado} />
                     </td>
                     <td className="px-4 py-3">
-                      {catalogoPendiente && (
+                      {catalogoPendiente ? (
                         <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
                           Catálogo pendiente
                         </span>
-                      )}
+                      ) : sinFamiliasAsignadas ? (
+                        <span
+                          title="Asigna familias a este proveedor para que pueda cargar su catálogo"
+                          className="text-xs text-zinc-300"
+                        >
+                          —
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {sinFamiliasAsignadas && (
+                          <span
+                            title="Asigna familias a este proveedor para que pueda cargar su catálogo"
+                            className="cursor-default px-2 py-1 text-xs text-zinc-300"
+                          >
+                            Sin familias asignadas
+                          </span>
+                        )}
                         {catalogoPendiente && acceso && (
                           <BotonEnviarCorreo
                             tipo="RECORDATORIO_PRODUCTOS"

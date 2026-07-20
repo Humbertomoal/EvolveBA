@@ -51,12 +51,12 @@ Sin más por ahora, agradezco tu tiempo.
 
 Te escribe {nombreAsistente}, {tituloAsistente} de {nombreEmpresa}.
 
-Me he dado cuenta de que aún no nos indicas cuáles de todos los productos que compramos nos puedes proveer. Te dejo de nuevo los pasos para ingresar al portal de proveedores y dar de alta tu catálogo:
+Me he dado cuenta de que aún no nos has confirmado qué productos puedes proveernos dentro de las categorías habilitadas para tu perfil. Te dejo de nuevo los pasos para ingresar al portal de proveedores y dar de alta tu catálogo:
 
 1. Ingresa a: {urlPortal}
 2. Usuario: {usuarioAcceso}
 3. Contraseña: {passwordTemporal}
-4. Selecciona todos los productos de nuestro catálogo que nos puedes proveer.
+4. Selecciona los productos que nos puedes proveer dentro de las categorías asignadas a tu perfil.
 
 Como aún no nos has indicado qué productos puedes proveer, has perdido la oportunidad de participar en las licitaciones realizadas desde tu alta como proveedor. Si quieres que te consideremos en las próximas, es importante que ingreses hoy mismo al portal y concluyas este proceso.
 

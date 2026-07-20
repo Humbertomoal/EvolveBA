@@ -1,7 +1,7 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import {
   getMaterialesProveedor,
-  getFamiliasProveedor,
+  getFamiliasAsignadasProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getProductos } from "@/src/lib/productos";
 import { getAccesoProveedor, getProveedorById } from "@/src/lib/proveedores";
@@ -24,7 +24,7 @@ export default async function EditarProveedorPage({
       getProductos(),
       getMaterialesProveedor(id),
       getCatalogosActivos("FAMILIA"),
-      getFamiliasProveedor(id),
+      getFamiliasAsignadasProveedor(id),
       getUsuarioActual(),
       getAccesoProveedor(id),
     ]);
