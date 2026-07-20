@@ -16,7 +16,7 @@ export const CODIGO_EMPRESA_DEFAULT = "evolve-ba";
 export const configEmpresa: Record<string, ConfigEmpresa> = {
   "evolve-ba": {
     nombreEmpresa: "Evolve BA",
-    nombreComercial: "Evolve BA App Comercial",
+    nombreComercial: "Evolve BA App de Suministro",
     nombreAsistente: "Etiquetin",
     tituloAsistente: "Asistente de Inteligencia Artificial",
     telefonoContacto: "9982884736",

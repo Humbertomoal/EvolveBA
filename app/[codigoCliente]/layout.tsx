@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
+import { getConfigEmpresa } from "@/src/config/empresa";
 
 export async function generateMetadata({
   params,
@@ -10,13 +11,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { codigoCliente } = await params;
   const cliente = getClienteByCodigo(codigoCliente);
+  const empresa = getConfigEmpresa(codigoCliente);
 
   if (!cliente) {
-    return { title: "Cliente no encontrado · Evolve BA App Comercial" };
+    return { title: `Cliente no encontrado · ${empresa.nombreComercial}` };
   }
 
   return {
-    title: `${cliente.nombreEmpresa} · Evolve BA App Comercial`,
+    title: `${cliente.nombreEmpresa} · ${empresa.nombreComercial}`,
     icons: { icon: cliente.faviconUrl },
   };
 }

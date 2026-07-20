@@ -1,4 +1,5 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR, getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
+import { getConfigEmpresa } from "@/src/config/empresa";
 import { prisma } from "@/src/lib/prisma";
 import { notFound } from "next/navigation";
 import PrintTrigger from "./_components/PrintTrigger";
@@ -27,6 +28,7 @@ export default async function ImprimirOrdenPage({
   const { codigoCliente, id } = await params;
 
   const cliente = getClienteByCodigo(codigoCliente);
+  const empresa = getConfigEmpresa(codigoCliente);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orden: any = await db.ordenCompra.findUnique({
     where: { id },
@@ -191,7 +193,7 @@ export default async function ImprimirOrdenPage({
           </tfoot>
         </table>
 
-        <div className="footer">Generado por Evolve BA App Comercial · {hoy}</div>
+        <div className="footer">Generado por {empresa.nombreComercial} · {hoy}</div>
       </div>
     </>
   );

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getConfigEmpresa } from "@/src/config/empresa";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,9 +13,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const empresa = getConfigEmpresa();
+
 export const metadata: Metadata = {
-  title: "Evolve BA App Comercial",
-  description: "Plataforma de compras Evolve BA App Comercial",
+  title: empresa.nombreComercial,
+  description: `Plataforma de compras ${empresa.nombreComercial}`,
 };
 
 export default function RootLayout({
