@@ -15,6 +15,21 @@ type ItemInput = {
   moneda: string;
 };
 
+export type ResultadoGuardarLicitacion = {
+  destino: string;
+  // Estado de la licitación ANTES de este guardado — "Borrador" (o
+  // inexistente, si es de nueva creación) significa que nunca se le ha
+  // notificado a los proveedores; "Programada"/"En Proceso" significa que
+  // ya se lanzó al menos una vez.
+  estadoPrevio: string;
+  // fechaEjecucion tal como estaba en la BD antes de este guardado (ISO,
+  // instante real) — null si nunca tuvo fecha o es de nueva creación.
+  fechaAnteriorISO: string | null;
+  // true si fechaEjecucion cambió respecto al valor leído de la BD
+  // (comparado ahí mismo, no contra un valor cacheado del cliente).
+  fechaCambio: boolean;
+};
+
 export type LicitacionInput = {
   numero: string;
   jerarquia: string | null;
@@ -52,7 +67,7 @@ function validarFechas(datos: LicitacionInput) {
 export async function crearLicitacionAction(
   basePath: string,
   datos: LicitacionInput
-): Promise<string> {
+): Promise<ResultadoGuardarLicitacion> {
   validarFechas(datos);
 
   const cookieStore = await cookies();
@@ -120,21 +135,53 @@ export async function crearLicitacionAction(
 
   revalidatePath(`${basePath}/comprador/licitaciones`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
-  if (esManualEnProceso) {
-    return `${basePath}/comprador/licitaciones-proceso`;
-  }
-  return `${basePath}/comprador/licitaciones/lanzamiento`;
+
+  const destino = esManualEnProceso
+    ? `${basePath}/comprador/licitaciones-proceso`
+    : `${basePath}/comprador/licitaciones/lanzamiento`;
+
+  // Nueva creación: nunca hubo notificación previa ni fecha anterior.
+  return {
+    destino,
+    estadoPrevio: "Borrador",
+    fechaAnteriorISO: null,
+    fechaCambio: false,
+  };
 }
 
 export async function actualizarLicitacionAction(
   id: string,
   basePath: string,
   datos: LicitacionInput
-): Promise<string> {
+): Promise<ResultadoGuardarLicitacion> {
   validarFechas(datos);
+
+  // Captura el estado y la fecha ANTES del update — la fuente de verdad es
+  // la BD en este momento, no lo que traiga cacheado el cliente.
+  const anterior = await prisma.licitacion.findUnique({
+    where: { id },
+    select: { estado: true, fechaEjecucion: true },
+  });
 
   const nuevaFechaEjecucion = parsearFechaMexico(datos.fechaEjecucion);
   const esFutura = nuevaFechaEjecucion !== null && nuevaFechaEjecucion > new Date();
+
+  const fechaCambio =
+    (anterior?.fechaEjecucion?.getTime() ?? null) !==
+    (nuevaFechaEjecucion?.getTime() ?? null);
+  const estadoPrevio = anterior?.estado ?? "Borrador";
+  const yaNotificada = estadoPrevio === "Programada" || estadoPrevio === "En Proceso";
+
+  console.log(
+    "Fecha anterior:",
+    anterior?.fechaEjecucion?.toISOString() ?? null,
+    "Fecha nueva:",
+    nuevaFechaEjecucion?.toISOString() ?? null,
+    "Cambió:",
+    fechaCambio,
+    "Ya notificada:",
+    yaNotificada
+  );
 
   await prisma.licitacion.update({
     where: { id },
@@ -199,16 +246,24 @@ export async function actualizarLicitacionAction(
   revalidatePath(`${basePath}/comprador/licitaciones`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
 
+  let destino: string;
   if (estadoFinal === "En Proceso") {
-    if (datos.modoLicitacion === "Manual") {
-      return `${basePath}/comprador/licitaciones-proceso/${id}/captura-manual`;
-    }
-    return `${basePath}/comprador/licitaciones-proceso`;
+    destino =
+      datos.modoLicitacion === "Manual"
+        ? `${basePath}/comprador/licitaciones-proceso/${id}/captura-manual`
+        : `${basePath}/comprador/licitaciones-proceso`;
+  } else if (estadoFinal === "Cerrada") {
+    destino = `${basePath}/comprador/seleccion-proveedores`;
+  } else {
+    destino = `${basePath}/comprador/licitaciones/lanzamiento`;
   }
-  if (estadoFinal === "Cerrada") {
-    return `${basePath}/comprador/seleccion-proveedores`;
-  }
-  return `${basePath}/comprador/licitaciones/lanzamiento`;
+
+  return {
+    destino,
+    estadoPrevio,
+    fechaAnteriorISO: anterior?.fechaEjecucion?.toISOString() ?? null,
+    fechaCambio,
+  };
 }
 
 export async function eliminarLicitacionAction(

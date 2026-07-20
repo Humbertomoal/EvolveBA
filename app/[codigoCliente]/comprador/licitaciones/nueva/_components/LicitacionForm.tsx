@@ -21,6 +21,7 @@ import type { Proveedor } from "@/src/data/proveedores";
 import {
   actualizarLicitacionAction,
   crearLicitacionAction,
+  type ResultadoGuardarLicitacion,
 } from "@/src/lib/licitacionesActions";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { getConfigEmpresa } from "@/src/config/empresa";
@@ -226,6 +227,9 @@ export default function LicitacionForm({
   const [destinoTrasCorreo, setDestinoTrasCorreo] = useState<string | null>(null);
   const [adjuntosInvitacion, setAdjuntosInvitacion] = useState<AdjuntoCorreo[]>([]);
   const [adjuntosOmitidos, setAdjuntosOmitidos] = useState(false);
+  // Fecha anterior tal como la devolvió el Server Action (ISO real, leída de
+  // la BD antes del update) — no el valor cacheado de `inicial`.
+  const [fechaAnteriorCambio, setFechaAnteriorCambio] = useState<string | null>(null);
 
   // ── Validation state ─────────────────────────────────────────────────────────
   const [intentoGuardar, setIntentoGuardar] = useState(false);
@@ -502,7 +506,8 @@ Asistente de Inteligencia Artificial`;
     setCorreoPendiente("INVITACION_LICITACION");
   }
 
-  function abrirCorreoCambioFecha(destino: string) {
+  function abrirCorreoCambioFecha(destino: string, fechaAnteriorISO: string | null) {
+    setFechaAnteriorCambio(fechaAnteriorISO);
     setDestinoTrasCorreo(destino);
     setCorreoPendiente("CAMBIO_FECHA");
   }
@@ -532,15 +537,14 @@ Asistente de Inteligencia Artificial`;
 
   async function ejecutarGuardar(estado?: "Borrador" | "Programada" | "En Proceso") {
     setBannerError(null);
-    const estadoPrevio = inicial?.estado;
-    let destino: string;
+    let resultado: ResultadoGuardarLicitacion;
 
     if (modoEdicion) {
       setGuardando(
         estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "edicion"
       );
       try {
-        destino = await actualizarLicitacionAction(
+        resultado = await actualizarLicitacionAction(
           inicial!.id,
           basePath,
           buildDatos(estado ?? inicial!.estado)
@@ -562,7 +566,7 @@ Asistente de Inteligencia Artificial`;
         estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "proceso"
       );
       try {
-        destino = await crearLicitacionAction(basePath, buildDatos(estado!));
+        resultado = await crearLicitacionAction(basePath, buildDatos(estado!));
         toast.success("Licitación guardada correctamente");
       } catch (err) {
         setGuardando(null);
@@ -581,23 +585,36 @@ Asistente de Inteligencia Artificial`;
     // de cambio de fecha antes de navegar? El correo nunca bloquea el guardado
     // en sí (ya se guardó arriba) — solo pospone la navegación mientras el
     // comprador decide si lo envía o lo cancela.
+    //
+    // estadoPrevio viene de la BD (leído en el Server Action ANTES del
+    // update), no del cliente — es la fuente de verdad de si esta
+    // licitación ya había sido notificada a proveedores alguna vez:
+    // "Borrador" = nunca notificada; "Programada"/"En Proceso" = ya se
+    // lanzó al menos una vez.
     setGuardando(null);
+    const { destino, estadoPrevio, fechaAnteriorISO, fechaCambio } = resultado;
     const esProveedores = modoLicitacion === "Proveedores";
     const hayProveedores = proveedoresSeleccionados.length > 0;
+    const yaNotificada = estadoPrevio === "Programada" || estadoPrevio === "En Proceso";
+    const esPrimerLanzamiento = !yaNotificada && estado === "Programada";
 
-    if (esProveedores && estado === "Programada" && hayProveedores) {
+    console.log(
+      "Fecha anterior:",
+      fechaAnteriorISO,
+      "Fecha nueva:",
+      fechaEjecucion,
+      "Cambió:",
+      fechaCambio,
+      "Ya notificada:",
+      yaNotificada
+    );
+
+    if (esProveedores && esPrimerLanzamiento && hayProveedores) {
       await abrirCorreoInvitacion(destino);
       return;
     }
-    if (
-      modoEdicion &&
-      esProveedores &&
-      hayProveedores &&
-      (estadoPrevio === "Programada" || estadoPrevio === "En Proceso") &&
-      !!fechaEjecucion &&
-      fechaEjecucion !== inicial!.fechaEjecucion
-    ) {
-      abrirCorreoCambioFecha(destino);
+    if (esProveedores && yaNotificada && fechaCambio && hayProveedores) {
+      abrirCorreoCambioFecha(destino, fechaAnteriorISO);
       return;
     }
     router.push(destino);
@@ -623,12 +640,12 @@ Asistente de Inteligencia Artificial`;
     setBannerError(null);
     setGuardando("proceso");
     try {
-      const destino = await actualizarLicitacionAction(
+      const resultado = await actualizarLicitacionAction(
         inicial!.id,
         basePath,
         buildDatos("En Proceso")
       );
-      router.push(destino);
+      router.push(resultado.destino);
     } catch (err) {
       setGuardando(null);
       const msg = err instanceof Error ? err.message : String(err);
@@ -813,9 +830,25 @@ Asistente de Inteligencia Artificial`;
     excluidosCorreo > 0
       ? `${excluidosCorreo} proveedor${excluidosCorreo === 1 ? "" : "es"} sin correo de contacto ${excluidosCorreo === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
       : undefined;
+  // Para strings de <input type="datetime-local"> (sin timezone, hora México)
+  // — el fechaEjecucion/fechaFinLicitacion que vive en el estado del form.
   const fmtFechaHoraCorreo = (valor: string) =>
     valor
       ? formatFechaMexico(parsearFechaMexico(valor), {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
+  // Para instantes ISO reales (con timezone) — lo que devuelve el Server
+  // Action como fechaAnteriorISO. NO pasar por parsearFechaMexico aquí: ya
+  // trae zona horaria, y volver a interpretarlo como hora-México-sin-tz
+  // desfasaría la hora.
+  const fmtFechaHoraCorreoISO = (iso: string | null) =>
+    iso
+      ? formatFechaMexico(iso, {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
@@ -837,7 +870,7 @@ Asistente de Inteligencia Artificial`;
   };
   const variablesCambioFecha = {
     numeroLicitacion: numero,
-    fechaAnterior: fmtFechaHoraCorreo(inicial?.fechaEjecucion ?? ""),
+    fechaAnterior: fmtFechaHoraCorreoISO(fechaAnteriorCambio),
     fechaInicio: fmtFechaHoraCorreo(fechaEjecucion),
     ...datosComprador(),
   };
