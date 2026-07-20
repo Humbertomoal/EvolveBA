@@ -1,5 +1,7 @@
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { plantillasCorreo, type TipoCorreo } from "@/src/config/plantillasCorreo";
+import { formatFechaMexico } from "@/src/lib/dateUtils";
+import { formatImporte } from "@/src/lib/monedas";
 
 export type { TipoCorreo };
 
@@ -22,62 +24,58 @@ export const VARIABLES_COMUNES = [
  * Variables específicas por tipo de correo (además de las comunes).
  * Estas SÍ hay que pasarlas explícitamente en `variables` al llamar
  * a renderizarPlantilla — vienen del proveedor/licitación/resultado
- * involucrado en cada envío, no de la config de empresa.
+ * involucrado en cada envío, no de la config de empresa. La lista de
+ * cada tipo refleja exactamente los {placeholders} que aparecen en su
+ * plantilla (src/config/plantillasCorreo.ts).
  *
  * Grupos de origen:
  * - Proveedor:   nombreProveedor, nombreContacto, usuarioAcceso, passwordTemporal
  * - Licitación:  numeroLicitacion, nombreComprador, correoComprador,
- *                telefonoComprador, fechaInicio, fechaFin, tablaMateriales
- * - Resultado:   tablaGanadores, ahorroTotal, excelAdjunto
+ *                telefonoComprador, fechaInicio, fechaFin, fechaAnterior,
+ *                tablaMateriales, instruccionesLicitacion
+ * - Resultado:   tablaGanadores, ahorroTotal, presupuestoObjetivo,
+ *                totalPrimeraRonda, mejorCostoTotal, adherenciaPrecio
  */
 export const VARIABLES_POR_TIPO: Record<TipoCorreo, readonly string[]> = {
-  ALTA_PROVEEDOR: [
-    "nombreProveedor",
-    "nombreContacto",
-    "usuarioAcceso",
-    "passwordTemporal",
-  ],
-  RECORDATORIO_PRODUCTOS: ["nombreProveedor", "nombreContacto"],
+  ALTA_PROVEEDOR: ["nombreContacto", "usuarioAcceso", "passwordTemporal"],
+  RECORDATORIO_PRODUCTOS: ["nombreContacto", "usuarioAcceso", "passwordTemporal"],
   INVITACION_LICITACION: [
-    "nombreProveedor",
-    "nombreContacto",
     "numeroLicitacion",
-    "nombreComprador",
-    "correoComprador",
-    "telefonoComprador",
     "fechaInicio",
     "fechaFin",
     "tablaMateriales",
+    "instruccionesLicitacion",
+    "nombreComprador",
+    "telefonoComprador",
+    "correoComprador",
   ],
   CAMBIO_FECHA: [
-    "nombreProveedor",
-    "nombreContacto",
     "numeroLicitacion",
-    "nombreComprador",
+    "fechaAnterior",
     "fechaInicio",
-    "fechaFin",
+    "nombreComprador",
+    "telefonoComprador",
+    "correoComprador",
   ],
   RESULTADO_INTERNO: [
     "numeroLicitacion",
     "nombreComprador",
+    "presupuestoObjetivo",
+    "totalPrimeraRonda",
+    "mejorCostoTotal",
+    "adherenciaPrecio",
+    "ahorroTotal",
     "tablaGanadores",
-    "ahorroTotal",
-    "excelAdjunto",
   ],
-  NOTIFICACION_GANADORES: [
-    "nombreProveedor",
-    "nombreContacto",
-    "numeroLicitacion",
-    "nombreComprador",
-    "correoComprador",
-    "telefonoComprador",
-    "tablaMateriales",
-  ],
+  NOTIFICACION_GANADORES: ["nombreProveedor", "numeroLicitacion", "tablaMateriales"],
+  NOTIFICACION_NO_GANADORES: ["nombreProveedor", "numeroLicitacion"],
   CONFIRMACION_CIERRE: [
+    "nombreProveedor",
     "numeroLicitacion",
+    "tablaMateriales",
     "nombreComprador",
-    "ahorroTotal",
-    "excelAdjunto",
+    "telefonoComprador",
+    "correoComprador",
   ],
 };
 
@@ -125,4 +123,44 @@ export function renderizarPlantilla(
     asunto: reemplazarVariables(plantilla.asunto, todasLasVariables),
     cuerpo: reemplazarVariables(plantilla.cuerpo, todasLasVariables),
   };
+}
+
+// ── Tablas en texto plano para {tablaMateriales} / {tablaGanadores} ────────────
+// Formato de lista (no tabla HTML): se ve limpio tanto en texto plano como
+// una vez pasado por convertirTextoAHtml (saltos de línea → <br>).
+
+export type ItemTablaMaterial = {
+  producto: string;
+  cantidad: number;
+  unidad: string;
+  fechaRequerida: Date | string | null;
+};
+
+export function generarTablaMateriales(items: ItemTablaMaterial[]): string {
+  if (items.length === 0) return "Sin materiales.";
+  return items
+    .map(
+      (item) =>
+        `- ${item.producto}: ${item.cantidad.toLocaleString("es-MX")} ${item.unidad} · Fecha requerida: ${formatFechaMexico(item.fechaRequerida)}`
+    )
+    .join("\n");
+}
+
+export type ItemTablaGanador = {
+  material: string;
+  proveedor: string;
+  cantidad: number;
+  unidad: string;
+  precioUnitario: number;
+  moneda: string;
+};
+
+export function generarTablaGanadores(asignaciones: ItemTablaGanador[]): string {
+  if (asignaciones.length === 0) return "Sin asignaciones.";
+  return asignaciones
+    .map((a) => {
+      const subtotal = a.cantidad * a.precioUnitario;
+      return `- ${a.material} → ${a.proveedor} · ${a.cantidad.toLocaleString("es-MX")} ${a.unidad} × ${formatImporte(a.precioUnitario, a.moneda)} = ${formatImporte(subtotal, a.moneda)}`;
+    })
+    .join("\n");
 }

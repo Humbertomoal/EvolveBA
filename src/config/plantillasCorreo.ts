@@ -5,6 +5,7 @@ export type TipoCorreo =
   | "CAMBIO_FECHA"
   | "RESULTADO_INTERNO"
   | "NOTIFICACION_GANADORES"
+  | "NOTIFICACION_NO_GANADORES"
   | "CONFIRMACION_CIERRE";
 
 export interface PlantillaCorreo {
@@ -13,106 +14,207 @@ export interface PlantillaCorreo {
   activo: boolean;
 }
 
-// Textos placeholder — se reemplazan por los definitivos en un paso posterior.
-// Las variables entre {llaves} sí son las reales de cada tipo de correo.
 export const plantillasCorreo: Record<TipoCorreo, PlantillaCorreo> = {
   ALTA_PROVEEDOR: {
-    asunto: "Bienvenido a {nombreComercial} — acceso a tu portal de proveedor",
-    cuerpo: `Hola {nombreContacto},
+    asunto: "¡Felicidades! Ya eres proveedor de {nombreEmpresa} - {nombreContacto}",
+    cuerpo: `Qué tal {nombreContacto}.
 
-{nombreProveedor} ya tiene acceso al portal de proveedores de {nombreEmpresa}.
+Espero que estés bien.
 
-Usuario: {usuarioAcceso}
-Contraseña temporal: {passwordTemporal}
+Te escribe {nombreAsistente}, el {tituloAsistente} de {nombreEmpresa}.
 
-Ingresa en {urlPortal} para completar tu catálogo y comenzar a recibir invitaciones a licitaciones.
+¡Me da mucho gusto hacerte saber que ya eres un nuevo proveedor de {nombreEmpresa}! Ahora, el siguiente paso es que nos indiques cuáles de todos los productos que compramos nos puedes proveer. Te dejo los pasos para ingresar a nuestro portal de proveedores:
 
-Cualquier duda, contáctanos al {telefonoContacto}.
+1. Ingresa a: {urlPortal}
+2. Usuario: {usuarioAcceso}
+3. Contraseña temporal: {passwordTemporal}
+4. Selecciona todos los productos de nuestro catálogo que nos puedes proveer.
 
+Nuestro proceso de compra es digitalizado y se realiza mediante licitaciones dentro de este mismo portal. Para que el sistema te identifique e incluya en las licitaciones necesitas indicar qué productos nos puedes proveer. Si no realizas este paso, no serás considerado en ninguna de las compras que realizamos.
+
+Te deseo mucha suerte en todas las licitaciones en las que participes. Una vez que termines el proceso, yo mismo te estaré invitando a participar en las licitaciones que contengan los productos que ofreces.
+
+Sin más por ahora, agradezco tu tiempo.
+
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
+{telefonoContacto}
+{urlPortal}
 {firmaCorreo}`,
     activo: true,
   },
   RECORDATORIO_PRODUCTOS: {
-    asunto: "Recordatorio: actualiza tu catálogo de productos en {nombreComercial}",
-    cuerpo: `Hola {nombreContacto},
+    asunto: "{nombreEmpresa} - Alta de catálogo de productos pendiente",
+    cuerpo: `Qué tal {nombreContacto}.
 
-Te recordamos mantener actualizado el catálogo de productos de {nombreProveedor} en el portal de {nombreEmpresa}.
+¡Espero que estés bien!
 
-Ingresa en {urlPortal} para revisar y actualizar tu información.
+Te escribe {nombreAsistente}, {tituloAsistente} de {nombreEmpresa}.
 
+Me he dado cuenta de que aún no nos indicas cuáles de todos los productos que compramos nos puedes proveer. Te dejo de nuevo los pasos para ingresar al portal de proveedores y dar de alta tu catálogo:
+
+1. Ingresa a: {urlPortal}
+2. Usuario: {usuarioAcceso}
+3. Contraseña: {passwordTemporal}
+4. Selecciona todos los productos de nuestro catálogo que nos puedes proveer.
+
+Como aún no nos has indicado qué productos puedes proveer, has perdido la oportunidad de participar en las licitaciones realizadas desde tu alta como proveedor. Si quieres que te consideremos en las próximas, es importante que ingreses hoy mismo al portal y concluyas este proceso.
+
+Que tengas excelente día, agradezco tu tiempo y atención.
+
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
+{telefonoContacto}
+{urlPortal}
 {firmaCorreo}`,
     activo: true,
   },
   INVITACION_LICITACION: {
-    asunto: "Invitación a licitación {numeroLicitacion} — {nombreComercial}",
-    cuerpo: `Hola {nombreContacto},
+    asunto: "Invitación Licitación {numeroLicitacion} - {nombreEmpresa}",
+    cuerpo: `Estimado Proveedor.
 
-{nombreProveedor} ha sido invitado a participar en la licitación {numeroLicitacion}.
+Bienvenido a nuestro proceso de licitación digital. Nos da gusto que seas uno de los proveedores que estará participando y compitiendo en esta licitación.
 
-Comprador: {nombreComprador}
-Contacto: {correoComprador} / {telefonoComprador}
-Vigencia: del {fechaInicio} al {fechaFin}
+A continuación, te compartimos las instrucciones, con el objetivo de que cuentes con toda la información que necesitas para realizar la mejor propuesta posible:
 
-Materiales solicitados:
+1. Ingresa a la plataforma el día {fechaInicio}, 30 minutos antes de la hora de inicio.
+2. El acceso a la licitación iniciará 15 minutos antes de la hora programada.
+3. La modalidad de la licitación es simultánea y de subasta: habrá varias rondas en las que tendrás la oportunidad de mejorar tu oferta, y todos los participantes ofertan al mismo tiempo.
+4. Cada vez que alguno de los competidores mejore la oferta anterior, se activará una nueva ronda para darles la oportunidad de mejorar de nuevo.
+5. Te recomendamos revisar los materiales y cantidades que se licitarán, así como los archivos adjuntos, para tener claro cuál puede ser tu mejor precio para cada producto.
+
+Fecha de inicio: {fechaInicio}
+Fecha de cierre: {fechaFin}
+
+Materiales a licitar:
 {tablaMateriales}
 
-Ingresa en {urlPortal} para enviar tu cotización.
+{instruccionesLicitacion}
 
+Si deseas entender cómo funciona la plataforma, contacta al comprador asignado para agendar una sesión de tutorial.
+
+Comprador asignado: {nombreComprador}
+Teléfono: {telefonoComprador}
+Correo: {correoComprador}
+
+Cualquier duda quedamos atentos.
+
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
+{urlPortal}
 {firmaCorreo}`,
     activo: true,
   },
   CAMBIO_FECHA: {
-    asunto: "Cambio de fechas — licitación {numeroLicitacion}",
-    cuerpo: `Hola {nombreContacto},
+    asunto: "Notificación Licitación {numeroLicitacion} {nombreEmpresa} - Cambio de fecha",
+    cuerpo: `Estimado Proveedor.
 
-Las fechas de la licitación {numeroLicitacion} ({nombreComprador}) han cambiado:
+Espero que te encuentres bien.
 
-Nueva vigencia: del {fechaInicio} al {fechaFin}
+El objetivo de este correo es informarte que la fecha de inicio de la licitación {numeroLicitacion}, originalmente programada para el {fechaAnterior}, ha sido modificada.
 
-Ingresa en {urlPortal} para revisar los detalles actualizados.
+La nueva fecha en la que deberás ingresar al portal de proveedores ({urlPortal}) es el {fechaInicio}.
 
+Cualquier duda o necesidad de apoyo para que puedas participar y hacer tu mejor oferta, favor de comunicarte con el comprador asignado a esta licitación:
+
+{nombreComprador}
+{telefonoComprador}
+{correoComprador}
+
+Sin más por el momento, agradezco tu tiempo y atención.
+
+¡Mucha suerte en la licitación!
+
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
 {firmaCorreo}`,
     activo: true,
   },
   RESULTADO_INTERNO: {
-    asunto: "Resultado de licitación {numeroLicitacion} — uso interno",
-    cuerpo: `Hola {nombreComprador},
+    asunto: "Resultado Licitación {numeroLicitacion} - {nombreEmpresa}",
+    cuerpo: `Hola {nombreComprador}.
 
-La licitación {numeroLicitacion} ha finalizado. Resumen de resultados:
+La licitación {numeroLicitacion} ha finalizado. A continuación el resumen de resultados:
 
+Presupuesto objetivo: {presupuestoObjetivo}
+Total primera ronda: {totalPrimeraRonda}
+Mejor costo total: {mejorCostoTotal}
+Adherencia de precio: {adherenciaPrecio}
+Ahorro obtenido: {ahorroTotal}
+
+Ganadores por material:
 {tablaGanadores}
 
-Ahorro total: {ahorroTotal}
+Se adjunta el archivo Excel con el detalle de todas las rondas y ofertas recibidas.
 
-{excelAdjunto}
-
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
 {firmaCorreo}`,
     activo: true,
   },
   NOTIFICACION_GANADORES: {
-    asunto: "Resultado de tu cotización — licitación {numeroLicitacion}",
-    cuerpo: `Hola {nombreContacto},
+    asunto: "Resultado Licitación {numeroLicitacion} - Materiales asignados",
+    cuerpo: `Estimado {nombreProveedor}.
 
-{nombreProveedor} ha resultado ganador en la licitación {numeroLicitacion} para los siguientes materiales:
+Nos complace informarte que has resultado ganador en la licitación {numeroLicitacion} para los siguientes materiales:
 
 {tablaMateriales}
 
-Comprador: {nombreComprador}
-Contacto: {correoComprador} / {telefonoComprador}
+El siguiente paso es que ingreses al portal para revisar y confirmar la asignación:
 
-Ingresa en {urlPortal} para confirmar tu participación.
+{urlPortal}
 
+Una vez confirmada tu aceptación, procederemos con la generación de la orden de compra correspondiente.
+
+Agradecemos tu participación y confianza.
+
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
+{firmaCorreo}`,
+    activo: true,
+  },
+  NOTIFICACION_NO_GANADORES: {
+    asunto: "Resultado Licitación {numeroLicitacion} - {nombreEmpresa}",
+    cuerpo: `Estimado {nombreProveedor}.
+
+Te agradecemos sinceramente tu participación en la licitación {numeroLicitacion}.
+
+En esta ocasión los materiales fueron asignados a otros participantes, pero valoramos mucho el tiempo y esfuerzo que dedicaste a preparar tu propuesta.
+
+Seguiremos invitándote a futuras licitaciones que incluyan los productos de tu catálogo. Te animamos a seguir participando.
+
+Cualquier duda, quedamos a tus órdenes.
+
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
 {firmaCorreo}`,
     activo: true,
   },
   CONFIRMACION_CIERRE: {
-    asunto: "Confirmación de cierre — licitación {numeroLicitacion}",
-    cuerpo: `Hola {nombreComprador},
+    asunto: "Licitación {numeroLicitacion} cerrada - Seguimiento de orden de compra",
+    cuerpo: `Estimado {nombreProveedor}.
 
-La licitación {numeroLicitacion} se cerró correctamente. Ahorro total obtenido: {ahorroTotal}.
+Te confirmamos que la licitación {numeroLicitacion} ha sido cerrada formalmente y tu asignación quedó registrada.
 
-{excelAdjunto}
+Materiales asignados:
+{tablaMateriales}
 
+En breve el comprador asignado se pondrá en contacto contigo para dar seguimiento a la orden de compra y coordinar los detalles de entrega.
+
+Comprador asignado: {nombreComprador}
+Teléfono: {telefonoComprador}
+Correo: {correoComprador}
+
+Agradecemos tu participación y confianza.
+
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
 {firmaCorreo}`,
     activo: true,
   },
