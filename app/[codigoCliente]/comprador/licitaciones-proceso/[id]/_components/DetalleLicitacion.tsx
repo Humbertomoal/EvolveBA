@@ -3,6 +3,7 @@
 import {
   IconClock,
   IconEye,
+  IconMail,
   IconMessageCircle,
   IconPlayerSkipForward,
   IconReceipt,
@@ -20,6 +21,12 @@ import {
 } from "@/src/lib/pdfActions";
 import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import ModalCorreo from "@/src/components/ModalCorreo";
+import { prepararAdjuntosCorreoAction } from "@/src/lib/adjuntosCorreoActions";
+import { generarTablaMateriales } from "@/src/lib/plantillasCorreo";
+import { getConfigEmpresa } from "@/src/config/empresa";
+import { formatFechaMexico } from "@/src/lib/dateUtils";
+import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
 // ── Types (exported for use in server page) ───────────────────────────────────
 
@@ -99,7 +106,30 @@ export type MejorPrecioItem = {
   } | null;
 };
 
+export type DatosInvitacionLicitacion = {
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  instrucciones: string;
+  archivosAdjuntos: string[];
+  items: { producto: string; cantidad: number; unidad: string; fechaRequerida: string | null }[];
+  destinatarios: string[];
+  excluidos: number;
+  nombreComprador: string;
+  correoComprador: string;
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtFechaHoraCorreo(iso: string | null): string {
+  if (!iso) return "";
+  return formatFechaMexico(iso, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function formatPeso(n: number): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -202,6 +232,8 @@ export default function DetalleLicitacion({
   analisisPorProducto,
   resumenAhorro,
   basePath,
+  codigoCliente,
+  datosInvitacion,
   noLeidosPorProveedor = {},
 }: {
   id: string;
@@ -216,6 +248,8 @@ export default function DetalleLicitacion({
   analisisPorProducto: AnalisisProductoItem[];
   resumenAhorro: ResumenAhorro;
   basePath: string;
+  codigoCliente: string;
+  datosInvitacion: DatosInvitacionLicitacion;
   noLeidosPorProveedor?: Record<string, number>;
 }) {
   const router = useRouter();
@@ -227,6 +261,20 @@ export default function DetalleLicitacion({
     useState<ProveedorParticipante | null>(null);
   const [chatProveedorId, setChatProveedorId] = useState<string | null>(null);
   const [forzando, setForzando] = useState(false);
+  const [preparandoReenvio, setPreparandoReenvio] = useState(false);
+  const [modalReenvio, setModalReenvio] = useState<{
+    adjuntos: AdjuntoCorreo[];
+    omitidoPorTamano: boolean;
+  } | null>(null);
+
+  async function handleAbrirReenvioInvitacion() {
+    setPreparandoReenvio(true);
+    const { adjuntos, omitidoPorTamano } = await prepararAdjuntosCorreoAction(
+      datosInvitacion.archivosAdjuntos
+    );
+    setPreparandoReenvio(false);
+    setModalReenvio({ adjuntos, omitidoPorTamano });
+  }
 
   const cotizaron = participantes.filter((p: any) => p.cotizó).length;
 
@@ -313,6 +361,16 @@ export default function DetalleLicitacion({
               Forzar cierre de ronda
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleAbrirReenvioInvitacion}
+            disabled={preparandoReenvio}
+            className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <IconMail className="h-4 w-4" />
+            {preparandoReenvio ? "Preparando…" : "Reenviar invitación"}
+          </button>
 
           <DescargarPdfButton
             label="Descargar Resumen PDF"
@@ -899,6 +957,38 @@ export default function DetalleLicitacion({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Modal: reenviar invitación a la licitación ─────────────────────── */}
+      {modalReenvio && (
+        <ModalCorreo
+          abierto
+          onCerrar={() => setModalReenvio(null)}
+          onEnviado={() => setModalReenvio(null)}
+          tipo="INVITACION_LICITACION"
+          codigoCliente={codigoCliente}
+          variables={{
+            numeroLicitacion: numero,
+            fechaInicio: fmtFechaHoraCorreo(datosInvitacion.fechaInicio),
+            fechaFin: fmtFechaHoraCorreo(datosInvitacion.fechaFin),
+            tablaMateriales: generarTablaMateriales(datosInvitacion.items),
+            instruccionesLicitacion:
+              datosInvitacion.instrucciones +
+              (modalReenvio.omitidoPorTamano
+                ? "\n\nLos archivos adjuntos están disponibles en el portal."
+                : ""),
+            nombreComprador: datosInvitacion.nombreComprador,
+            correoComprador: datosInvitacion.correoComprador,
+            telefonoComprador: getConfigEmpresa(codigoCliente).telefonoContacto,
+          }}
+          destinatarios={datosInvitacion.destinatarios}
+          adjuntos={modalReenvio.adjuntos}
+          aviso={
+            datosInvitacion.excluidos > 0
+              ? `${datosInvitacion.excluidos} proveedor${datosInvitacion.excluidos === 1 ? "" : "es"} sin correo de contacto ${datosInvitacion.excluidos === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
+              : undefined
+          }
+        />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { getMapaProveedorMateriales } from "@/src/lib/proveedorMateriales";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedores } from "@/src/lib/proveedores";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
+import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import LicitacionForm from "./_components/LicitacionForm";
 
 export default async function NuevaLicitacionPage({
@@ -15,7 +16,7 @@ export default async function NuevaLicitacionPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [productos, proveedores, proveedorMateriales, ultima, jerarquias, tiposLicitacion, monedas] =
+  const [productos, proveedores, proveedorMateriales, ultima, jerarquias, tiposLicitacion, monedas, usuarioActual] =
     await Promise.all([
       getProductos(),
       getProveedores(),
@@ -27,6 +28,7 @@ export default async function NuevaLicitacionPage({
       getCatalogosActivos("JERARQUIA"),
       getCatalogosActivos("TIPO_LICITACION"),
       getCatalogosActivos("MONEDA"),
+      getUsuarioActual(),
     ]);
 
   const n = parseInt(ultima?.numero ?? "0", 10);
@@ -36,11 +38,13 @@ export default async function NuevaLicitacionPage({
   return (
     <LicitacionForm
       basePath={basePath}
+      codigoCliente={codigoCliente}
       productos={productos}
       proveedores={proveedores}
       proveedorMateriales={proveedorMateriales}
       siguienteNumero={siguienteNumero}
       catalogos={catalogos}
+      usuarioActual={usuarioActual}
     />
   );
 }

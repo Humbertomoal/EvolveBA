@@ -3,6 +3,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
+import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,
@@ -14,7 +15,18 @@ import type {
   AnalisisProductoItem,
   ResumenAhorro,
   RondaHistorial,
+  DatosInvitacionLicitacion,
 } from "./_components/DetalleLicitacion";
+
+function parsearArchivosAdjuntos(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export default async function DetalleLicitacionProcesoPage({
   params,
@@ -35,7 +47,9 @@ export default async function DetalleLicitacionProcesoPage({
         orderBy: { createdAt: "asc" },
       },
       proveedoresInvitados: {
-        include: { proveedor: { select: { id: true, razonSocial: true } } },
+        include: {
+          proveedor: { select: { id: true, razonSocial: true, contactoAdminCorreo: true } },
+        },
         orderBy: { invitadoEn: "asc" },
       },
     },
@@ -295,6 +309,28 @@ export default async function DetalleLicitacionProcesoPage({
     }
   } catch {}
 
+  // ── Datos para el reenvío del correo de invitación ─────────────────────────
+  const usuarioActual = await getUsuarioActual();
+  const correosProveedoresInvitados = licitacion.proveedoresInvitados
+    .map((lp: any) => lp.proveedor.contactoAdminCorreo?.trim())
+    .filter((c: any): c is string => !!c);
+  const datosInvitacion: DatosInvitacionLicitacion = {
+    fechaInicio: licitacion.fechaEjecucion?.toISOString() ?? null,
+    fechaFin: licitacion.fechaFinLicitacion?.toISOString() ?? null,
+    instrucciones: licitacion.instrucciones ?? "",
+    archivosAdjuntos: parsearArchivosAdjuntos(licitacion.archivosAdjuntos),
+    items: licitacion.items.map((item: any) => ({
+      producto: item.producto.nombre,
+      cantidad: item.cantidadSolicitada,
+      unidad: item.producto.unidadMedida,
+      fechaRequerida: item.fechaEntrega?.toISOString() ?? null,
+    })),
+    destinatarios: [...new Set(correosProveedoresInvitados)],
+    excluidos: licitacion.proveedoresInvitados.length - correosProveedoresInvitados.length,
+    nombreComprador: usuarioActual?.nombre ?? "",
+    correoComprador: usuarioActual?.email ?? "",
+  };
+
   return (
     <DetalleLicitacion
       id={licitacion.id}
@@ -309,6 +345,8 @@ export default async function DetalleLicitacionProcesoPage({
       analisisPorProducto={analisisPorProducto}
       resumenAhorro={resumenAhorro}
       basePath={basePath}
+      codigoCliente={codigoCliente}
+      datosInvitacion={datosInvitacion}
       noLeidosPorProveedor={noLeidosPorProveedor}
     />
   );

@@ -23,10 +23,17 @@ import {
   crearLicitacionAction,
 } from "@/src/lib/licitacionesActions";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
+import { getConfigEmpresa } from "@/src/config/empresa";
 import { MONEDAS } from "@/src/lib/monedas";
+import { formatFechaMexico, parsearFechaMexico } from "@/src/lib/dateUtils";
+import { generarTablaMateriales, type ItemTablaMaterial } from "@/src/lib/plantillasCorreo";
+import { prepararAdjuntosCorreoAction } from "@/src/lib/adjuntosCorreoActions";
+import type { AdjuntoCorreo } from "@/src/lib/emailService";
+import type { UsuarioActual } from "@/src/lib/usuarioActual";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
 import FileUpload from "@/src/components/FileUpload";
+import ModalCorreo from "@/src/components/ModalCorreo";
 
 const TIPOS_ADJUNTOS = [
   "application/pdf",
@@ -139,14 +146,17 @@ function fmtFecha(dateStr: string) {
 
 export default function LicitacionForm({
   basePath,
+  codigoCliente,
   productos,
   proveedores,
   proveedorMateriales = {},
   inicial,
   siguienteNumero = "0001",
   catalogos,
+  usuarioActual = null,
 }: {
   basePath: string;
+  codigoCliente: string;
   productos: Producto[];
   proveedores: Proveedor[];
   proveedorMateriales?: Record<string, string[]>;
@@ -157,6 +167,7 @@ export default function LicitacionForm({
     tiposLicitacion: { codigo: string; nombre: string }[];
     monedas: { codigo: string; nombre: string; simbolo?: string | null }[];
   };
+  usuarioActual?: UsuarioActual | null;
 }) {
   const modoEdicion = inicial !== undefined;
   usePageTitle(modoEdicion ? `Editar Licitación ${inicial!.numero}` : "Nueva Licitación");
@@ -207,6 +218,14 @@ export default function LicitacionForm({
   const [archivosAdjuntos, setArchivosAdjuntos] = useState<string[]>(
     inicial?.archivosAdjuntos ?? []
   );
+
+  // ── Correo de invitación / cambio de fecha (tras guardar) ───────────────────
+  const [correoPendiente, setCorreoPendiente] = useState<
+    "INVITACION_LICITACION" | "CAMBIO_FECHA" | null
+  >(null);
+  const [destinoTrasCorreo, setDestinoTrasCorreo] = useState<string | null>(null);
+  const [adjuntosInvitacion, setAdjuntosInvitacion] = useState<AdjuntoCorreo[]>([]);
+  const [adjuntosOmitidos, setAdjuntosOmitidos] = useState(false);
 
   // ── Validation state ─────────────────────────────────────────────────────────
   const [intentoGuardar, setIntentoGuardar] = useState(false);
@@ -442,6 +461,52 @@ Asistente de Inteligencia Artificial`;
     setModalInstruccionesAbierto(false);
   }
 
+  // ── Correo: datos comunes + destinatarios + tabla de materiales ─────────────
+
+  function datosComprador() {
+    const empresa = getConfigEmpresa(codigoCliente);
+    return {
+      nombreComprador: usuarioActual?.nombre ?? "",
+      correoComprador: usuarioActual?.email ?? "",
+      telefonoComprador: empresa.telefonoContacto,
+    };
+  }
+
+  function destinatariosSeleccionados(): { destinatarios: string[]; excluidos: number } {
+    const conCorreo: string[] = [];
+    let excluidos = 0;
+    for (const id of proveedoresSeleccionados) {
+      const correo = proveedores.find((p: any) => p.id === id)?.contactoAdminCorreo?.trim();
+      if (correo) conCorreo.push(correo);
+      else excluidos++;
+    }
+    return { destinatarios: [...new Set(conCorreo)], excluidos };
+  }
+
+  function itemsParaTablaMateriales(): ItemTablaMaterial[] {
+    return items
+      .filter((i) => i.productoId)
+      .map((i) => ({
+        producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
+        cantidad: parseFloat(i.cantidadSolicitada) || 0,
+        unidad: i.unidadMedida,
+        fechaRequerida: i.fechaEntrega ? new Date(i.fechaEntrega) : null,
+      }));
+  }
+
+  async function abrirCorreoInvitacion(destino: string) {
+    const { adjuntos, omitidoPorTamano } = await prepararAdjuntosCorreoAction(archivosAdjuntos);
+    setAdjuntosInvitacion(adjuntos);
+    setAdjuntosOmitidos(omitidoPorTamano);
+    setDestinoTrasCorreo(destino);
+    setCorreoPendiente("INVITACION_LICITACION");
+  }
+
+  function abrirCorreoCambioFecha(destino: string) {
+    setDestinoTrasCorreo(destino);
+    setCorreoPendiente("CAMBIO_FECHA");
+  }
+
   // ── Submit helpers ───────────────────────────────────────────────────────────
 
   function buildDatos(estado: string) {
@@ -467,18 +532,20 @@ Asistente de Inteligencia Artificial`;
 
   async function ejecutarGuardar(estado?: "Borrador" | "Programada" | "En Proceso") {
     setBannerError(null);
+    const estadoPrevio = inicial?.estado;
+    let destino: string;
+
     if (modoEdicion) {
       setGuardando(
         estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "edicion"
       );
       try {
-        const destino = await actualizarLicitacionAction(
+        destino = await actualizarLicitacionAction(
           inicial!.id,
           basePath,
           buildDatos(estado ?? inicial!.estado)
         );
         toast.success("Licitación guardada correctamente");
-        router.push(destino);
       } catch (err) {
         setGuardando(null);
         const msg = err instanceof Error ? err.message : String(err);
@@ -488,15 +555,15 @@ Asistente de Inteligencia Artificial`;
           () => bannerServerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
           50
         );
+        return;
       }
     } else {
       setGuardando(
         estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "proceso"
       );
       try {
-        const destino = await crearLicitacionAction(basePath, buildDatos(estado!));
+        destino = await crearLicitacionAction(basePath, buildDatos(estado!));
         toast.success("Licitación guardada correctamente");
-        router.push(destino);
       } catch (err) {
         setGuardando(null);
         const msg = err instanceof Error ? err.message : String(err);
@@ -506,8 +573,34 @@ Asistente de Inteligencia Artificial`;
           () => bannerServerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
           50
         );
+        return;
       }
     }
+
+    // ── Tras guardar con éxito: ¿corresponde abrir el correo de invitación o
+    // de cambio de fecha antes de navegar? El correo nunca bloquea el guardado
+    // en sí (ya se guardó arriba) — solo pospone la navegación mientras el
+    // comprador decide si lo envía o lo cancela.
+    setGuardando(null);
+    const esProveedores = modoLicitacion === "Proveedores";
+    const hayProveedores = proveedoresSeleccionados.length > 0;
+
+    if (esProveedores && estado === "Programada" && hayProveedores) {
+      await abrirCorreoInvitacion(destino);
+      return;
+    }
+    if (
+      modoEdicion &&
+      esProveedores &&
+      hayProveedores &&
+      (estadoPrevio === "Programada" || estadoPrevio === "En Proceso") &&
+      !!fechaEjecucion &&
+      fechaEjecucion !== inicial!.fechaEjecucion
+    ) {
+      abrirCorreoCambioFecha(destino);
+      return;
+    }
+    router.push(destino);
   }
 
   async function handleIniciarCotizacion() {
@@ -712,6 +805,42 @@ Asistente de Inteligencia Artificial`;
       setDuracionUnidad("dias");
     }
   }, [fechaEjecucion, fechaFinLicitacion, maxRondas]);
+
+  // ── Datos para los modales de correo (invitación / cambio de fecha) ────────
+  const { destinatarios: destinatariosCorreo, excluidos: excluidosCorreo } =
+    destinatariosSeleccionados();
+  const avisoExcluidos =
+    excluidosCorreo > 0
+      ? `${excluidosCorreo} proveedor${excluidosCorreo === 1 ? "" : "es"} sin correo de contacto ${excluidosCorreo === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
+      : undefined;
+  const fmtFechaHoraCorreo = (valor: string) =>
+    valor
+      ? formatFechaMexico(parsearFechaMexico(valor), {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
+  const variablesInvitacion = {
+    numeroLicitacion: numero,
+    fechaInicio: fmtFechaHoraCorreo(fechaEjecucion),
+    fechaFin: fmtFechaHoraCorreo(fechaFinLicitacion),
+    tablaMateriales: generarTablaMateriales(itemsParaTablaMateriales()),
+    instruccionesLicitacion:
+      instrucciones +
+      (adjuntosOmitidos
+        ? "\n\nLos archivos adjuntos están disponibles en el portal."
+        : ""),
+    ...datosComprador(),
+  };
+  const variablesCambioFecha = {
+    numeroLicitacion: numero,
+    fechaAnterior: fmtFechaHoraCorreo(inicial?.fechaEjecucion ?? ""),
+    fechaInicio: fmtFechaHoraCorreo(fechaEjecucion),
+    ...datosComprador(),
+  };
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -1824,6 +1953,47 @@ Asistente de Inteligencia Artificial`;
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Correo: invitación a la licitación ──────────────────────────────── */}
+      {correoPendiente === "INVITACION_LICITACION" && destinoTrasCorreo && (
+        <ModalCorreo
+          abierto
+          onCerrar={() => {
+            setCorreoPendiente(null);
+            router.push(destinoTrasCorreo);
+          }}
+          onEnviado={() => {
+            setCorreoPendiente(null);
+            router.push(destinoTrasCorreo);
+          }}
+          tipo="INVITACION_LICITACION"
+          codigoCliente={codigoCliente}
+          variables={variablesInvitacion}
+          destinatarios={destinatariosCorreo}
+          adjuntos={adjuntosInvitacion}
+          aviso={avisoExcluidos}
+        />
+      )}
+
+      {/* ── Correo: cambio de fecha ──────────────────────────────────────────── */}
+      {correoPendiente === "CAMBIO_FECHA" && destinoTrasCorreo && (
+        <ModalCorreo
+          abierto
+          onCerrar={() => {
+            setCorreoPendiente(null);
+            router.push(destinoTrasCorreo);
+          }}
+          onEnviado={() => {
+            setCorreoPendiente(null);
+            router.push(destinoTrasCorreo);
+          }}
+          tipo="CAMBIO_FECHA"
+          codigoCliente={codigoCliente}
+          variables={variablesCambioFecha}
+          destinatarios={destinatariosCorreo}
+          aviso={avisoExcluidos}
+        />
       )}
     </div>
   );

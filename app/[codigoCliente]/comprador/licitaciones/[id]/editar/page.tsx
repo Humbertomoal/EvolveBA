@@ -6,6 +6,7 @@ import { getProductos } from "@/src/lib/productos";
 import { getProveedores } from "@/src/lib/proveedores";
 import { fechaParaInput } from "@/src/lib/dateUtils";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
+import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import LicitacionForm, { type PreDatos, type UnidadDuracion } from "../../nueva/_components/LicitacionForm";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ export default async function EditarLicitacionPage({
     proveedoresInvitados: licitacion.proveedoresInvitados.map((p: any) => p.proveedorId),
   };
 
-  const [productos, proveedores, proveedorMateriales, jerarquias, tiposLicitacion, monedas] =
+  const [productos, proveedores, proveedorMateriales, jerarquias, tiposLicitacion, monedas, usuarioActual] =
     await Promise.all([
       getProductos(),
       getProveedores(),
@@ -111,17 +112,20 @@ export default async function EditarLicitacionPage({
       getCatalogosActivos("JERARQUIA"),
       getCatalogosActivos("TIPO_LICITACION"),
       getCatalogosActivos("MONEDA"),
+      getUsuarioActual(),
     ]);
   const catalogos = { jerarquias, tiposLicitacion, monedas };
 
   return (
     <LicitacionForm
       basePath={basePath}
+      codigoCliente={codigoCliente}
       productos={productos}
       proveedores={proveedores}
       proveedorMateriales={proveedorMateriales}
       inicial={inicial}
       catalogos={catalogos}
+      usuarioActual={usuarioActual}
     />
   );
 }

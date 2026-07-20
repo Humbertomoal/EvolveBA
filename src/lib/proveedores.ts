@@ -111,6 +111,26 @@ export type AccesoProveedor = {
   ultimoAcceso: string | null;
 };
 
+/** Mapa proveedorId → acceso, para listas (evita N+1 consultas). */
+export async function getMapaAccesoProveedores(): Promise<
+  Record<string, { email: string; activo: boolean }>
+> {
+  const rows = await db.proveedor.findMany({
+    where: { usuarioId: { not: null } },
+    select: {
+      id: true,
+      usuario: { select: { email: true, activo: true } },
+    },
+  });
+  return rows.reduce(
+    (acc: Record<string, { email: string; activo: boolean }>, r: any) => {
+      if (r.usuario) acc[r.id] = { email: r.usuario.email, activo: r.usuario.activo };
+      return acc;
+    },
+    {}
+  );
+}
+
 export async function getAccesoProveedor(
   proveedorId: string
 ): Promise<AccesoProveedor | null> {
