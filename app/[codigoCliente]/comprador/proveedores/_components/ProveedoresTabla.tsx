@@ -228,10 +228,27 @@ export default function ProveedoresTabla({
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`${basePath}/comprador/proveedores/${proveedor.id}/editar`}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100"
+                          aria-label={`Editar ${proveedor.razonSocial}`}
+                        >
+                          <IconPencil className="h-4 w-4" />
+                          Editar
+                        </Link>
+                        <BotonEnviarCorreo
+                          soloIcono
+                          etiqueta="Redactar correo"
+                          codigoCliente={codigoCliente}
+                          destinatarios={correoContacto ? [correoContacto] : []}
+                          deshabilitado={!correoContacto}
+                          tooltipDeshabilitado="Este proveedor no tiene correo de vendedor ni de contacto administrativo registrado."
+                        />
                         {catalogoPendiente && acceso && (
                           <BotonEnviarCorreo
+                            soloIcono
                             tipo="RECORDATORIO_PRODUCTOS"
-                            etiqueta="Recordatorio"
+                            etiqueta="Recordatorio de catálogo"
                             codigoCliente={codigoCliente}
                             variables={{
                               nombreContacto:
@@ -250,21 +267,6 @@ export default function ProveedoresTabla({
                             tooltipDeshabilitado="Este proveedor no tiene un correo de contacto registrado."
                           />
                         )}
-                        <BotonEnviarCorreo
-                          etiqueta="Redactar correo"
-                          codigoCliente={codigoCliente}
-                          destinatarios={correoContacto ? [correoContacto] : []}
-                          deshabilitado={!correoContacto}
-                          tooltipDeshabilitado="Este proveedor no tiene correo de vendedor ni de contacto administrativo registrado."
-                        />
-                        <Link
-                          href={`${basePath}/comprador/proveedores/${proveedor.id}/editar`}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100"
-                          aria-label={`Editar ${proveedor.razonSocial}`}
-                        >
-                          <IconPencil className="h-4 w-4" />
-                          Editar
-                        </Link>
                       </div>
                     </td>
                   </tr>
