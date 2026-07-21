@@ -83,7 +83,7 @@ Correo: {correoComprador}
 
 A continuación, te compartimos las instrucciones, con el objetivo de que cuentes con toda la información que necesitas para realizar la mejor propuesta posible:
 
-1. Ingresa a la plataforma el día {fechaInicio}, 30 minutos antes de la hora de inicio.
+1. Ingresa a la plataforma en {urlPortal} el día {fechaInicio}, 30 minutos antes de la hora de inicio.
 2. El acceso a la licitación iniciará 15 minutos antes de la hora programada.
 3. La modalidad de la licitación es simultánea y de subasta: habrá varias rondas en las que tendrás la oportunidad de mejorar tu oferta, y todos los participantes ofertan al mismo tiempo para garantizar que compitan de forma correcta y justa.
 4. Cada vez que alguno de los competidores mejore la oferta anterior, se activará una nueva ronda para darles la oportunidad de mejorar de nuevo.
@@ -99,6 +99,8 @@ Materiales a licitar (los que corresponden a tu catálogo):
 {instruccionesLicitacion}
 
 Cualquier duda o aclaración, comuníquese con el comprador asignado a esta licitación a través del chat disponible en el portal.
+
+Accede al portal aquí: {urlPortal}
 
 Atentamente,
 {nombreAsistente} - {tituloAsistente}
@@ -209,6 +211,8 @@ En breve el comprador asignado se pondrá en contacto contigo para dar seguimien
 Comprador asignado: {nombreComprador}
 Teléfono: {telefonoComprador}
 Correo: {correoComprador}
+
+Puedes dar seguimiento a esta asignación desde el portal de proveedores: {urlPortal}
 
 Agradecemos tu participación y confianza.
 

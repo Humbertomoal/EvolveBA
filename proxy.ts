@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/src/auth";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 
-const PUBLIC_PATHS = ["/login", "/cambiar-password", "/api/auth"];
+const PUBLIC_PATHS = ["/login", "/cambiar-password"];
 const SECCIONES_SIN_CLIENTE = ["/comprador", "/proveedor", "/inicio"];
 
 export default auth((req) => {
@@ -54,6 +54,12 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)",
+    // api/auth queda excluido a propósito: el wrapper auth() NUNCA debe
+    // envolver las rutas de Auth.js (en especial el callback OAuth), porque
+    // eso hace que Auth.js procese la misma request dos veces (una vez aquí,
+    // otra en el route handler real) y corrompe cookies con estado como
+    // pkceCodeVerifier — causaba "InvalidCheck: pkceCodeVerifier value could
+    // not be parsed" en el login con Microsoft.
+    "/((?!_next/static|_next/image|favicon\\.ico|api/auth|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)",
   ],
 };

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { signIn, getSession } from "next-auth/react";
 import {
   IconAlertCircle,
   IconEye,
@@ -31,6 +32,7 @@ export default function LoginForm({
 }: {
   errorMicrosoft?: string | null;
 }) {
+  const router = useRouter();
   const [error, action, pending] = useActionState(loginAction, null);
   const [showPassword, setShowPassword] = useState(false);
   const [conectandoMicrosoft, setConectandoMicrosoft] = useState(false);
@@ -38,7 +40,22 @@ export default function LoginForm({
   const mensajeError = error ?? errorMicrosoft;
 
   async function handleMicrosoftSignIn() {
+    // Guard de doble clic: si ya está en curso, ignora clics adicionales
+    // (además del disabled del botón, por si el evento llega antes de que
+    // React aplique el re-render).
+    if (conectandoMicrosoft) return;
     setConectandoMicrosoft(true);
+
+    // Si ya hay una sesión activa (pestaña vieja, doble pestaña, etc.), no
+    // dispares un nuevo flujo OAuth — eso genera cookies state/pkce nuevas
+    // que pueden chocar con lo que el navegador ya tiene. Redirige directo.
+    const sesionActual = await getSession();
+    if (sesionActual) {
+      const tipo = (sesionActual.user as any)?.tipoUsuario ?? "comprador";
+      router.push(tipo === "proveedor" ? "/proveedor" : "/comprador");
+      return;
+    }
+
     // callbackUrl explícito a /login: esa página ya redirige a
     // /comprador o /proveedor según tipoUsuario una vez hay sesión válida.
     await signIn("microsoft-entra-id", { callbackUrl: "/login" });

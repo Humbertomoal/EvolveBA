@@ -136,18 +136,39 @@ function escapeHtml(texto: string): string {
     .replace(/>/g, "&gt;");
 }
 
+const URL_REGEX = /https?:\/\/[^\s<]+/g;
+
+/**
+ * Convierte URLs (http/https) de un texto YA escapado en enlaces clicables.
+ * Cualquier puntuación de cierre de oración pegada al final (paréntesis,
+ * punto, coma, etc.) se deja fuera del <a> para no romper el enlace ni
+ * arrastrar la puntuación como parte de la URL.
+ */
+function linkificarUrls(textoEscapado: string, colorPrimario: string): string {
+  return textoEscapado.replace(URL_REGEX, (match) => {
+    const cierre = match.match(/[),.;:!?\]}]+$/)?.[0] ?? "";
+    const url = cierre ? match.slice(0, -cierre.length) : match;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:${colorPrimario};text-decoration:underline;">${url}</a>${cierre}`;
+  });
+}
+
 /**
  * Convierte el cuerpo en texto plano de una plantilla (con saltos de
  * línea) a un HTML básico apto para cualquier cliente de correo: todo
  * con estilos inline, tabla de layout, encabezado con el color primario
- * de la empresa del cliente indicado.
+ * de la empresa del cliente indicado. Las URLs (p.ej. {urlPortal}) se
+ * convierten en enlaces clicables.
  */
 export function convertirTextoAHtml(texto: string, codigoCliente: string): string {
   const empresa = getConfigEmpresa(codigoCliente);
 
   const contenidoHtml = texto
     .split("\n")
-    .map((linea) => (linea.trim() === "" ? "<br>" : `${escapeHtml(linea)}<br>`))
+    .map((linea) =>
+      linea.trim() === ""
+        ? "<br>"
+        : `${linkificarUrls(escapeHtml(linea), empresa.colorPrimario)}<br>`
+    )
     .join("");
 
   return `<!DOCTYPE html>
