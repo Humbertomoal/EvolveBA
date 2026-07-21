@@ -4,10 +4,8 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
-import {
-  getMapaProveedorMateriales,
-  filtrarItemsPorMaterialesProveedor,
-} from "@/src/lib/proveedorMateriales";
+import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
+import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
 import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,

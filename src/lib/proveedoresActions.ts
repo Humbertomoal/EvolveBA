@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ProveedorInput } from "@/src/data/proveedores";
 import { actualizarProveedor, crearProveedor } from "@/src/lib/proveedores";
-import { sincronizarMaterialesDB } from "@/src/lib/proveedorMateriales";
+import { sincronizarMaterialesDB } from "@/src/lib/proveedorMaterialesData";
 
 function extraerDatos(formData: FormData): ProveedorInput {
   return {

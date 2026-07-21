@@ -2,7 +2,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import {
   getMaterialesProveedor,
   getFamiliasAsignadasProveedor,
-} from "@/src/lib/proveedorMateriales";
+} from "@/src/lib/proveedorMaterialesData";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedorById } from "@/src/lib/proveedores";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";

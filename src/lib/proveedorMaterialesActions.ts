@@ -9,7 +9,7 @@ import {
   getFamiliasProveedor,
   getFamiliasAsignadasProveedor,
   getMapaFamiliasAsignadasProveedores,
-} from "@/src/lib/proveedorMateriales";
+} from "@/src/lib/proveedorMaterialesData";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;

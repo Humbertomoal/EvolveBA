@@ -3,10 +3,8 @@ import { redirect } from "next/navigation";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
-import {
-  getMaterialesProveedor,
-  filtrarItemsPorMaterialesProveedor,
-} from "@/src/lib/proveedorMateriales";
+import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
+import { getMaterialesProveedor } from "@/src/lib/proveedorMaterialesData";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import LicitacionCotizacion, { type ItemDetalle } from "./_components/LicitacionCotizacion";

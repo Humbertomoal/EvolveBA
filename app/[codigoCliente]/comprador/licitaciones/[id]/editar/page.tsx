@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
-import { getMapaProveedorMateriales } from "@/src/lib/proveedorMateriales";
+import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedores } from "@/src/lib/proveedores";
 import { fechaParaInput } from "@/src/lib/dateUtils";
