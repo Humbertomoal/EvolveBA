@@ -4,6 +4,7 @@ import {
   IconChevronDown,
   IconFile,
   IconPackage,
+  IconTrash,
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
@@ -345,6 +346,17 @@ export default function ProveedorForm({
     setMaterialesSeleccionados((prev) => prev.filter((x) => x !== id));
   }
 
+  // Detalle de los materiales seleccionados, para chips y tabla — mismo
+  // estado (materialesSeleccionados), ordenado por familia y luego nombre.
+  const materialesDetalle = materialesSeleccionados
+    .map((id) => productos.find((p: any) => p.id === id))
+    .filter((p: any): p is Producto => !!p)
+    .sort((a: any, b: any) => {
+      const familiaCmp = (a.familia ?? "").localeCompare(b.familia ?? "");
+      if (familiaCmp !== 0) return familiaCmp;
+      return a.nombre.localeCompare(b.nombre);
+    });
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -672,28 +684,82 @@ export default function ProveedorForm({
             )}
           </button>
 
-          {materialesSeleccionados.length > 0 && (
+          {materialesDetalle.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {materialesSeleccionados.map((id) => {
-                const prod = productos.find((p: any)  => p.id === id);
-                if (!prod) return null;
-                return (
-                  <span
-                    key={id}
-                    className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-700"
+              {materialesDetalle.map((prod) => (
+                <span
+                  key={prod.id}
+                  className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-700"
+                >
+                  {prod.nombre}
+                  <button
+                    type="button"
+                    onClick={() => quitarMaterial(prod.id)}
+                    aria-label={`Quitar ${prod.nombre}`}
+                    className="text-zinc-400 hover:text-zinc-600"
                   >
-                    {prod.nombre}
-                    <button
-                      type="button"
-                      onClick={() => quitarMaterial(id)}
-                      aria-label={`Quitar ${prod.nombre}`}
-                      className="text-zinc-400 hover:text-zinc-600"
-                    >
-                      <IconX className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
+                    <IconX className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {materialesDetalle.length === 0 ? (
+            <p className="text-sm text-zinc-400">
+              Aún no has seleccionado materiales para este proveedor.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="text-xs text-zinc-500">
+                {materialesDetalle.length} material
+                {materialesDetalle.length !== 1 ? "es" : ""} seleccionado
+                {materialesDetalle.length !== 1 ? "s" : ""}
+              </p>
+              <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+                <div className="max-h-80 overflow-y-auto overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="sticky top-0 z-10 border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                        <th className="px-4 py-3 font-medium">Familia</th>
+                        <th className="px-4 py-3 font-medium">Código</th>
+                        <th className="px-4 py-3 font-medium">Descripción</th>
+                        <th className="px-4 py-3 font-medium">Unidad</th>
+                        <th className="px-4 py-3 font-medium">Moneda</th>
+                        <th className="px-4 py-3 text-right font-medium">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {materialesDetalle.map((prod) => (
+                        <tr key={prod.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                          <td className="px-4 py-3 text-zinc-700">
+                            {prod.familia || <span className="text-zinc-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-700">{prod.codigo}</td>
+                          <td className="px-4 py-3 font-medium text-zinc-900">
+                            {prod.nombre}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-700">{prod.unidadMedida}</td>
+                          <td className="px-4 py-3 text-zinc-700">
+                            {prod.monedaPredeterminada || "MXN"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => quitarMaterial(prod.id)}
+                              aria-label={`Quitar ${prod.nombre}`}
+                              title="Quitar"
+                              className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500"
+                            >
+                              <IconTrash className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
