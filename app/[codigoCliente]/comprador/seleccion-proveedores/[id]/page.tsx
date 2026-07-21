@@ -210,6 +210,7 @@ export default async function DetalleSeleccionPage({
         licitacion={licitacionInfo}
         asignaciones={asignaciones}
         basePath={basePath}
+        codigoCliente={codigoCliente}
         proveedoresParticipantes={proveedoresParticipantes}
       />
     );
@@ -221,6 +222,7 @@ export default async function DetalleSeleccionPage({
       licitacion={licitacionInfo}
       items={items}
       basePath={basePath}
+      codigoCliente={codigoCliente}
       proveedoresParticipantes={proveedoresParticipantes}
     />
   );

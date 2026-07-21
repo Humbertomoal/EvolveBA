@@ -11,7 +11,12 @@ import {
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
 import { cancelarLicitacionAction } from "@/src/lib/rondasActions";
+import {
+  prepararResultadoInternoAction,
+  type DatosResultadoInterno,
+} from "@/src/lib/resultadoInternoActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import ModalCorreo from "@/src/components/ModalCorreo";
 import type {
   ItemParaAsignacion,
   LicitacionInfo,
@@ -188,11 +193,13 @@ export default function AsignacionForm({
   licitacion,
   items,
   basePath,
+  codigoCliente,
   proveedoresParticipantes,
 }: {
   licitacion: LicitacionInfo;
   items: ItemParaAsignacion[];
   basePath: string;
+  codigoCliente: string;
   proveedoresParticipantes: { id: string; nombre: string }[];
 }) {
   const router = useRouter();
@@ -206,6 +213,8 @@ export default function AsignacionForm({
   const [toggleCancelar, setToggleCancelar] = useState(false);
   const [textoCancelar, setTextoCancelar] = useState("");
   const [cancelando, setCancelando] = useState(false);
+  const [modalResultadoInterno, setModalResultadoInterno] =
+    useState<DatosResultadoInterno | null>(null);
 
   function getOferta(item: ItemParaAsignacion, proveedorId: string): OfertaParaDropdown | undefined {
     return item.ofertas.find((o: any) => o.proveedorId === proveedorId);
@@ -420,8 +429,23 @@ export default function AsignacionForm({
     if (!window.confirm("¿Finalizar sin esperar confirmación de proveedores?")) return;
     setGuardando("finalizar");
     await finalizarSinEsperarAction(licitacion.id, buildFilas(), basePath);
-    router.refresh();
+    // finalizarSinEsperarAction ya crea las OC — este es el cierre formal, y
+    // el punto para ofrecer el correo RESULTADO_INTERNO (comprador +
+    // supervisor). Se retrasa el router.refresh() hasta que el modal se
+    // cierre: si se refresca antes, el server component cambia a
+    // SeguimientoView y el modal desaparece a medio flujo.
+    const datos = await prepararResultadoInternoAction(licitacion.id);
     setGuardando(null);
+    if (datos.destinatarios.length > 0) {
+      setModalResultadoInterno(datos);
+    } else {
+      router.refresh();
+    }
+  }
+
+  function cerrarModalResultadoInterno() {
+    setModalResultadoInterno(null);
+    router.refresh();
   }
 
   function cerrarModalCancelar() {
@@ -977,6 +1001,20 @@ export default function AsignacionForm({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Modal: correo de resultados internos (comprador + supervisor) ─── */}
+      {modalResultadoInterno && (
+        <ModalCorreo
+          abierto
+          onCerrar={cerrarModalResultadoInterno}
+          onEnviado={cerrarModalResultadoInterno}
+          tipo="RESULTADO_INTERNO"
+          codigoCliente={codigoCliente}
+          variables={modalResultadoInterno.variables}
+          destinatarios={modalResultadoInterno.destinatarios}
+          adjuntos={modalResultadoInterno.adjuntos}
+        />
       )}
     </div>
   );

@@ -15,8 +15,13 @@ import {
   reasignarProveedorAction,
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
+import {
+  prepararResultadoInternoAction,
+  type DatosResultadoInterno,
+} from "@/src/lib/resultadoInternoActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
+import ModalCorreo from "@/src/components/ModalCorreo";
 import type {
   AsignacionDetalle,
   LicitacionInfo,
@@ -175,11 +180,13 @@ export default function SeguimientoView({
   licitacion,
   asignaciones,
   basePath,
+  codigoCliente,
   proveedoresParticipantes,
 }: {
   licitacion: LicitacionInfo;
   asignaciones: AsignacionDetalle[];
   basePath: string;
+  codigoCliente: string;
   proveedoresParticipantes: { id: string; nombre: string }[];
 }) {
   const router = useRouter();
@@ -187,6 +194,8 @@ export default function SeguimientoView({
   const [modalReasignar, setModalReasignar] = useState<AsignacionDetalle | null>(null);
   const [nuevoProveedorId, setNuevoProveedorId] = useState<string>("");
   const [ejecutando, setEjecutando] = useState(false);
+  const [modalResultadoInterno, setModalResultadoInterno] =
+    useState<DatosResultadoInterno | null>(null);
 
   const todosConfirmados = asignaciones.every(
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
@@ -216,8 +225,21 @@ export default function SeguimientoView({
       return;
     setEjecutando(true);
     await forzarCierreSeleccionAction(licitacion.id, basePath);
-    router.refresh();
+    // forzarCierreSeleccionAction crea las OC restantes — cierre formal, así
+    // que aquí también se ofrece RESULTADO_INTERNO. router.refresh() se
+    // retrasa hasta cerrar el modal (ver AsignacionForm.tsx para el motivo).
+    const datos = await prepararResultadoInternoAction(licitacion.id);
     setEjecutando(false);
+    if (datos.destinatarios.length > 0) {
+      setModalResultadoInterno(datos);
+    } else {
+      router.refresh();
+    }
+  }
+
+  function cerrarModalResultadoInterno() {
+    setModalResultadoInterno(null);
+    router.refresh();
   }
 
   async function handleReasignar() {
@@ -544,6 +566,20 @@ export default function SeguimientoView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Modal: correo de resultados internos (comprador + supervisor) ─── */}
+      {modalResultadoInterno && (
+        <ModalCorreo
+          abierto
+          onCerrar={cerrarModalResultadoInterno}
+          onEnviado={cerrarModalResultadoInterno}
+          tipo="RESULTADO_INTERNO"
+          codigoCliente={codigoCliente}
+          variables={modalResultadoInterno.variables}
+          destinatarios={modalResultadoInterno.destinatarios}
+          adjuntos={modalResultadoInterno.adjuntos}
+        />
       )}
     </div>
   );
