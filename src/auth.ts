@@ -5,6 +5,16 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
 
+// Diagnóstico temporal — confirma si AUTH_SECRET y NEXTAUTH_SECRET conviven
+// con valores distintos (causaría que unas invocaciones cifren cookies con
+// un secreto y otras las descifren con otro). No expone valores, solo
+// presencia/igualdad. Corre una vez por cold start de la función.
+console.log("SECRETS:", {
+  authSecret: !!process.env.AUTH_SECRET,
+  nextauthSecret: !!process.env.NEXTAUTH_SECRET,
+  iguales: process.env.AUTH_SECRET === process.env.NEXTAUTH_SECRET,
+});
+
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   // trustHost hace que Auth.js derive el protocolo/host de los headers que
   // reenvía Vercel (X-Forwarded-Proto, etc.), incluyendo si usar cookies
