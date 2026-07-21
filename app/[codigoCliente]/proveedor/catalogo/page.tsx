@@ -4,7 +4,7 @@ import {
   getFamiliasAsignadasProveedor,
 } from "@/src/lib/proveedorMaterialesData";
 import { getProductos } from "@/src/lib/productos";
-import { getProveedorById } from "@/src/lib/proveedores";
+import { getProveedorById, getCatalogoValidadoProveedor } from "@/src/lib/proveedores";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
@@ -37,10 +37,11 @@ export default async function MiCatalogoMiInformacionPage({
     );
   }
 
-  const [materialesIds, familiasCatalogo, familiasProveedor] = await Promise.all([
+  const [materialesIds, familiasCatalogo, familiasProveedor, catalogoValidado] = await Promise.all([
     getMaterialesProveedor(proveedor.id),
     getCatalogosActivos("FAMILIA"),
     getFamiliasAsignadasProveedor(proveedor.id),
+    getCatalogoValidadoProveedor(proveedor.id),
   ]);
   const materialesAsignados = productos.filter((p: any) =>
     materialesIds.includes(p.id)
@@ -54,6 +55,7 @@ export default async function MiCatalogoMiInformacionPage({
       materialesAsignados={materialesAsignados}
       familiasCatalogo={familiasCatalogo}
       familiasProveedor={familiasProveedor}
+      catalogoValidado={catalogoValidado}
     />
   );
 }

@@ -6,16 +6,20 @@ import {
   IconCheck,
   IconCircleCheck,
   IconCircleX,
+  IconInfoCircle,
   IconPackage,
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import toast from "react-hot-toast";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
+import type { CatalogoValidado } from "@/src/lib/proveedores";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
+import { formatFechaMexico } from "@/src/lib/dateUtils";
 import {
   quitarMaterialProveedorAction,
   sincronizarMaterialesAction,
@@ -35,6 +39,12 @@ const ESTADOS_INLINE = [
 
 type EstadoInline = (typeof ESTADOS_INLINE)[number]["value"];
 
+const CATALOGO_VALIDADO_VACIO: CatalogoValidado = {
+  validado: false,
+  validadoEn: null,
+  validadoPor: null,
+};
+
 export default function CatalogoView({
   basePath,
   proveedor,
@@ -42,6 +52,7 @@ export default function CatalogoView({
   materialesAsignados,
   familiasCatalogo = [],
   familiasProveedor = [],
+  catalogoValidado = CATALOGO_VALIDADO_VACIO,
 }: {
   basePath: string;
   proveedor: Proveedor;
@@ -49,6 +60,7 @@ export default function CatalogoView({
   materialesAsignados: Producto[];
   familiasCatalogo?: { codigo: string; nombre: string }[];
   familiasProveedor?: string[];
+  catalogoValidado?: CatalogoValidado;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -109,8 +121,12 @@ export default function CatalogoView({
     // Materials outside the assigned families' scope (if any) are left untouched.
     const fueraDeAlcance = asignadosIds.filter((id) => !idsEnAlcanceInline.has(id));
     const payload = [...new Set([...fueraDeAlcance, ...seleccionInline])];
+    const eraPrimeraValidacion = !catalogoValidado.validado;
     startTransition(async () => {
       await sincronizarMaterialesAction(proveedor.id, payload, basePath, familiasAsignadas);
+      toast.success(
+        eraPrimeraValidacion ? "Catálogo validado correctamente" : "Cambios guardados"
+      );
       router.refresh();
     });
   }
@@ -349,6 +365,27 @@ export default function CatalogoView({
 
         {familiasAsignadas.length > 0 ? (
           <div className="space-y-4">
+            {catalogoValidado.validado ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+                <IconCircleCheck className="h-3.5 w-3.5" />
+                Catálogo validado
+                {catalogoValidado.validadoEn && (
+                  <span className="text-green-600/70">
+                    el {formatFechaMexico(catalogoValidado.validadoEn)}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                <IconInfoCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <p>
+                  Revisa los materiales asignados a tu perfil y confirma que puedes
+                  proveerlos. Esta validación es necesaria para participar en las
+                  licitaciones.
+                </p>
+              </div>
+            )}
+
             {/* Buscador + filtro por estado + filtro por familia */}
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -463,7 +500,11 @@ export default function CatalogoView({
 
             <div className="flex justify-end">
               <button type="button" onClick={guardarInline} disabled={pending} className={BTN_PRIMARIO}>
-                {pending ? "Guardando…" : "Guardar cambios"}
+                {pending
+                  ? "Guardando…"
+                  : catalogoValidado.validado
+                    ? "Guardar cambios"
+                    : "Validar lista de materiales"}
               </button>
             </div>
           </div>
