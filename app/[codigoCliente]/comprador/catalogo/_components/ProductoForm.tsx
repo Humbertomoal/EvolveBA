@@ -7,6 +7,7 @@ import type { Producto } from "@/src/data/productos";
 import {
   actualizarProductoAction,
   crearProductoAction,
+  generarCodigoProductoAction,
   verificarCodigoDisponibleAction,
 } from "@/src/lib/productosActions";
 import { isNextRedirectError } from "@/src/lib/isNextRedirectError";
@@ -79,6 +80,10 @@ export default function ProductoForm({
     productoExistente?.unidadMedida ?? ""
   );
   const [codigo, setCodigo] = useState(productoExistente?.codigo ?? "");
+  const [codigoManual, setCodigoManual] = useState(
+    productoExistente?.codigoManual ?? false
+  );
+  const [generandoCodigo, setGenerandoCodigo] = useState(false);
   const [descripcion, setDescripcion] = useState(
     productoExistente?.descripcion ?? ""
   );
@@ -122,6 +127,52 @@ export default function ProductoForm({
     };
   }, [codigo, productoExistente?.id]);
 
+  // ── Autogeneración de código a partir de familia + nombre ───────────────────────
+  const primerRenderAutoRef = useRef(true);
+  const autoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // No regenerar en el montaje inicial: solo ante cambios posteriores de
+    // familia/nombre hechos por el usuario (regla 6).
+    if (primerRenderAutoRef.current) {
+      primerRenderAutoRef.current = false;
+      return;
+    }
+    if (codigoManual) return;
+    if (!nombre.trim()) return;
+
+    if (autoDebounceRef.current) clearTimeout(autoDebounceRef.current);
+    autoDebounceRef.current = setTimeout(async () => {
+      setGenerandoCodigo(true);
+      const nuevoCodigo = await generarCodigoProductoAction(
+        familia,
+        nombre,
+        productoExistente?.id
+      );
+      setGenerandoCodigo(false);
+      if (nuevoCodigo) setCodigo(nuevoCodigo);
+    }, 500);
+    return () => {
+      if (autoDebounceRef.current) clearTimeout(autoDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familia, nombre]);
+
+  async function regenerarCodigo() {
+    if (!nombre.trim()) return;
+    setGenerandoCodigo(true);
+    const nuevoCodigo = await generarCodigoProductoAction(
+      familia,
+      nombre,
+      productoExistente?.id
+    );
+    setGenerandoCodigo(false);
+    if (nuevoCodigo) {
+      setCodigo(nuevoCodigo);
+      setCodigoManual(false);
+    }
+  }
+
   // ── Derived errors ────────────────────────────────────────────────────────────
   const RE_CODIGO = /^[A-Za-z0-9-]+$/;
 
@@ -154,6 +205,7 @@ export default function ProductoForm({
   function handleCodigoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value.replace(/\s/g, "-");
     setCodigo(raw);
+    setCodigoManual(true);
   }
 
   // ── Action ────────────────────────────────────────────────────────────────────
@@ -174,7 +226,12 @@ export default function ProductoForm({
         toast.success("Producto guardado correctamente");
         throw error;
       }
-      toast.error("No se pudo guardar el producto. Intenta de nuevo.");
+      if (error instanceof Error && error.message === "CODIGO_DUPLICADO") {
+        setCodigoDisponible(false);
+        toast.error("Este código ya está en uso por otro producto.");
+      } else {
+        toast.error("No se pudo guardar el producto. Intenta de nuevo.");
+      }
     } finally {
       setGuardando(false);
     }
@@ -269,25 +326,41 @@ export default function ProductoForm({
             </Campo>
 
             <Campo label="Código de Item" required error={verError("codigo")}>
-              <div className="relative">
-                <input
-                  name="codigo"
-                  type="text"
-                  value={codigo}
-                  onChange={handleCodigoChange}
-                  onBlur={() => tocar("codigo")}
-                  placeholder="Ej. MAT-001"
-                  className={iCls(!!verError("codigo"))}
-                />
-                {verificandoCodigo && (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
-                    Verificando…
-                  </span>
-                )}
-                {!verificandoCodigo && codigoDisponible === true && codigo.trim() && (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-green-600">
-                    Disponible
-                  </span>
+              <input type="hidden" name="codigoManual" value={String(codigoManual)} />
+              <div className="flex items-start gap-2">
+                <div className="relative flex-1">
+                  <input
+                    name="codigo"
+                    type="text"
+                    value={codigo}
+                    onChange={handleCodigoChange}
+                    onBlur={() => tocar("codigo")}
+                    placeholder="Ej. MAT-001"
+                    className={iCls(!!verError("codigo"))}
+                  />
+                  {(verificandoCodigo || generandoCodigo) && (
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
+                      {generandoCodigo ? "Generando…" : "Verificando…"}
+                    </span>
+                  )}
+                  {!verificandoCodigo &&
+                    !generandoCodigo &&
+                    codigoDisponible === true &&
+                    codigo.trim() && (
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-green-600">
+                        Disponible
+                      </span>
+                    )}
+                </div>
+                {codigoManual && (
+                  <button
+                    type="button"
+                    onClick={regenerarCodigo}
+                    disabled={!nombre.trim() || generandoCodigo}
+                    className="whitespace-nowrap rounded-md border border-zinc-300 px-2.5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Regenerar código
+                  </button>
                 )}
               </div>
             </Campo>

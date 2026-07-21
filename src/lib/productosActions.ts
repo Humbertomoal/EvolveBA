@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ProductoInput } from "@/src/data/productos";
-import { actualizarProducto, crearProducto } from "@/src/lib/productos";
+import {
+  actualizarProducto,
+  crearProducto,
+  generarCodigoProductoUnico,
+} from "@/src/lib/productos";
 import { prisma } from "@/src/lib/prisma";
 
 function extraerDatos(formData: FormData): ProductoInput {
@@ -31,7 +35,17 @@ function extraerDatos(formData: FormData): ProductoInput {
         ? archivosEspecificaciones
         : undefined,
     monedaPredeterminada: String(formData.get("monedaPredeterminada") ?? "").trim() || "MXN",
+    codigoManual: formData.get("codigoManual") === "true",
   };
+}
+
+/** Genera el siguiente código disponible para familia+nombre. "" si falta el nombre. */
+export async function generarCodigoProductoAction(
+  familia: string,
+  nombre: string,
+  excludeId?: string
+): Promise<string> {
+  return generarCodigoProductoUnico(familia || undefined, nombre, excludeId);
 }
 
 export async function crearProductoAction(

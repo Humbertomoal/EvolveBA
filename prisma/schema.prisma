@@ -58,6 +58,7 @@ model Producto {
   especificacionesTecnicas String?
   archivosEspecificaciones String? // JSON con lista de URLs cuando conectemos Supabase Storage
   monedaPredeterminada     String? // TODO: una vez migrada, agregar @default("MXN") vía migración separada (ver nota en el chat)
+  codigoManual Boolean  @default(false) // true si el usuario sobrescribió el código autogenerado
   activo       Boolean  @default(true)
   eliminado    Boolean  @default(false)
   eliminadoEn  DateTime?

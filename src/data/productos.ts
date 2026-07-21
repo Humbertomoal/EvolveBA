@@ -12,6 +12,7 @@ export type Producto = {
   especificacionesTecnicas?: string;
   archivosEspecificaciones?: string;
   monedaPredeterminada?: string;
+  codigoManual?: boolean;
   activo: boolean;
   createdAt?: Date;
 };

@@ -17,7 +17,7 @@ export const configEmpresa: Record<string, ConfigEmpresa> = {
   "evolve-ba": {
     nombreEmpresa: "Evolve BA",
     nombreComercial: "Evolve BA App de Suministro",
-    nombreAsistente: "Etiquetin",
+    nombreAsistente: "Noah",
     tituloAsistente: "Asistente de Inteligencia Artificial",
     telefonoContacto: "9982884736",
     correoContacto: "",
