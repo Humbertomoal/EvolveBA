@@ -100,7 +100,8 @@ export default function ProveedoresTabla({
         texto === "" ||
         proveedor.razonSocial.toLowerCase().includes(texto) ||
         proveedor.rfc.toLowerCase().includes(texto) ||
-        proveedor.contactoAdminNombre.toLowerCase().includes(texto);
+        proveedor.contactoAdminNombre.toLowerCase().includes(texto) ||
+        proveedor.vendedorNombre.toLowerCase().includes(texto);
 
       const coincideTipo =
         tiposPersona.length === 0 || tiposPersona.includes(proveedor.tipoPersona);
@@ -161,8 +162,8 @@ export default function ProveedoresTabla({
             <thead>
               <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                 <th className="px-4 py-3 font-medium">Razón Social</th>
-                <th className="px-4 py-3 font-medium">Nombre Contacto Admin</th>
-                <th className="px-4 py-3 font-medium">Correo Contacto Admin</th>
+                <th className="px-4 py-3 font-medium">Vendedor</th>
+                <th className="px-4 py-3 font-medium">Correo Vendedor</th>
                 <th className="px-4 py-3 font-medium">Tipo de Persona</th>
                 <th className="px-4 py-3 font-medium">RFC</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
@@ -176,16 +177,27 @@ export default function ProveedoresTabla({
                 const catalogo = mapaCatalogo[proveedor.id];
                 const catalogoPendiente = !!acceso?.activo && !catalogo?.validado;
 
+                const nombreEsRespaldo = !proveedor.vendedorNombre;
+                const nombreContacto = proveedor.vendedorNombre || proveedor.contactoAdminNombre;
+                const correoEsRespaldo = !proveedor.vendedorCorreo;
+                const correoContacto = proveedor.vendedorCorreo || proveedor.contactoAdminCorreo;
+
                 return (
                   <tr key={proveedor.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                     <td className="px-4 py-3 font-medium text-zinc-900">
                       {proveedor.razonSocial}
                     </td>
-                    <td className="px-4 py-3 text-zinc-700">
-                      {proveedor.contactoAdminNombre}
+                    <td
+                      className={`px-4 py-3 ${nombreEsRespaldo ? "text-zinc-400" : "text-zinc-700"}`}
+                      title={nombreEsRespaldo ? "Contacto administrativo (sin vendedor registrado)" : undefined}
+                    >
+                      {nombreContacto || "—"}
                     </td>
-                    <td className="px-4 py-3 text-zinc-700">
-                      {proveedor.contactoAdminCorreo}
+                    <td
+                      className={`px-4 py-3 ${correoEsRespaldo ? "text-zinc-400" : "text-zinc-700"}`}
+                      title={correoEsRespaldo ? "Contacto administrativo (sin vendedor registrado)" : undefined}
+                    >
+                      {correoContacto || "—"}
                     </td>
                     <td className="px-4 py-3 text-zinc-700">
                       {ETIQUETA_TIPO_PERSONA[proveedor.tipoPersona]}
@@ -238,6 +250,13 @@ export default function ProveedoresTabla({
                             tooltipDeshabilitado="Este proveedor no tiene un correo de contacto registrado."
                           />
                         )}
+                        <BotonEnviarCorreo
+                          etiqueta="Redactar correo"
+                          codigoCliente={codigoCliente}
+                          destinatarios={correoContacto ? [correoContacto] : []}
+                          deshabilitado={!correoContacto}
+                          tooltipDeshabilitado="Este proveedor no tiene correo de vendedor ni de contacto administrativo registrado."
+                        />
                         <Link
                           href={`${basePath}/comprador/proveedores/${proveedor.id}/editar`}
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-zinc-600 hover:bg-zinc-100"

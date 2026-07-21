@@ -85,6 +85,16 @@ export function listarVariablesDisponibles(tipo: TipoCorreo): string[] {
   return [...VARIABLES_COMUNES, ...VARIABLES_POR_TIPO[tipo]];
 }
 
+/**
+ * Firma estándar (nombreAsistente, tituloAsistente, nombreEmpresa) ya
+ * renderizada — para anteponerla en correos libres que no parten de una
+ * plantilla (ver ModalCorreo en modo libre).
+ */
+export function renderizarFirma(codigoCliente: string): string {
+  const empresa = getConfigEmpresa(codigoCliente);
+  return `${empresa.nombreAsistente}\n${empresa.tituloAsistente} - ${empresa.nombreEmpresa}`;
+}
+
 function reemplazarVariables(
   texto: string,
   variables: Record<string, string>

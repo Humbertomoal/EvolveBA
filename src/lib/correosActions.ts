@@ -63,7 +63,7 @@ export async function enviarCorreoAction({
   variablesBase,
   variablesPorDestinatario,
 }: {
-  tipo: TipoCorreo;
+  tipo?: TipoCorreo;
   para: string;
   asunto: string;
   cuerpo: string;

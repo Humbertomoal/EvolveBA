@@ -8,7 +8,7 @@ import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
 export default function BotonEnviarCorreo({
   tipo,
-  variables,
+  variables = {},
   destinatarios,
   codigoCliente,
   adjuntos,
@@ -18,8 +18,9 @@ export default function BotonEnviarCorreo({
   deshabilitado = false,
   tooltipDeshabilitado,
 }: {
-  tipo: TipoCorreo;
-  variables: Record<string, string>;
+  /** Si se omite, el correo se abre en modo libre (sin plantilla) — ver ModalCorreo. */
+  tipo?: TipoCorreo;
+  variables?: Record<string, string>;
   destinatarios: string[];
   codigoCliente: string;
   adjuntos?: AdjuntoCorreo[];

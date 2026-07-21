@@ -15,14 +15,14 @@ import {
   previsualizarCorreoAction,
   enviarCorreoAction,
 } from "@/src/lib/correosActions";
-import type { TipoCorreo } from "@/src/lib/plantillasCorreo";
+import { renderizarFirma, type TipoCorreo } from "@/src/lib/plantillasCorreo";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
 export default function ModalCorreo({
   abierto,
   onCerrar,
   tipo,
-  variables,
+  variables = {},
   destinatarios,
   codigoCliente,
   adjuntos,
@@ -33,8 +33,9 @@ export default function ModalCorreo({
 }: {
   abierto: boolean;
   onCerrar: () => void;
-  tipo: TipoCorreo;
-  variables: Record<string, string>;
+  /** Si se omite, el modal arranca en modo libre: sin plantilla, asunto/cuerpo vacíos (con la firma ya puesta). */
+  tipo?: TipoCorreo;
+  variables?: Record<string, string>;
   destinatarios: string[];
   codigoCliente: string;
   adjuntos?: AdjuntoCorreo[];
@@ -63,6 +64,19 @@ export default function ModalCorreo({
 
   useEffect(() => {
     if (!abierto) return;
+
+    // Modo libre (sin tipo): no hay plantilla que previsualizar — arranca
+    // con asunto vacío y el cuerpo listo con la firma estándar al final.
+    if (!tipo) {
+      const cuerpoInicial = `\n\n${renderizarFirma(codigoCliente)}`;
+      setCargando(false);
+      setError(null);
+      setAsuntoOriginal("");
+      setCuerpoOriginal(cuerpoInicial);
+      setAsunto("");
+      setCuerpo(cuerpoInicial);
+      return;
+    }
 
     let cancelado = false;
     setCargando(true);
@@ -152,7 +166,7 @@ export default function ModalCorreo({
           <div className="flex items-center gap-2">
             <IconMail className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-zinc-900">
-              Vista previa del correo
+              {tipo ? "Vista previa del correo" : "Redactar correo"}
             </h2>
           </div>
           <button
@@ -263,8 +277,9 @@ export default function ModalCorreo({
               )}
 
               <p className="text-xs text-zinc-400">
-                Puedes editar el texto solo para este envío. La plantilla base
-                no se modifica.
+                {tipo
+                  ? "Puedes editar el texto solo para este envío. La plantilla base no se modifica."
+                  : "Correo libre, sin plantilla. La firma ya está lista al final del cuerpo."}
               </p>
 
               {error && (
@@ -278,18 +293,20 @@ export default function ModalCorreo({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-4">
-          <button
-            type="button"
-            onClick={handleRestaurar}
-            disabled={cargando || enviando}
-            className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 transition-colors duration-150 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <IconRefresh className="h-3.5 w-3.5" />
-            Restaurar texto original
-          </button>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-4">
+          {tipo && (
+            <button
+              type="button"
+              onClick={handleRestaurar}
+              disabled={cargando || enviando}
+              className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 transition-colors duration-150 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <IconRefresh className="h-3.5 w-3.5" />
+              Restaurar texto original
+            </button>
+          )}
 
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
               onClick={onCerrar}
