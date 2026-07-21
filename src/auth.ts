@@ -82,6 +82,14 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
       issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
+      // Prueba diagnóstica: fuerza response_mode=query para que el callback
+      // sea un GET same-site (las cookies SameSite=Lax sí viajan ahí). Si
+      // Entra ID estaba respondiendo con form_post (POST cross-site), ese
+      // POST no incluía la cookie pkceCodeVerifier — de ahí el error
+      // "InvalidCheck: pkceCodeVerifier value could not be parsed". El merge
+      // de providers.js hace deep-merge de `authorization.params`, así que
+      // esto no pisa el `scope` por defecto del provider.
+      authorization: { params: { response_mode: "query" } },
       async profile(profile, tokens) {
         console.log("###AUTH_DEBUG### profile() INICIADO");
         // Microsoft Entra ID no siempre manda el claim "email" en el ID token
