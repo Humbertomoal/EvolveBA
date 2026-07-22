@@ -571,7 +571,16 @@ export default function DetalleLicitacion({
             </div>
 
             {/* Tabla de ahorro por producto */}
-            <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
+            <div className="space-y-2">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-800">
+                  Análisis de Ahorro por Producto
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Comparativo del precio inicial contra el mejor precio actual por material
+                </p>
+              </div>
+              <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -649,9 +658,19 @@ export default function DetalleLicitacion({
                   </tfoot>
                 </table>
               </div>
+              </div>
             </div>
 
             {/* Detalle mejor precio por producto (incluye complemento por cantidad parcial) */}
+            <div className="space-y-2">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-800">
+                  Mejor Precio por Material
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Proveedor con la mejor oferta y ronda en que la realizó
+                </p>
+              </div>
           <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -749,6 +768,7 @@ export default function DetalleLicitacion({
               </tbody>
             </table>
             </div>
+          </div>
           </div>
           </div>
         )}
