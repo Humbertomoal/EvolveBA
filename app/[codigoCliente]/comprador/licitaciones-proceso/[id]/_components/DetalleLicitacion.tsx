@@ -461,9 +461,11 @@ export default function DetalleLicitacion({
                           : "—"}
                       </td>
                       <td className="px-4 py-3 text-right text-zinc-600">
-                        {p.totalInicial != null
-                          ? formatMoneda(p.totalInicial, resumenAhorro.monedaPredominante)
-                          : "—"}
+                        {p.totalInicial != null ? (
+                          formatMoneda(p.totalInicial, resumenAhorro.monedaPredominante)
+                        ) : (
+                          <span className="text-zinc-300">Sin ofertas</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-zinc-800">
                         {p.mejorTotalActual != null

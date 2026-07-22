@@ -9,6 +9,7 @@ import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
 import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,
+  primeraRondaConOferta,
 } from "@/src/lib/licitacionesAhorro";
 import DetalleLicitacion from "./_components/DetalleLicitacion";
 import type {
@@ -152,10 +153,17 @@ export default async function DetalleLicitacionProcesoPage({
         (o: any) => o.proveedorId === proveedorId
       );
 
-      const ofertasR1 = ofertasProveedor.filter((o: any) => o.ronda === 1);
+      // "Total Inicial" = la primera ronda en la que el proveedor realmente
+      // pujó (no necesariamente la ronda 1) — misma lógica de "primera ronda
+      // válida" que el análisis de ahorro por material, aplicada por proveedor.
+      const primeraRondaProveedor = primeraRondaConOferta(ofertasProveedor);
+      const ofertasPrimeraRondaProveedor =
+        primeraRondaProveedor != null
+          ? ofertasProveedor.filter((o: any) => o.ronda === primeraRondaProveedor)
+          : [];
       const totalInicial =
-        ofertasR1.length > 0
-          ? ofertasR1.reduce((sum: number, o: any) => {
+        ofertasPrimeraRondaProveedor.length > 0
+          ? ofertasPrimeraRondaProveedor.reduce((sum: number, o: any) => {
               const item = itemsPorId.get(o.licitacionItemId);
               return sum + o.precioUnitario * (item?.cantidadSolicitada ?? 0);
             }, 0)

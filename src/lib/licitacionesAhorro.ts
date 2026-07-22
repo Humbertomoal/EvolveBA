@@ -41,6 +41,17 @@ export type ResumenAhorroCalculado = {
 };
 
 /**
+ * Primera ronda en la que hay al menos una oferta — no necesariamente la
+ * ronda 1. Devuelve null si el conjunto de ofertas está vacío. Es la base
+ * de "primera ronda válida" que usan tanto el análisis por material como
+ * el total inicial por proveedor (ver página de detalle de licitación).
+ */
+export function primeraRondaConOferta(ofertas: { ronda: number }[]): number | null {
+  if (ofertas.length === 0) return null;
+  return Math.min(...ofertas.map((o) => o.ronda));
+}
+
+/**
  * Calcula, por cada material, el precio objetivo, el "Precio Primera Ronda"
  * (precio más bajo de la primera ronda en la que hubo al menos una puja —
  * no necesariamente la ronda 1) y el mejor precio entre todas las rondas.
@@ -55,8 +66,8 @@ export function calcularAnalisisPorItem(
     const mejorActualUnitario = precios.length > 0 ? Math.min(...precios) : null;
 
     let primeraRondaUnitario: number | null = null;
-    if (itemOfertas.length > 0) {
-      const primeraRondaConPuja = Math.min(...itemOfertas.map((o) => o.ronda));
+    const primeraRondaConPuja = primeraRondaConOferta(itemOfertas);
+    if (primeraRondaConPuja != null) {
       const preciosPrimeraRondaValida = itemOfertas
         .filter((o) => o.ronda === primeraRondaConPuja)
         .map((o) => o.precioUnitario);
