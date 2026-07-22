@@ -1,6 +1,13 @@
 "use client";
 
-import { IconPencil, IconPlus, IconSearch } from "@tabler/icons-react";
+import {
+  IconArrowDown,
+  IconArrowsSort,
+  IconArrowUp,
+  IconPencil,
+  IconPlus,
+  IconSearch,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type {
@@ -13,13 +20,41 @@ import type { SeccionFiltroConfig } from "@/app/_components/PanelFiltros";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
 import BotonEnviarCorreo from "@/src/components/BotonEnviarCorreo";
-import type { CatalogoValidado } from "@/src/lib/proveedores";
+import type { AccesoProveedorResumen, CatalogoValidado } from "@/src/lib/proveedores";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
+
+type OrdenUltimoAcceso = "asc" | "desc" | null;
 
 const ETIQUETA_TIPO_PERSONA: Record<TipoPersona, string> = {
   Fisica: "Física",
   Moral: "Moral",
 };
+
+/** Orden cronológico para la columna Último acceso: sin acceso/nunca ingresó quedan al extremo "más viejo". */
+function claveUltimoAcceso(acceso: AccesoProveedorResumen | undefined): number {
+  if (!acceso?.ultimoAcceso) return -Infinity;
+  return new Date(acceso.ultimoAcceso).getTime();
+}
+
+function UltimoAccesoCelda({ acceso }: { acceso: AccesoProveedorResumen | undefined }) {
+  if (!acceso) {
+    return <span className="text-zinc-400">Sin acceso</span>;
+  }
+  if (!acceso.ultimoAcceso) {
+    return <span className="text-amber-600">Nunca ha ingresado</span>;
+  }
+  return (
+    <span className="text-zinc-700">
+      {formatFechaMexico(acceso.ultimoAcceso, {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}
+    </span>
+  );
+}
 
 function BadgeEstado({ estado }: { estado: EstadoProveedor }) {
   const esActivo = estado === "Activo";
@@ -45,7 +80,7 @@ export default function ProveedoresTabla({
   proveedores: Proveedor[];
   basePath: string;
   codigoCliente: string;
-  mapaAcceso: Record<string, { email: string; activo: boolean }>;
+  mapaAcceso: Record<string, AccesoProveedorResumen>;
   mapaCatalogo: Record<string, CatalogoValidado>;
 }) {
   usePageTitle("Administración de Proveedores");
@@ -53,6 +88,13 @@ export default function ProveedoresTabla({
   const [tiposPersona, setTiposPersona] = useState<string[]>([]);
   const [estados, setEstados] = useState<string[]>([]);
   const [soloPendientesValidar, setSoloPendientesValidar] = useState(false);
+  const [ordenUltimoAcceso, setOrdenUltimoAcceso] = useState<OrdenUltimoAcceso>(null);
+
+  function alternarOrdenUltimoAcceso() {
+    setOrdenUltimoAcceso((prev) =>
+      prev === null ? "asc" : prev === "asc" ? "desc" : null
+    );
+  }
 
   function toggleTipoPersona(value: string) {
     setTiposPersona((prev) =>
@@ -95,7 +137,7 @@ export default function ProveedoresTabla({
   const proveedoresFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
 
-    return proveedores.filter((proveedor) => {
+    const filtrados = proveedores.filter((proveedor) => {
       const coincideTexto =
         texto === "" ||
         proveedor.razonSocial.toLowerCase().includes(texto) ||
@@ -118,7 +160,24 @@ export default function ProveedoresTabla({
         coincideTexto && coincideTipo && coincideEstado && coincidePendienteValidar
       );
     });
-  }, [proveedores, busqueda, tiposPersona, estados, soloPendientesValidar, mapaAcceso, mapaCatalogo]);
+
+    if (!ordenUltimoAcceso) return filtrados;
+
+    const signo = ordenUltimoAcceso === "asc" ? 1 : -1;
+    return [...filtrados].sort(
+      (a, b) =>
+        signo * (claveUltimoAcceso(mapaAcceso[a.id]) - claveUltimoAcceso(mapaAcceso[b.id]))
+    );
+  }, [
+    proveedores,
+    busqueda,
+    tiposPersona,
+    estados,
+    soloPendientesValidar,
+    mapaAcceso,
+    mapaCatalogo,
+    ordenUltimoAcceso,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -168,6 +227,22 @@ export default function ProveedoresTabla({
                 <th className="px-4 py-3 font-medium">RFC</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Catálogo</th>
+                <th className="px-4 py-3 font-medium">
+                  <button
+                    type="button"
+                    onClick={alternarOrdenUltimoAcceso}
+                    className="flex items-center gap-1 font-medium text-zinc-500 hover:text-zinc-700"
+                  >
+                    Último acceso
+                    {ordenUltimoAcceso === "asc" ? (
+                      <IconArrowUp className="h-3.5 w-3.5" />
+                    ) : ordenUltimoAcceso === "desc" ? (
+                      <IconArrowDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <IconArrowsSort className="h-3.5 w-3.5 text-zinc-300" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-right font-medium">Acciones</th>
               </tr>
             </thead>
@@ -226,6 +301,9 @@ export default function ProveedoresTabla({
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      <UltimoAccesoCelda acceso={acceso} />
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Link
@@ -274,7 +352,7 @@ export default function ProveedoresTabla({
               })}
               {proveedoresFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-2">
+                  <td colSpan={9} className="px-4 py-2">
                     {proveedores.length === 0 ? (
                       <EmptyState
                         icon="IconUsers"
