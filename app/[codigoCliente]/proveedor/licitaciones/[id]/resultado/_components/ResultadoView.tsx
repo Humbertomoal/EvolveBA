@@ -34,6 +34,20 @@ function formatPeso(n: number): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
 
+// La fecha estimada puede venir prellenada con la fecha objetivo (ya no es
+// null cuando cumple), así que "cumple" se determina comparando fechas, no
+// por ausencia de valor.
+function cumpleFechaObjetivo(
+  fechaEstimadaProveedor: string | null,
+  fechaObjetivo: string | null
+): boolean {
+  if (!fechaEstimadaProveedor) return true;
+  if (!fechaObjetivo) return false;
+  return (
+    new Date(fechaEstimadaProveedor).getTime() <= new Date(fechaObjetivo).getTime()
+  );
+}
+
 // ── Countdown ─────────────────────────────────────────────────────────────────
 
 function CountdownHeader({ limiteMs }: { limiteMs: number }) {
@@ -320,10 +334,10 @@ export default function ResultadoView({
                   </td>
                   <td className="px-4 py-3 text-zinc-600">{formatFecha(a.fechaObjetivo)}</td>
                   <td className="px-4 py-3 text-zinc-600">
-                    {a.fechaEstimadaProveedor ? (
-                      <span className="text-amber-600">{formatFecha(a.fechaEstimadaProveedor)}</span>
-                    ) : (
+                    {cumpleFechaObjetivo(a.fechaEstimadaProveedor, a.fechaObjetivo) ? (
                       <span className="text-zinc-400 text-xs">Cumple fecha</span>
+                    ) : (
+                      <span className="text-amber-600">{formatFecha(a.fechaEstimadaProveedor)}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">

@@ -49,9 +49,27 @@ function precioDefault(o: OfertaParaDropdown | undefined): number {
   return o?.precioUnitario ?? 0;
 }
 
-function fechaDefault(o: OfertaParaDropdown | undefined): string {
-  if (!o || o.puedeCumplirFecha || !o.fechaEstimadaEntrega) return "";
-  return new Date(o.fechaEstimadaEntrega).toISOString().split("T")[0];
+// Fecha con la que arranca el campo "Fecha estimada prov.": si el proveedor ya
+// dio una estimación propia (no puede cumplir la fecha objetivo) se respeta esa;
+// si no, se prellena con la fecha objetivo del material — el comprador puede
+// editarla y, al guardar, ese valor queda como la fecha estimada real.
+function fechaDefault(
+  o: OfertaParaDropdown | undefined,
+  fechaObjetivo: string | null
+): string {
+  if (!o) return "";
+  if (!o.puedeCumplirFecha && o.fechaEstimadaEntrega) {
+    return new Date(o.fechaEstimadaEntrega).toISOString().split("T")[0];
+  }
+  return fechaObjetivo ? new Date(fechaObjetivo).toISOString().split("T")[0] : "";
+}
+
+function esPosteriorAFechaObjetivo(
+  fechaEstimada: string,
+  fechaObjetivo: string | null
+): boolean {
+  if (!fechaEstimada || !fechaObjetivo) return false;
+  return fechaEstimada > new Date(fechaObjetivo).toISOString().split("T")[0];
 }
 
 function initAsignacion(
@@ -75,14 +93,14 @@ function initAsignacion(
         proveedorId: best.proveedorId,
         cantidad: primaryCant,
         precioUnitario: precioDefault(best),
-        fechaEstimada: fechaDefault(best),
+        fechaEstimada: fechaDefault(best, item.fechaEntrega),
       },
       secondary: second
         ? {
             proveedorId: second.proveedorId,
             cantidad: resto,
             precioUnitario: precioDefault(second),
-            fechaEstimada: fechaDefault(second),
+            fechaEstimada: fechaDefault(second, item.fechaEntrega),
           }
         : null,
     };
@@ -235,7 +253,7 @@ export default function AsignacionForm({
           proveedorId: alt.proveedorId,
           cantidad: resto,
           precioUnitario: precioDefault(alt),
-          fechaEstimada: fechaDefault(alt),
+          fechaEstimada: fechaDefault(alt, item.fechaEntrega),
         };
       }
     }
@@ -246,7 +264,7 @@ export default function AsignacionForm({
           proveedorId: newProveedorId,
           cantidad: primaryCant,
           precioUnitario: precioDefault(oferta),
-          fechaEstimada: fechaDefault(oferta),
+          fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
         },
         secondary,
       },
@@ -267,7 +285,7 @@ export default function AsignacionForm({
                 proveedorId: alt.proveedorId,
                 cantidad: resto,
                 precioUnitario: precioDefault(alt),
-                fechaEstimada: fechaDefault(alt),
+                fechaEstimada: fechaDefault(alt, item.fechaEntrega),
               }
             : null;
         } else {
@@ -294,7 +312,7 @@ export default function AsignacionForm({
             ...fila.secondary,
             proveedorId: newProveedorId,
             precioUnitario: precioDefault(oferta),
-            fechaEstimada: fechaDefault(oferta),
+            fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
           },
         },
       };
@@ -327,7 +345,7 @@ export default function AsignacionForm({
           primary: {
             ...fila.primary,
             precioUnitario: precioDefault(oferta),
-            fechaEstimada: fechaDefault(oferta),
+            fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
           },
         },
       };
@@ -363,7 +381,7 @@ export default function AsignacionForm({
           secondary: {
             ...fila.secondary,
             precioUnitario: precioDefault(oferta),
-            fechaEstimada: fechaDefault(oferta),
+            fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
           },
         },
       };
@@ -494,12 +512,12 @@ export default function AsignacionForm({
     const o1 = fila.primary.proveedorId ? getOferta(item, fila.primary.proveedorId) : undefined;
     if (o1) {
       if (fila.primary.precioUnitario !== precioDefault(o1)) totalModificaciones++;
-      if (fila.primary.fechaEstimada !== fechaDefault(o1)) totalModificaciones++;
+      if (fila.primary.fechaEstimada !== fechaDefault(o1, item.fechaEntrega)) totalModificaciones++;
     }
     const o2 = fila.secondary?.proveedorId ? getOferta(item, fila.secondary.proveedorId) : undefined;
     if (o2 && fila.secondary) {
       if (fila.secondary.precioUnitario !== precioDefault(o2)) totalModificaciones++;
-      if (fila.secondary.fechaEstimada !== fechaDefault(o2)) totalModificaciones++;
+      if (fila.secondary.fechaEstimada !== fechaDefault(o2, item.fechaEntrega)) totalModificaciones++;
     }
   }
 
@@ -582,7 +600,8 @@ export default function AsignacionForm({
                 : null;
               const sub1 = o1 ? fila.primary.cantidad * fila.primary.precioUnitario : 0;
               const precioMod1 = !!o1 && fila.primary.precioUnitario !== precioDefault(o1);
-              const fechaMod1 = !!o1 && fila.primary.fechaEstimada !== fechaDefault(o1);
+              const fechaMod1 = !!o1 && fila.primary.fechaEstimada !== fechaDefault(o1, item.fechaEntrega);
+              const fechaTarde1 = esPosteriorAFechaObjetivo(fila.primary.fechaEstimada, item.fechaEntrega);
 
               const o2 =
                 fila.secondary?.proveedorId
@@ -591,7 +610,8 @@ export default function AsignacionForm({
               const sub2 =
                 o2 && fila.secondary ? fila.secondary.cantidad * fila.secondary.precioUnitario : 0;
               const precioMod2 = !!o2 && !!fila.secondary && fila.secondary.precioUnitario !== precioDefault(o2);
-              const fechaMod2 = !!o2 && !!fila.secondary && fila.secondary.fechaEstimada !== fechaDefault(o2);
+              const fechaMod2 = !!o2 && !!fila.secondary && fila.secondary.fechaEstimada !== fechaDefault(o2, item.fechaEntrega);
+              const fechaTarde2 = !!fila.secondary && esPosteriorAFechaObjetivo(fila.secondary.fechaEstimada, item.fechaEntrega);
 
               const altParaSecundaria = item.ofertas.filter(
                 (o: any) => o.proveedorId !== fila.primary.proveedorId
@@ -656,17 +676,17 @@ export default function AsignacionForm({
                             onChange={(e) =>
                               updatePrimaryFecha(item.licitacionItemId, e.target.value)
                             }
-                            className={`${INPUT_CLS} ${fechaMod1 ? "border-amber-400 bg-amber-50/40" : ""}`}
+                            className={`${INPUT_CLS} ${fechaTarde1 ? "border-amber-400 bg-amber-50/40" : ""}`}
                           />
-                          {fechaMod1 ? (
+                          {fechaTarde1 ? (
                             <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
-                              <IconPencil className="h-2.5 w-2.5" /> modificado
+                              <IconPencil className="h-2.5 w-2.5" /> después de fecha objetivo
                             </span>
-                          ) : fila.primary.fechaEstimada === "" ? (
+                          ) : (
                             <span className="text-[10px] text-emerald-600">
                               Cumple fecha objetivo
                             </span>
-                          ) : null}
+                          )}
                         </div>
                       ) : (
                         <span className="text-zinc-300">—</span>
@@ -779,17 +799,17 @@ export default function AsignacionForm({
                               onChange={(e) =>
                                 updateSecondaryFecha(item.licitacionItemId, e.target.value)
                               }
-                              className={`${INPUT_CLS} text-xs ${fechaMod2 ? "border-amber-400 bg-amber-50/40" : ""}`}
+                              className={`${INPUT_CLS} text-xs ${fechaTarde2 ? "border-amber-400 bg-amber-50/40" : ""}`}
                             />
-                            {fechaMod2 ? (
+                            {fechaTarde2 ? (
                               <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
-                                <IconPencil className="h-2.5 w-2.5" /> modificado
+                                <IconPencil className="h-2.5 w-2.5" /> después de fecha objetivo
                               </span>
-                            ) : fila.secondary.fechaEstimada === "" ? (
+                            ) : (
                               <span className="text-[10px] text-emerald-600">
                                 Cumple fecha objetivo
                               </span>
-                            ) : null}
+                            )}
                           </div>
                         ) : (
                           <span className="text-zinc-300">—</span>

@@ -37,6 +37,20 @@ function formatFecha(iso: string | null): string {
   });
 }
 
+// La fecha estimada puede venir prellenada con la fecha objetivo (ya no es
+// null cuando cumple), así que "cumple" se determina comparando fechas, no
+// por ausencia de valor.
+function cumpleFechaObjetivo(
+  fechaEstimadaProveedor: string | null,
+  fechaObjetivo: string | null
+): boolean {
+  if (!fechaEstimadaProveedor) return true;
+  if (!fechaObjetivo) return false;
+  return (
+    new Date(fechaEstimadaProveedor).getTime() <= new Date(fechaObjetivo).getTime()
+  );
+}
+
 // Mapeo de estatus de proveedor -> variante de Badge más cercana.
 // No existe una variante de negocio específica para "Aprobado"/"Confirmado",
 // así que se usa la genérica "success" (mismo verde que tenían ambos antes).
@@ -368,13 +382,13 @@ export default function SeguimientoView({
                   {formatFecha(a.fechaObjetivo)}
                 </td>
                 <td className={CELL}>
-                  {a.fechaEstimadaProveedor ? (
-                    <span className="text-xs text-amber-600">
-                      {formatFecha(a.fechaEstimadaProveedor)}
-                    </span>
-                  ) : (
+                  {cumpleFechaObjetivo(a.fechaEstimadaProveedor, a.fechaObjetivo) ? (
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                       Cumple fecha
+                    </span>
+                  ) : (
+                    <span className="text-xs text-amber-600">
+                      {formatFecha(a.fechaEstimadaProveedor)}
                     </span>
                   )}
                 </td>
