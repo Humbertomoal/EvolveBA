@@ -3,6 +3,7 @@
 import { prisma } from "@/src/lib/prisma";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
 import { formatImporte } from "@/src/lib/monedas";
+import { calcularVariacionesPorGrupo } from "@/src/lib/variacionRonda";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
 export type FilaHistoricoPuja = {
@@ -17,6 +18,9 @@ export type FilaHistoricoPuja = {
   puedeCumplirFecha: boolean;
   fechaEstimadaEntrega: string | null;
   fechaPuja: string;
+  /** vs la ronda inmediatamente anterior de ESTE proveedor en ESTE material — null = primera ronda en que pujó (no hay anterior). */
+  variacionMonto: number | null;
+  variacionPct: number | null;
 };
 
 const LIMITE_FILAS = 500;
@@ -26,42 +30,60 @@ async function consultarOfertasHistorico(
   opciones: { proveedorId?: string; ronda?: number; limite?: number }
 ): Promise<{ filas: FilaHistoricoPuja[]; total: number }> {
   const { proveedorId, ronda, limite } = opciones;
+
+  // Se trae SIEMPRE el histórico completo (todas las rondas) del alcance
+  // proveedor-filtrado: la variación ronda-a-ronda de una fila puede
+  // depender de una ronda anterior que quedaría fuera si filtráramos por
+  // `ronda` directo en la consulta. El filtro de ronda se aplica después,
+  // ya con la variación calculada.
   const where = {
     licitacionItem: { licitacionId },
     ...(proveedorId ? { proveedorId } : {}),
-    ...(ronda ? { ronda } : {}),
   };
 
-  const [total, ofertas] = await Promise.all([
-    prisma.ofertaItem.count({ where }),
-    prisma.ofertaItem.findMany({
-      where,
-      include: {
-        proveedor: { select: { razonSocial: true } },
-        licitacionItem: { select: { producto: { select: { nombre: true } } } },
-      },
-      orderBy: [
-        { ronda: "asc" },
-        { proveedor: { razonSocial: "asc" } },
-        { licitacionItem: { producto: { nombre: "asc" } } },
-      ],
-      ...(limite ? { take: limite } : {}),
-    }),
-  ]);
+  const ofertas = await prisma.ofertaItem.findMany({
+    where,
+    include: {
+      proveedor: { select: { razonSocial: true } },
+      licitacionItem: { select: { producto: { select: { nombre: true } } } },
+    },
+    orderBy: [
+      { ronda: "asc" },
+      { proveedor: { razonSocial: "asc" } },
+      { licitacionItem: { producto: { nombre: "asc" } } },
+    ],
+  });
 
-  const filas: FilaHistoricoPuja[] = ofertas.map((o) => ({
-    ronda: o.ronda,
-    proveedorId: o.proveedorId,
-    proveedorNombre: o.proveedor.razonSocial,
-    productoNombre: o.licitacionItem.producto.nombre,
-    cantidadDisponible: o.cantidadDisponible,
-    precioUnitario: o.precioUnitario,
-    moneda: o.moneda,
-    subtotal: o.cantidadDisponible * o.precioUnitario,
-    puedeCumplirFecha: o.puedeCumplirFecha,
-    fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
-    fechaPuja: o.createdAt.toISOString(),
-  }));
+  const variaciones = calcularVariacionesPorGrupo(
+    ofertas,
+    (o) => `${o.proveedorId}::${o.licitacionItemId}`
+  );
+
+  const filasCompletas: FilaHistoricoPuja[] = ofertas.map((o) => {
+    const variacion = variaciones.get(o) ?? null;
+    return {
+      ronda: o.ronda,
+      proveedorId: o.proveedorId,
+      proveedorNombre: o.proveedor.razonSocial,
+      productoNombre: o.licitacionItem.producto.nombre,
+      cantidadDisponible: o.cantidadDisponible,
+      precioUnitario: o.precioUnitario,
+      moneda: o.moneda,
+      subtotal: o.cantidadDisponible * o.precioUnitario,
+      puedeCumplirFecha: o.puedeCumplirFecha,
+      fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
+      fechaPuja: o.createdAt.toISOString(),
+      variacionMonto: variacion?.diffMonto ?? null,
+      variacionPct: variacion?.diffPct ?? null,
+    };
+  });
+
+  const filasFiltradas = ronda
+    ? filasCompletas.filter((f) => f.ronda === ronda)
+    : filasCompletas;
+
+  const total = filasFiltradas.length;
+  const filas = limite ? filasFiltradas.slice(0, limite) : filasFiltradas;
 
   return { filas, total };
 }
@@ -81,6 +103,17 @@ export async function getHistoricoPujas(
 
 function nombreArchivoSeguro(texto: string): string {
   return texto.replace(/[^a-zA-Z0-9_-]+/g, "_");
+}
+
+function formatVariacionTexto(
+  variacionMonto: number | null,
+  variacionPct: number | null,
+  moneda: string
+): string {
+  if (variacionMonto == null || variacionPct == null) return "Ronda inicial";
+  if (variacionMonto === 0) return "Sin cambio";
+  const signo = variacionMonto > 0 ? "+" : "";
+  return `${signo}${formatImporte(variacionMonto, moneda)} (${signo}${variacionPct.toFixed(1)}%)`;
 }
 
 const LIMITE_BYTES_ADJUNTO_EXCEL = 3 * 1024 * 1024; // 3MB, mismo límite prudente que adjuntosCorreoActions.ts
@@ -108,6 +141,11 @@ export async function generarExcelHistoricoAdjunto(
       "Cantidad ofertada": f.cantidadDisponible,
       "Precio unitario": formatImporte(f.precioUnitario, f.moneda),
       Subtotal: formatImporte(f.subtotal, f.moneda),
+      "Variación vs ronda anterior": formatVariacionTexto(
+        f.variacionMonto,
+        f.variacionPct,
+        f.moneda
+      ),
       "¿Cumple fecha?": f.puedeCumplirFecha ? "Sí" : "No",
       "Fecha estimada de entrega": formatFechaMexico(f.fechaEstimadaEntrega),
       "Fecha/hora de la puja": formatFechaMexico(f.fechaPuja, {

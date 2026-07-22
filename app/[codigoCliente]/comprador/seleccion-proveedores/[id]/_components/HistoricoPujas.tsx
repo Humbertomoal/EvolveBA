@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  IconArrowDown,
+  IconArrowUp,
   IconChevronDown,
   IconChevronUp,
   IconDownload,
@@ -21,6 +23,61 @@ const TODAS_LAS_RONDAS = "";
 
 function nombreArchivoSeguro(texto: string): string {
   return texto.replace(/[^a-zA-Z0-9_-]+/g, "_");
+}
+
+function formatMontoSigno(n: number, moneda: string): string {
+  try {
+    return n.toLocaleString("es-MX", { style: "currency", currency: moneda });
+  } catch {
+    return `$${n.toFixed(2)}`;
+  }
+}
+
+/** Texto plano "-$150.00 (-8.5%)" / "Sin cambio" / "Ronda inicial", para el Excel exportado desde el cliente. */
+function formatVariacionTexto(
+  monto: number | null,
+  pct: number | null,
+  moneda: string
+): string {
+  if (monto == null || pct == null) return "Ronda inicial";
+  if (monto === 0) return "Sin cambio";
+  const signo = monto > 0 ? "+" : "";
+  return `${signo}${formatMontoSigno(monto, moneda)} (${signo}${pct.toFixed(1)}%)`;
+}
+
+function VariacionCelda({
+  monto,
+  pct,
+  moneda,
+}: {
+  monto: number | null;
+  pct: number | null;
+  moneda: string;
+}) {
+  if (monto == null || pct == null) {
+    return <span className="text-xs text-zinc-400">Ronda inicial</span>;
+  }
+  if (monto === 0) {
+    return <span className="text-xs text-zinc-400">Sin cambio</span>;
+  }
+  const bajo = monto < 0;
+  const signo = monto > 0 ? "+" : "";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-semibold ${
+        bajo ? "text-emerald-600" : "text-red-500"
+      }`}
+    >
+      {bajo ? (
+        <IconArrowDown className="h-3.5 w-3.5" />
+      ) : (
+        <IconArrowUp className="h-3.5 w-3.5" />
+      )}
+      {signo}
+      {formatMontoSigno(monto, moneda)} ({signo}
+      {pct.toFixed(1)}%)
+    </span>
+  );
 }
 
 export default function HistoricoPujas({
@@ -95,6 +152,11 @@ export default function HistoricoPujas({
         "Cantidad ofertada": f.cantidadDisponible,
         "Precio unitario": `${formatImporte(f.precioUnitario, f.moneda)}`,
         Subtotal: `${formatImporte(f.subtotal, f.moneda)}`,
+        "Variación vs ronda anterior": formatVariacionTexto(
+          f.variacionMonto,
+          f.variacionPct,
+          f.moneda
+        ),
         "¿Cumple fecha?": f.puedeCumplirFecha ? "Sí" : "No",
         "Fecha estimada de entrega": formatFechaMexico(f.fechaEstimadaEntrega),
         "Fecha/hora de la puja": formatFechaMexico(f.fechaPuja, {
@@ -222,6 +284,7 @@ export default function HistoricoPujas({
                   <th className="px-3 py-2 text-right">Cant. ofertada</th>
                   <th className="px-3 py-2 text-right">Precio unit.</th>
                   <th className="px-3 py-2 text-right">Subtotal</th>
+                  <th className="px-3 py-2 text-right">Variación</th>
                   <th className="px-3 py-2 text-center">¿Cumple fecha?</th>
                   <th className="px-3 py-2">Fecha estimada</th>
                   <th className="px-3 py-2">Fecha/hora de la puja</th>
@@ -231,7 +294,7 @@ export default function HistoricoPujas({
                 {filas.length === 0 && !pending ? (
                   <tr>
                     <td
-                      colSpan={modoTodos ? 9 : 8}
+                      colSpan={modoTodos ? 10 : 9}
                       className="px-3 py-6 text-center text-sm text-zinc-400"
                     >
                       Sin pujas registradas para este filtro.
@@ -264,6 +327,13 @@ export default function HistoricoPujas({
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-zinc-800">
                         {formatImporte(f.subtotal, f.moneda)}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <VariacionCelda
+                          monto={f.variacionMonto}
+                          pct={f.variacionPct}
+                          moneda={f.moneda}
+                        />
                       </td>
                       <td className="px-3 py-2 text-center">
                         <Badge variant={f.puedeCumplirFecha ? "success" : "danger"}>

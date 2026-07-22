@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import { calcularVariacionesGrupo } from "@/src/lib/variacionRonda";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -80,11 +81,8 @@ export default function ResumenOfertasView({
   for (const item of resumen) {
     if (item.historial.length === 0) continue;
     const sorted = [...item.historial].sort((a: any, b: any) => a.ronda - b.ronda);
+    const variaciones = calcularVariacionesGrupo(sorted);
     sorted.forEach((oferta, idx) => {
-      const prev = idx > 0 ? sorted[idx - 1] : null;
-      const diffPct = prev
-        ? ((oferta.precioUnitario - prev.precioUnitario) / prev.precioUnitario) * 100
-        : null;
       historialFlat.push({
         licitacionItemId: item.licitacionItemId,
         productoNombre: item.productoNombre,
@@ -92,7 +90,7 @@ export default function ResumenOfertasView({
         ronda: oferta.ronda,
         precioUnitario: oferta.precioUnitario,
         cantidadDisponible: oferta.cantidadDisponible,
-        diffPct,
+        diffPct: variaciones.get(oferta)?.diffPct ?? null,
       });
     });
   }
