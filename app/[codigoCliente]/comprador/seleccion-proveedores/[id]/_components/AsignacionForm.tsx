@@ -10,6 +10,12 @@ import {
   type FilaAsignacion,
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
+import {
+  convertirAMXN,
+  faltanTiposCambio,
+  notaTipoCambio,
+  MONEDA_BASE,
+} from "@/src/lib/conversionMoneda";
 import { cancelarLicitacionAction } from "@/src/lib/rondasActions";
 import {
   prepararResultadoInternoAction,
@@ -498,7 +504,16 @@ export default function AsignacionForm({
     acc[moneda] = (acc[moneda] ?? 0) + sub1 + sub2;
     return acc;
   }, {} as Record<string, number>);
-  const costoTotal = Object.values(totalesPorMoneda).reduce((s: any, v: any) => s + v, 0)as number;
+  // Costo total agregado CONVERTIDO A MXN (cada subtotal desde su moneda).
+  const costoTotal = Object.entries(totalesPorMoneda).reduce(
+    (s, [moneda, v]) => s + convertirAMXN(v as number, moneda, licitacion.tiposCambio),
+    0
+  );
+
+  // Nota/aviso de tipo de cambio para los totales de esta pantalla.
+  const monedasEnUso = items.map((i: any) => i.moneda);
+  const notaTC = notaTipoCambio(monedasEnUso, licitacion.tiposCambio);
+  const faltanTC = faltanTiposCambio(monedasEnUso, licitacion.tiposCambio);
 
   const margen = licitacion.importeVenta != null ? licitacion.importeVenta - costoTotal : null;
   const pctMargen = margen != null && licitacion.importeVenta ? (margen / licitacion.importeVenta) * 100 : null;
@@ -569,6 +584,14 @@ export default function AsignacionForm({
             {totalModificaciones === 1 ? "precio/fecha" : "precios/fechas"} respecto a
             las ofertas originales.
           </span>
+        </div>
+      )}
+
+      {/* Aviso: faltan tipos de cambio */}
+      {faltanTC && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          Faltan tipos de cambio; los totales pueden ser incorrectos. Captúralos en
+          la edición de la licitación.
         </div>
       )}
 
@@ -873,23 +896,40 @@ export default function AsignacionForm({
 
           {/* Totales */}
           <tfoot>
-            {Object.entries(totalesPorMoneda).map(([moneda, total], i) => (
-              <tr key={moneda} className={`${i === 0 ? "border-t-2 border-zinc-200" : "border-t border-zinc-100"} bg-zinc-50`}>
-                <td colSpan={9} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">
-                  {i === 0 ? "Costo total de la licitación" : ""}
-                  {Object.keys(totalesPorMoneda).length > 1 && (
-                    <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">{moneda}</span>
-                  )}
+            {/* Subtotales por moneda (informativo) — solo si hay más de una moneda */}
+            {Object.keys(totalesPorMoneda).length > 1 &&
+              Object.entries(totalesPorMoneda).map(([moneda, total]) => (
+                <tr key={moneda} className="border-t border-zinc-100 bg-zinc-50">
+                  <td colSpan={9} className="px-3 py-2 text-right text-xs text-zinc-500">
+                    Subtotal
+                    <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 font-medium text-zinc-600">{moneda}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm text-zinc-600">
+                    {formatImporte(total as number, moneda)}
+                  </td>
+                </tr>
+              ))}
+            {/* Costo total en MXN */}
+            <tr className="border-t-2 border-zinc-200 bg-zinc-50">
+              <td colSpan={9} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">
+                Costo total de la licitación
+                {notaTC && (
+                  <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                    {MONEDA_BASE}
+                  </span>
+                )}
+              </td>
+              <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
+                {Object.keys(totalesPorMoneda).length > 0
+                  ? formatImporte(costoTotal, MONEDA_BASE)
+                  : "—"}
+              </td>
+            </tr>
+            {notaTC && (
+              <tr className="bg-zinc-50">
+                <td colSpan={10} className="px-3 pb-2 text-right text-[11px] text-zinc-400">
+                  {notaTC}
                 </td>
-                <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
-                  {formatImporte(total as number, moneda)}
-                </td>
-              </tr>
-            ))}
-            {Object.keys(totalesPorMoneda).length === 0 && (
-              <tr className="border-t-2 border-zinc-200 bg-zinc-50">
-                <td colSpan={9} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">Costo total de la licitación</td>
-                <td className="px-3 py-3 text-right text-sm font-bold text-zinc-400">—</td>
               </tr>
             )}
             {margen != null && (

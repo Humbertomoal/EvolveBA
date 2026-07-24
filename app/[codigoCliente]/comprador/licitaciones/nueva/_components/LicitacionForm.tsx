@@ -82,6 +82,8 @@ export type PreDatos = {
   modoLicitacion: string;
   items: ItemFila[];
   proveedoresInvitados: string[];
+  // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
+  tiposCambio?: Record<string, number>;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -196,6 +198,29 @@ export default function LicitacionForm({
   const [items, setItems] = useState<ItemFila[]>(
     inicial?.items?.map((i) => ({ ...i, moneda: (i as ItemFila & { moneda?: string }).moneda ?? "MXN" })) ?? []
   );
+
+  // ── Tipos de cambio (por moneda ≠ MXN usada en los materiales) ────────────────
+  // Valores como string para los inputs; se persisten como número en buildDatos.
+  const [tiposCambio, setTiposCambio] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const [moneda, tasa] of Object.entries(inicial?.tiposCambio ?? {})) {
+      init[moneda] = String(tasa);
+    }
+    return init;
+  });
+  function setTasa(moneda: string, valor: string) {
+    setTiposCambio((prev) => ({ ...prev, [moneda]: valor }));
+  }
+  // Una vez cerrada la licitación, las tasas quedan fijas (solo lectura) para
+  // preservar la auditoría de cómo se calcularon los totales.
+  const tcReadonly =
+    modoEdicion &&
+    ["Cerrada", "Finalizada", "Cancelada"].includes(inicial!.estado);
+  // Nombre legible por moneda (del catálogo del cliente, con fallback a MONEDAS).
+  const nombreMoneda = (codigo: string) =>
+    catalogos.monedas.find((m) => m.codigo === codigo)?.nombre ??
+    MONEDAS.find((m) => m.codigo === codigo)?.nombre ??
+    codigo;
 
   // ── Modal Proveedores state ──────────────────────────────────────────────────
   const [modalProveedoresAbierto, setModalProveedoresAbierto] = useState(false);
@@ -562,6 +587,15 @@ Asistente de Inteligencia Artificial`;
       modoLicitacion,
       items: items.map(({ _id, ...rest }) => rest),
       proveedoresInvitados: proveedoresSeleccionados,
+      // Solo tasas válidas de monedas en uso. MXN nunca se incluye (vale 1).
+      tiposCambio: monedasParaTC.reduce(
+        (acc, m) => {
+          const tasa = parseFloat(tiposCambio[m]);
+          if (Number.isFinite(tasa) && tasa > 0) acc[m] = tasa;
+          return acc;
+        },
+        {} as Record<string, number>
+      ),
     };
   }
 
@@ -765,6 +799,20 @@ Asistente de Inteligencia Artificial`;
         i.precioObjetivo !== ""
     );
 
+  // Monedas distintas de MXN realmente usadas por los materiales — determinan
+  // qué tipos de cambio hay que capturar. Si todo es MXN, no se pide nada.
+  const monedasParaTC = [
+    ...new Set(
+      items
+        .filter((i) => i.productoId)
+        .map((i) => i.moneda)
+        .filter((m) => m && m !== "MXN")
+    ),
+  ].sort();
+  const faltanTasas = monedasParaTC.some(
+    (m) => !(parseFloat(tiposCambio[m]) > 0)
+  );
+
   const errores: Record<string, string | null> = {
     numero: !numero.trim() ? "Número de Licitación requerido" : null,
     jerarquia: !jerarquia.trim() ? "Criticidad requerida" : null,
@@ -804,6 +852,9 @@ Asistente de Inteligencia Artificial`;
       : !instrucciones.trim()
         ? "Redacta las instrucciones de la licitación"
         : null,
+    tiposCambio: faltanTasas
+      ? "Captura un tipo de cambio válido (> 0) para cada moneda distinta de MXN"
+      : null,
   };
   const hayErrores = Object.values(errores).some(Boolean);
 
@@ -1536,6 +1587,53 @@ Asistente de Inteligencia Artificial`;
           )}
         </div>
       </fieldset>
+
+      {/* Tipos de cambio — solo si hay materiales en monedas distintas de MXN */}
+      {monedasParaTC.length > 0 && (
+        <fieldset className="space-y-3 rounded-lg border border-zinc-200 p-4">
+          <legend className="px-1 text-sm font-semibold text-zinc-800">
+            Tipos de cambio
+          </legend>
+          <p className="text-xs text-zinc-500">
+            Los totales de la licitación se consolidan en MXN. Captura el tipo de
+            cambio de cada moneda usada por los materiales.
+            {tcReadonly && " (fijos: la licitación ya está cerrada)"}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {monedasParaTC.map((m) => {
+              const invalido = intentoGuardar && !(parseFloat(tiposCambio[m]) > 0);
+              return (
+                <Campo
+                  key={m}
+                  label={`Tipo de cambio ${m} → MXN`}
+                  required
+                  error={invalido ? "Captura una tasa válida (> 0)" : null}
+                >
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.0001"
+                      inputMode="decimal"
+                      value={tiposCambio[m] ?? ""}
+                      onChange={(e) => setTasa(m, e.target.value)}
+                      readOnly={tcReadonly}
+                      placeholder={`1 ${m} = ? MXN`}
+                      className={`${iClass(invalido)} pr-14 ${tcReadonly ? "bg-zinc-100 text-zinc-500" : ""}`}
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-zinc-400">
+                      MXN
+                    </span>
+                  </div>
+                  <span className="mt-1 block text-[11px] text-zinc-400">
+                    {nombreMoneda(m)} · 1 {m} equivale a esta cantidad en MXN
+                  </span>
+                </Campo>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
 
       {/* Bottom action buttons */}
       <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-6">

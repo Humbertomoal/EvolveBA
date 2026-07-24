@@ -16,6 +16,12 @@ import {
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
 import {
+  convertirAMXN,
+  faltanTiposCambio,
+  notaTipoCambio,
+  MONEDA_BASE,
+} from "@/src/lib/conversionMoneda";
+import {
   prepararResultadoInternoAction,
   type DatosResultadoInterno,
 } from "@/src/lib/resultadoInternoActions";
@@ -220,7 +226,17 @@ export default function SeguimientoView({
     acc[moneda] = (acc[moneda] ?? 0) + a.cantidadAsignada * a.precioUnitario;
     return acc;
   }, {} as Record<string, number>);
-  const costoTotal = Object.values(totalesPorMoneda).reduce((s: any, v: any) => s + v, 0)as number;
+  // Costo total agregado CONVERTIDO A MXN (cada subtotal desde su moneda).
+  const costoTotal = Object.entries(totalesPorMoneda).reduce(
+    (s, [moneda, v]) => s + convertirAMXN(v as number, moneda, licitacion.tiposCambio),
+    0
+  );
+
+  // Nota/aviso de tipo de cambio para los totales de esta pantalla.
+  const monedasEnUso = asignaciones.map((a: any) => a.moneda);
+  const notaTC = notaTipoCambio(monedasEnUso, licitacion.tiposCambio);
+  const faltanTC = faltanTiposCambio(monedasEnUso, licitacion.tiposCambio);
+
   const margen =
     licitacion.importeVenta != null
       ? licitacion.importeVenta - costoTotal
@@ -331,6 +347,14 @@ export default function SeguimientoView({
           </button>
         </div>
       </div>
+
+      {/* Aviso: faltan tipos de cambio */}
+      {faltanTC && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          Faltan tipos de cambio; los totales pueden ser incorrectos. Captúralos en
+          la edición de la licitación.
+        </div>
+      )}
 
       {/* Tabla de seguimiento */}
       <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
@@ -443,24 +467,42 @@ export default function SeguimientoView({
 
           {/* Totales */}
           <tfoot>
-            {Object.entries(totalesPorMoneda).map(([moneda, total], i) => (
-              <tr key={moneda} className={`${i === 0 ? "border-t-2 border-zinc-200" : "border-t border-zinc-100"} bg-zinc-50`}>
-                <td colSpan={3} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">
-                  {i === 0 ? "Costo total" : ""}
-                  {Object.keys(totalesPorMoneda).length > 1 && (
-                    <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">{moneda}</span>
-                  )}
+            {/* Subtotales por moneda (informativo) — solo si hay más de una moneda */}
+            {Object.keys(totalesPorMoneda).length > 1 &&
+              Object.entries(totalesPorMoneda).map(([moneda, total]) => (
+                <tr key={moneda} className="border-t border-zinc-100 bg-zinc-50">
+                  <td colSpan={3} className="px-3 py-2 text-right text-xs text-zinc-500">
+                    Subtotal
+                    <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 font-medium text-zinc-600">{moneda}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm text-zinc-600">
+                    {formatImporte(total as number, moneda)}
+                  </td>
+                  <td colSpan={6} />
+                </tr>
+              ))}
+            {/* Costo total en MXN */}
+            <tr className="border-t-2 border-zinc-200 bg-zinc-50">
+              <td colSpan={3} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">
+                Costo total
+                {notaTC && (
+                  <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                    {MONEDA_BASE}
+                  </span>
+                )}
+              </td>
+              <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
+                {Object.keys(totalesPorMoneda).length > 0
+                  ? formatImporte(costoTotal, MONEDA_BASE)
+                  : "—"}
+              </td>
+              <td colSpan={6} />
+            </tr>
+            {notaTC && (
+              <tr className="bg-zinc-50">
+                <td colSpan={4} className="px-3 pb-2 text-right text-[11px] text-zinc-400">
+                  {notaTC}
                 </td>
-                <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
-                  {formatImporte(total as number, moneda)}
-                </td>
-                <td colSpan={6} />
-              </tr>
-            ))}
-            {Object.keys(totalesPorMoneda).length === 0 && (
-              <tr className="border-t-2 border-zinc-200 bg-zinc-50">
-                <td colSpan={3} className="px-3 py-3 text-right text-sm font-semibold text-zinc-700">Costo total</td>
-                <td className="px-3 py-3 text-right text-sm font-bold text-zinc-400">—</td>
                 <td colSpan={6} />
               </tr>
             )}

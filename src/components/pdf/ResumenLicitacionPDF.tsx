@@ -1,6 +1,7 @@
 import { Document, Text, View } from "@react-pdf/renderer";
 import type { Cliente } from "@/src/config/clientes";
 import { formatImporte } from "@/src/lib/monedas";
+import { MONEDA_BASE } from "@/src/lib/conversionMoneda";
 import PDFLayout from "./PDFLayout";
 import { pdfStyles } from "./pdfStyles";
 import { formatFechaPdf, nd } from "./pdfHelpers";
@@ -17,6 +18,8 @@ export type ResumenLicitacionPdfData = {
   fechaFinRangoEntrega: string | Date | null;
   costoObjetivo: number | null;
   monedaPredominante: string;
+  // Nota del TC usado para los agregados en MXN (null si todo MXN).
+  notaTipoCambio: string | null;
   instrucciones: string | null;
   materiales: {
     id: string;
@@ -79,11 +82,16 @@ export default function ResumenLicitacionPDF({
               label="Presupuesto objetivo"
               valor={
                 licitacion.costoObjetivo != null
-                  ? formatImporte(licitacion.costoObjetivo, licitacion.monedaPredominante)
+                  ? formatImporte(licitacion.costoObjetivo, MONEDA_BASE)
                   : "N/A"
               }
             />
           </View>
+          {licitacion.notaTipoCambio && (
+            <Text style={{ fontSize: 7.5, color: "#71717a", marginTop: 3 }}>
+              {licitacion.notaTipoCambio}
+            </Text>
+          )}
         </View>
 
         <View style={pdfStyles.seccion}>

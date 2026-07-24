@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
+import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import AsignacionForm from "./_components/AsignacionForm";
 import SeguimientoView from "./_components/SeguimientoView";
 import type {
@@ -28,6 +29,7 @@ export default async function DetalleSeleccionPage({
       tiempoConfirmacionHoras: true,
       importeVenta: true,
       costoObjetivo: true,
+      tiposCambio: true,
       estado: true,
       items: {
         select: {
@@ -131,6 +133,7 @@ export default async function DetalleSeleccionPage({
     importeVenta: licitacion.importeVenta,
     costoObjetivo: licitacion.costoObjetivo,
     estado: licitacion.estado,
+    tiposCambio: parseTiposCambio(licitacion.tiposCambio),
   };
 
   // ── Si ya hay asignaciones: vista de seguimiento ─────────────────────────────

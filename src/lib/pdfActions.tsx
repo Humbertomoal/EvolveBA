@@ -4,6 +4,11 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/src/lib/prisma";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { calcularAnalisisPorItem, calcularResumenAhorro } from "@/src/lib/licitacionesAhorro";
+import {
+  convertirAMXN,
+  notaTipoCambio,
+  parseTiposCambio,
+} from "@/src/lib/conversionMoneda";
 import OrdenCompraPDF, { type OrdenCompraPdfData } from "@/src/components/pdf/OrdenCompraPDF";
 import ResumenLicitacionPDF, {
   type ResumenLicitacionPdfData,
@@ -32,7 +37,7 @@ export async function descargarOrdenCompraPdfAction(
   const orden = await prisma.ordenCompra.findUnique({
     where: { id: ordenId },
     include: {
-      licitacion: { select: { numero: true, instrucciones: true } },
+      licitacion: { select: { numero: true, instrucciones: true, tiposCambio: true } },
       proveedor: {
         select: {
           razonSocial: true,
@@ -46,6 +51,12 @@ export async function descargarOrdenCompraPdfAction(
     },
   });
   if (!orden) throw new Error("No se encontró la orden de compra.");
+
+  const tiposCambio = parseTiposCambio(orden.licitacion?.tiposCambio);
+  const totalMXN = orden.lineas.reduce(
+    (s, l) => s + convertirAMXN(l.subtotal, l.moneda ?? "MXN", tiposCambio),
+    0
+  );
 
   const datos: OrdenCompraPdfData = {
     numero: orden.numero,
@@ -70,6 +81,11 @@ export async function descargarOrdenCompraPdfAction(
       fechaEntregaObjetivo: l.fechaEntregaObjetivo,
       subtotal: l.subtotal,
     })),
+    totalMXN,
+    notaTipoCambio: notaTipoCambio(
+      orden.lineas.map((l) => l.moneda),
+      tiposCambio
+    ),
   };
 
   const buffer = await renderToBuffer(<OrdenCompraPDF cliente={cliente} orden={datos} />);
@@ -111,10 +127,23 @@ async function cargarLicitacionParaPdf(licitacionId: string) {
   const monedaPredominante =
     [...monedaCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "MXN";
 
+  const tiposCambio = parseTiposCambio(licitacion.tiposCambio);
   const analisis = calcularAnalisisPorItem(licitacion.items, ofertas);
-  const resumenAhorro = calcularResumenAhorro(analisis, ofertas.length > 0);
+  const resumenAhorro = calcularResumenAhorro(analisis, ofertas.length > 0, tiposCambio);
+  const notaTC = notaTipoCambio(
+    licitacion.items.map((i) => i.moneda),
+    tiposCambio
+  );
 
-  return { licitacion, ofertas, monedaPredominante, analisis, resumenAhorro };
+  return {
+    licitacion,
+    ofertas,
+    monedaPredominante,
+    analisis,
+    resumenAhorro,
+    tiposCambio,
+    notaTC,
+  };
 }
 
 function nombreArchivoLicitacion(numero: string): string {
@@ -132,7 +161,7 @@ export async function descargarResumenLicitacionPdfAction(
   const cliente = clienteDesdeBasePath(basePath);
   if (!cliente) throw new Error("No se encontró la configuración del cliente.");
 
-  const { licitacion, ofertas, monedaPredominante, analisis } =
+  const { licitacion, monedaPredominante, analisis, notaTC } =
     await cargarLicitacionParaPdf(licitacionId);
 
   let resultado: ResumenLicitacionPdfData["resultado"] = null;
@@ -180,6 +209,7 @@ export async function descargarResumenLicitacionPdfAction(
     fechaFinRangoEntrega: licitacion.fechaFinRangoEntrega,
     costoObjetivo: licitacion.costoObjetivo,
     monedaPredominante,
+    notaTipoCambio: notaTC,
     instrucciones: licitacion.instrucciones,
     materiales: licitacion.items.map((item) => ({
       id: item.id,
@@ -213,7 +243,7 @@ export async function descargarComparativoOfertasPdfAction(
   const cliente = clienteDesdeBasePath(basePath);
   if (!cliente) throw new Error("No se encontró la configuración del cliente.");
 
-  const { licitacion, ofertas, monedaPredominante, analisis, resumenAhorro } =
+  const { licitacion, ofertas, monedaPredominante, analisis, resumenAhorro, notaTC } =
     await cargarLicitacionParaPdf(licitacionId);
 
   // Proveedor con el mejor precio actual por material (para "Proveedor ganador").
@@ -275,6 +305,7 @@ export async function descargarComparativoOfertasPdfAction(
     fechaEjecucion: licitacion.fechaEjecucion,
     fechaFinLicitacion: licitacion.fechaFinLicitacion,
     monedaPredominante,
+    notaTipoCambio: notaTC,
     indicadores: {
       presupuestoObjetivoTotal: resumenAhorro.presupuestoObjetivoTotal,
       primeraRondaTotal: resumenAhorro.primeraRondaTotal,

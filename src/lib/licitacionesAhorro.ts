@@ -2,6 +2,8 @@
 // licitaciones-proceso y la tabla de Selección de Proveedores, para que
 // ambas vistas usen exactamente las mismas fórmulas.
 
+import { convertirAMXN, type TiposCambio } from "./conversionMoneda";
+
 export type LicitacionItemParaAhorro = {
   id: string;
   cantidadSolicitada: number;
@@ -113,18 +115,31 @@ export function calcularAnalisisPorItem(
   });
 }
 
-/** Agrega el análisis por material en los totales/KPIs de la licitación. */
+/**
+ * Agrega el análisis por material en los totales/KPIs de la licitación.
+ * Todos los totales se devuelven CONVERTIDOS A MXN usando los tipos de cambio
+ * congelados de la licitación (cada material se convierte desde su propia
+ * moneda). Con `tiposCambio` null/omitido y materiales no-MXN se usa tasa 1
+ * (retrocompatibilidad); el UI debe avisar con `faltanTiposCambio`.
+ */
 export function calcularResumenAhorro(
   analisis: AnalisisItemAhorro[],
-  hayOfertas: boolean
+  hayOfertas: boolean,
+  tiposCambio?: TiposCambio | null
 ): ResumenAhorroCalculado {
-  const presupuestoObjetivoTotal = analisis.reduce((s, a) => s + a.objetivoTotal, 0);
+  const aMXN = (monto: number, moneda: string) =>
+    convertirAMXN(monto, moneda, tiposCambio);
+
+  const presupuestoObjetivoTotal = analisis.reduce(
+    (s, a) => s + aMXN(a.objetivoTotal, a.moneda),
+    0
+  );
   const mejorPrecioActualTotal = analisis.reduce(
-    (s, a) => s + (a.mejorActualTotal ?? 0),
+    (s, a) => s + aMXN(a.mejorActualTotal ?? 0, a.moneda),
     0
   );
   const primeraRondaTotal = analisis.reduce(
-    (s, a) => s + (a.primeraRondaTotal ?? 0),
+    (s, a) => s + aMXN(a.primeraRondaTotal ?? 0, a.moneda),
     0
   );
 

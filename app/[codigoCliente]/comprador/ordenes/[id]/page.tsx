@@ -1,6 +1,11 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { notFound } from "next/navigation";
+import {
+  convertirAMXN,
+  parseTiposCambio,
+  type TiposCambio,
+} from "@/src/lib/conversionMoneda";
 import OrdenCompradorDetalle from "./_components/OrdenCompradorDetalle";
 
 export type OrdenCompradorDetalle = {
@@ -23,7 +28,9 @@ export type OrdenCompradorDetalle = {
     fechaEstimadaProveedor: string | null;
     subtotal: number;
   }[];
+  // Total agregado en MXN (líneas convertidas desde su moneda).
   total: number;
+  tiposCambio: TiposCambio;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,13 +49,15 @@ export default async function OrdenCompradorDetallePage({
   const raw: any = await db.ordenCompra.findUnique({
     where: { id },
     include: {
-      licitacion: { select: { numero: true, jerarquia: true } },
+      licitacion: { select: { numero: true, jerarquia: true, tiposCambio: true } },
       proveedor: { select: { razonSocial: true } },
       lineas: { orderBy: { createdAt: "asc" } },
     },
   });
 
   if (!raw) notFound();
+
+  const tiposCambio = parseTiposCambio(raw.licitacion.tiposCambio);
 
   const orden: OrdenCompradorDetalle = {
     id: raw.id,
@@ -77,10 +86,11 @@ export default async function OrdenCompradorDetallePage({
         : null,
       subtotal: l.subtotal,
     })),
-    total: (raw.lineas as { subtotal: number }[]).reduce(
-      (s, l) => s + l.subtotal,
+    total: (raw.lineas as { subtotal: number; moneda: string | null }[]).reduce(
+      (s, l) => s + convertirAMXN(l.subtotal, l.moneda ?? "MXN", tiposCambio),
       0
     ),
+    tiposCambio,
   };
 
   return <OrdenCompradorDetalle orden={orden} basePath={basePath} />;

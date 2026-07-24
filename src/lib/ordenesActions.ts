@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
 import { getProveedorIdActual } from "./proveedorSession";
 import { getCompradorSession } from "./compradorSession";
+import { convertirAMXN, parseTiposCambio } from "./conversionMoneda";
 import {
   LIMIT_ORDENES,
   type FiltrosOrdenes,
@@ -142,8 +143,8 @@ export async function buscarOrdenesProveedorAction(
     take: LIMIT_ORDENES + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     include: {
-      licitacion: { select: { numero: true, jerarquia: true } },
-      lineas: { select: { subtotal: true } },
+      licitacion: { select: { numero: true, jerarquia: true, tiposCambio: true } },
+      lineas: { select: { subtotal: true, moneda: true } },
     },
   });
 
@@ -152,21 +153,25 @@ export async function buscarOrdenesProveedorAction(
   const nextCursor = hasMore ? batch[batch.length - 1].id : null;
 
   return {
-    ordenes: batch.map((o: any) => ({
-      id: o.id,
-      numero: o.numero,
-      licitacionNumero: o.licitacion.numero,
-      jerarquia: o.licitacion.jerarquia,
-      fechaCreacion: (o.fechaCreacion as Date).toISOString(),
-      fechaEstimadaEntrega: o.fechaEstimadaEntrega
-        ? (o.fechaEstimadaEntrega as Date).toISOString()
-        : null,
-      total: (o.lineas as { subtotal: number }[]).reduce(
-        (s, l) => s + l.subtotal,
-        0
-      ),
-      estado: o.estado,
-    })),
+    ordenes: batch.map((o: any) => {
+      const tiposCambio = parseTiposCambio(o.licitacion.tiposCambio);
+      return {
+        id: o.id,
+        numero: o.numero,
+        licitacionNumero: o.licitacion.numero,
+        jerarquia: o.licitacion.jerarquia,
+        fechaCreacion: (o.fechaCreacion as Date).toISOString(),
+        fechaEstimadaEntrega: o.fechaEstimadaEntrega
+          ? (o.fechaEstimadaEntrega as Date).toISOString()
+          : null,
+        // Total agregado en MXN (líneas convertidas desde su moneda).
+        total: (o.lineas as { subtotal: number; moneda: string | null }[]).reduce(
+          (s, l) => s + convertirAMXN(l.subtotal, l.moneda ?? "MXN", tiposCambio),
+          0
+        ),
+        estado: o.estado,
+      };
+    }),
     nextCursor,
   };
 }

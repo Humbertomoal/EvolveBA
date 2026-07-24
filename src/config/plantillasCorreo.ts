@@ -145,7 +145,7 @@ Total primera ronda: {totalPrimeraRonda}
 Mejor costo total: {mejorCostoTotal}
 Adherencia de precio: {adherenciaPrecio}
 Ahorro obtenido: {ahorroTotal}
-
+{notaTipoCambio}
 Ganadores por material:
 {tablaGanadores}
 

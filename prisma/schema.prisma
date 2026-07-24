@@ -82,6 +82,10 @@ model Licitacion {
   fechaFinRangoEntrega    DateTime?
   costoObjetivo           Float?
   importeVenta            Float?
+  // Tipos de cambio manuales congelados por licitación, respecto a MXN.
+  // Ej: { "USD": 17.20, "EUR": 19.50 }. MXN siempre vale 1 (no se captura).
+  // null = licitación anterior a esta función o 100% MXN (ver conversionMoneda.ts).
+  tiposCambio             Json?
   tiempoConfirmacionHoras Int       @default(24)
   duracionRondaMinutos    Int       @default(1440)
   maxRondas               Int       @default(3)

@@ -47,7 +47,25 @@ export type LicitacionInput = {
   modoLicitacion: string;
   items: ItemInput[];
   proveedoresInvitados: string[];
+  // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
+  tiposCambio?: Record<string, number>;
 };
+
+// Normaliza el mapa de tipos de cambio: descarta MXN y tasas no positivas.
+// Devuelve null cuando no hay ninguna tasa válida (columna Json? = null).
+function sanearTiposCambio(
+  tiposCambio: Record<string, number> | undefined
+): Record<string, number> | null {
+  if (!tiposCambio) return null;
+  const out: Record<string, number> = {};
+  for (const [moneda, tasa] of Object.entries(tiposCambio)) {
+    if (moneda === "MXN") continue;
+    if (typeof tasa === "number" && Number.isFinite(tasa) && tasa > 0) {
+      out[moneda] = tasa;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
 
 // Reglas de validación que también se hacen en el cliente, pero se repiten
 // aquí por seguridad — un cliente modificado no debe poder saltárselas.
@@ -97,6 +115,7 @@ export async function crearLicitacionAction(
       instrucciones: datos.instrucciones,
       archivosAdjuntos:
         datos.archivosAdjuntos.length > 0 ? JSON.stringify(datos.archivosAdjuntos) : null,
+      tiposCambio: sanearTiposCambio(datos.tiposCambio) ?? undefined,
       estado: datos.estado,
       modoLicitacion: datos.modoLicitacion,
       compradorId,
@@ -203,6 +222,11 @@ export async function actualizarLicitacionAction(
       instrucciones: datos.instrucciones,
       archivosAdjuntos:
         datos.archivosAdjuntos.length > 0 ? JSON.stringify(datos.archivosAdjuntos) : null,
+      // Solo sobrescribe cuando llegan tasas válidas; si no hay ninguna (todo
+      // MXN) se omite y se conserva el valor previo (tasas sin uso son inocuas).
+      ...(sanearTiposCambio(datos.tiposCambio)
+        ? { tiposCambio: sanearTiposCambio(datos.tiposCambio)! }
+        : {}),
       modoLicitacion: datos.modoLicitacion,
       estado: esFutura ? "Programada" : datos.estado,
       ...(esFutura ? { rondaActual: 0, inicioRondaActual: null, esperandoDecision: false } : {}),

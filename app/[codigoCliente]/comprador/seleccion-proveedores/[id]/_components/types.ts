@@ -1,3 +1,5 @@
+import type { TiposCambio } from "@/src/lib/conversionMoneda";
+
 export type OfertaParaDropdown = {
   proveedorId: string;
   proveedorNombre: string;
@@ -48,4 +50,6 @@ export type LicitacionInfo = {
   importeVenta: number | null;
   costoObjetivo: number | null;
   estado: string;
+  // Tipos de cambio congelados (respecto a MXN) para convertir totales.
+  tiposCambio: TiposCambio;
 };

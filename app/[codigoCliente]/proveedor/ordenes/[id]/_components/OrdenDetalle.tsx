@@ -9,6 +9,7 @@ import type { OrdenCompraDetalle } from "../page";
 import { actualizarEstatusOrdenAction } from "@/src/lib/ordenesActions";
 import { descargarOrdenCompraPdfAction } from "@/src/lib/pdfActions";
 import { formatImporte } from "@/src/lib/monedas";
+import { notaTipoCambio, MONEDA_BASE } from "@/src/lib/conversionMoneda";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
@@ -60,6 +61,10 @@ export default function OrdenDetalle({
     acc[l.moneda] = (acc[l.moneda] ?? 0) + l.subtotal;
     return acc;
   }, {} as Record<string, number>);
+  const notaTC = notaTipoCambio(
+    orden.lineas.map((l) => l.moneda),
+    orden.tiposCambio
+  );
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -162,19 +167,40 @@ export default function OrdenDetalle({
               ))}
             </tbody>
             <tfoot>
-              {Object.entries(totalesPorMoneda).map(([moneda, total], i) => (
-                <tr key={moneda} className={`${i === 0 ? "border-t-2 border-zinc-200" : "border-t border-zinc-100"} bg-zinc-50`}>
-                  <td colSpan={7} className="px-5 py-3 text-right text-sm font-semibold text-zinc-700">
-                    {i === 0 ? "Total general" : ""}
-                    {Object.keys(totalesPorMoneda).length > 1 && (
-                      <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">{moneda}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm font-bold text-zinc-900">
-                    {formatImporte(total as number, moneda)}
+              {/* Subtotales por moneda (informativo) — solo si hay más de una moneda */}
+              {Object.keys(totalesPorMoneda).length > 1 &&
+                Object.entries(totalesPorMoneda).map(([moneda, total]) => (
+                  <tr key={moneda} className="border-t border-zinc-100 bg-zinc-50">
+                    <td colSpan={7} className="px-5 py-2 text-right text-xs text-zinc-500">
+                      Subtotal
+                      <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 font-medium text-zinc-600">{moneda}</span>
+                    </td>
+                    <td className="px-4 py-2 text-right text-sm text-zinc-600">
+                      {formatImporte(total as number, moneda)}
+                    </td>
+                  </tr>
+                ))}
+              {/* Total general en MXN */}
+              <tr className="border-t-2 border-zinc-200 bg-zinc-50">
+                <td colSpan={7} className="px-5 py-3 text-right text-sm font-semibold text-zinc-700">
+                  Total general
+                  {notaTC && (
+                    <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                      {MONEDA_BASE}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-zinc-900">
+                  {formatImporte(orden.total, MONEDA_BASE)}
+                </td>
+              </tr>
+              {notaTC && (
+                <tr className="bg-zinc-50">
+                  <td colSpan={8} className="px-5 pb-2 text-right text-[11px] text-zinc-400">
+                    {notaTC}
                   </td>
                 </tr>
-              ))}
+              )}
             </tfoot>
           </table>
         </div>

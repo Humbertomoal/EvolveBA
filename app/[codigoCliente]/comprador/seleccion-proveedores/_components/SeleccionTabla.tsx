@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChartBar, IconClock, IconEye } from "@tabler/icons-react";
+import { IconAlertTriangle, IconChartBar, IconClock, IconEye } from "@tabler/icons-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import PanelFiltros from "@/app/_components/PanelFiltros";
@@ -244,12 +244,25 @@ export default function SeleccionTabla({
                     className="hover:bg-zinc-50/50 transition-colors duration-150"
                   >
                     <td className="px-3 py-3 font-medium text-zinc-800">
-                      <Link
-                        href={`${basePath}/comprador/seleccion-proveedores/${l.id}`}
-                        className="hover:text-[var(--color-primario)] hover:underline"
-                      >
-                        {l.numero}
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`${basePath}/comprador/seleccion-proveedores/${l.id}`}
+                          className="hover:text-[var(--color-primario)] hover:underline"
+                        >
+                          {l.numero}
+                        </Link>
+                        {l.faltanTiposCambio && (
+                          <IconAlertTriangle
+                            className="h-4 w-4 shrink-0 text-amber-500"
+                            title="Faltan tipos de cambio; los totales pueden ser incorrectos. Captúralos en la edición de la licitación."
+                          />
+                        )}
+                      </div>
+                      {l.notaTipoCambio && !l.faltanTiposCambio && (
+                        <p className="mt-0.5 text-[10px] font-normal text-zinc-400">
+                          {l.notaTipoCambio}
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-zinc-600">
                       {l.tipoLicitacion ?? "—"}
@@ -306,7 +319,7 @@ export default function SeleccionTabla({
 
                     {/* Costo Objetivo — siempre disponible desde la creación */}
                     <td className="px-3 py-3 text-right text-zinc-600">
-                      {formatMoneda(r.presupuestoObjetivoTotal, l.monedaPredominante)}
+                      {formatMoneda(r.presupuestoObjetivoTotal, "MXN")}
                     </td>
 
                     {!r.hayOfertas ? (
@@ -321,10 +334,10 @@ export default function SeleccionTabla({
                     ) : (
                       <>
                         <td className="px-3 py-3 text-right text-zinc-600">
-                          {formatMoneda(r.primeraRondaTotal, l.monedaPredominante)}
+                          {formatMoneda(r.primeraRondaTotal, "MXN")}
                         </td>
                         <td className="px-3 py-3 text-right font-medium text-zinc-800">
-                          {formatMoneda(r.mejorPrecioActualTotal, l.monedaPredominante)}
+                          {formatMoneda(r.mejorPrecioActualTotal, "MXN")}
                         </td>
                         <td className="px-3 py-3 text-center">
                           <span
@@ -334,7 +347,7 @@ export default function SeleccionTabla({
                           </span>
                         </td>
                         <td className={`px-3 py-3 text-right font-medium ${ahorroColorClass(r.ahorroTotal)}`}>
-                          {formatMoneda(r.ahorroTotal, l.monedaPredominante)}
+                          {formatMoneda(r.ahorroTotal, "MXN")}
                           <span className="ml-1 text-xs font-normal">
                             ({formatPct(r.ahorroPct)})
                           </span>

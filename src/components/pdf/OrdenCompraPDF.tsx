@@ -1,6 +1,7 @@
 import { Document, Text, View } from "@react-pdf/renderer";
 import type { Cliente } from "@/src/config/clientes";
 import { formatImporte } from "@/src/lib/monedas";
+import { MONEDA_BASE } from "@/src/lib/conversionMoneda";
 import PDFLayout from "./PDFLayout";
 import { pdfStyles } from "./pdfStyles";
 import { formatFechaPdf, nd } from "./pdfHelpers";
@@ -28,6 +29,9 @@ export type OrdenCompraPdfData = {
     fechaEntregaObjetivo: string | Date | null;
     subtotal: number;
   }[];
+  // Total agregado en MXN y nota del TC usado (null si todo MXN).
+  totalMXN: number;
+  notaTipoCambio: string | null;
 };
 
 function Dato({ label, valor }: { label: string; valor: string }) {
@@ -116,27 +120,47 @@ export default function OrdenCompraPDF({
                 </Text>
               </View>
             ))}
-            {Object.entries(totalesPorMoneda).map(([moneda, total]) => (
-              <View key={moneda} style={pdfStyles.tablaFooterRow}>
-                <Text
-                  style={[
-                    pdfStyles.tablaCell,
-                    { width: "80%", textAlign: "right", fontFamily: "Helvetica-Bold" },
-                  ]}
-                >
-                  Total ({moneda})
-                </Text>
-                <Text
-                  style={[
-                    pdfStyles.tablaCell,
-                    { width: "20%", textAlign: "right", fontFamily: "Helvetica-Bold" },
-                  ]}
-                >
-                  {formatImporte(total, moneda)}
-                </Text>
-              </View>
-            ))}
+            {/* Subtotales por moneda (informativo) — solo si hay más de una moneda */}
+            {Object.keys(totalesPorMoneda).length > 1 &&
+              Object.entries(totalesPorMoneda).map(([moneda, total]) => (
+                <View key={moneda} style={pdfStyles.tablaRow}>
+                  <Text
+                    style={[pdfStyles.tablaCellMuted, { width: "80%", textAlign: "right" }]}
+                  >
+                    Subtotal ({moneda})
+                  </Text>
+                  <Text
+                    style={[pdfStyles.tablaCellMuted, { width: "20%", textAlign: "right" }]}
+                  >
+                    {formatImporte(total, moneda)}
+                  </Text>
+                </View>
+              ))}
+            {/* Total general en MXN */}
+            <View style={pdfStyles.tablaFooterRow}>
+              <Text
+                style={[
+                  pdfStyles.tablaCell,
+                  { width: "80%", textAlign: "right", fontFamily: "Helvetica-Bold" },
+                ]}
+              >
+                Total ({MONEDA_BASE})
+              </Text>
+              <Text
+                style={[
+                  pdfStyles.tablaCell,
+                  { width: "20%", textAlign: "right", fontFamily: "Helvetica-Bold" },
+                ]}
+              >
+                {formatImporte(orden.totalMXN, MONEDA_BASE)}
+              </Text>
+            </View>
           </View>
+          {orden.notaTipoCambio && (
+            <Text style={{ fontSize: 7.5, color: "#71717a", textAlign: "right", marginTop: 3 }}>
+              {orden.notaTipoCambio}
+            </Text>
+          )}
         </View>
 
         {orden.instrucciones && (

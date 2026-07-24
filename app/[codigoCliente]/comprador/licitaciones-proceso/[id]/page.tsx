@@ -11,6 +11,12 @@ import {
   calcularResumenAhorro,
   primeraRondaConOferta,
 } from "@/src/lib/licitacionesAhorro";
+import {
+  convertirAMXN,
+  faltanTiposCambio,
+  notaTipoCambio,
+  parseTiposCambio,
+} from "@/src/lib/conversionMoneda";
 import DetalleLicitacion from "./_components/DetalleLicitacion";
 import type {
   MejorPrecioItem,
@@ -105,6 +111,12 @@ export default async function DetalleLicitacionProcesoPage({
   const monedaPredominante =
     [...monedaCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "MXN";
 
+  // ── Tipos de cambio congelados de la licitación (todos los totales → MXN) ───
+  const tiposCambio = parseTiposCambio(licitacion.tiposCambio);
+  const monedasEnUso = licitacion.items.map((item: any) => item.moneda);
+  const notaTC = notaTipoCambio(monedasEnUso, tiposCambio);
+  const faltanTC = faltanTiposCambio(monedasEnUso, tiposCambio);
+
   // ── Análisis de ahorro por producto (lógica compartida) ────────────────────
   const analisisBase = calcularAnalisisPorItem(licitacion.items, todasLasOfertas);
   const analisisPorProducto: AnalisisProductoItem[] = analisisBase.map((a, i) => ({
@@ -122,7 +134,7 @@ export default async function DetalleLicitacionProcesoPage({
   }));
 
   const resumenAhorro: ResumenAhorro = {
-    ...calcularResumenAhorro(analisisBase, todasLasOfertas.length > 0),
+    ...calcularResumenAhorro(analisisBase, todasLasOfertas.length > 0, tiposCambio),
     monedaPredominante,
   };
   const { presupuestoObjetivoTotal } = resumenAhorro;
@@ -165,7 +177,8 @@ export default async function DetalleLicitacionProcesoPage({
         ofertasPrimeraRondaProveedor.length > 0
           ? ofertasPrimeraRondaProveedor.reduce((sum: number, o: any) => {
               const item = itemsPorId.get(o.licitacionItemId);
-              return sum + o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+              const subtotal = o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+              return sum + convertirAMXN(subtotal, item?.moneda ?? "MXN", tiposCambio);
             }, 0)
           : null;
 
@@ -180,7 +193,8 @@ export default async function DetalleLicitacionProcesoPage({
                 .filter((o: any) => o.licitacionItemId === itemId)
                 .map((o: any) => o.precioUnitario);
               const mejor = Math.min(...preciosItem);
-              return sum + mejor * (item?.cantidadSolicitada ?? 0);
+              const subtotal = mejor * (item?.cantidadSolicitada ?? 0);
+              return sum + convertirAMXN(subtotal, item?.moneda ?? "MXN", tiposCambio);
             }, 0)
           : null;
 
@@ -198,7 +212,8 @@ export default async function DetalleLicitacionProcesoPage({
         const ofertasEnRonda = ofertasProveedor.filter((o: any) => o.ronda === r);
         const totalCotizado = ofertasEnRonda.reduce((sum: number, o: any) => {
           const item = itemsPorId.get(o.licitacionItemId);
-          return sum + o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+          const subtotal = o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+          return sum + convertirAMXN(subtotal, item?.moneda ?? "MXN", tiposCambio);
         }, 0);
         const vsObjetivoMonto = totalCotizado - presupuestoObjetivoTotal;
         const vsObjetivoPct = (vsObjetivoMonto / presupuestoObjetivoSafe) * 100;
@@ -379,6 +394,8 @@ export default async function DetalleLicitacionProcesoPage({
       codigoCliente={codigoCliente}
       datosInvitacion={datosInvitacion}
       noLeidosPorProveedor={noLeidosPorProveedor}
+      notaTipoCambio={notaTC}
+      faltanTiposCambio={faltanTC}
     />
   );
 }

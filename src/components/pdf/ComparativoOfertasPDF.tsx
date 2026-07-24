@@ -1,6 +1,7 @@
 import { Document, Text, View } from "@react-pdf/renderer";
 import type { Cliente } from "@/src/config/clientes";
 import { formatImporte } from "@/src/lib/monedas";
+import { MONEDA_BASE } from "@/src/lib/conversionMoneda";
 import PDFLayout from "./PDFLayout";
 import { pdfStyles } from "./pdfStyles";
 import { formatFechaPdf, nd } from "./pdfHelpers";
@@ -11,6 +12,8 @@ export type ComparativoOfertasPdfData = {
   fechaEjecucion: string | Date | null;
   fechaFinLicitacion: string | Date | null;
   monedaPredominante: string;
+  // Nota del TC usado para los agregados en MXN (null si todo MXN).
+  notaTipoCambio: string | null;
   indicadores: {
     presupuestoObjetivoTotal: number;
     primeraRondaTotal: number;
@@ -64,7 +67,8 @@ export default function ComparativoOfertasPDF({
   cliente: Cliente;
   licitacion: ComparativoOfertasPdfData;
 }) {
-  const moneda = licitacion.monedaPredominante;
+  // Todos los indicadores agregados vienen convertidos a MXN.
+  const moneda = MONEDA_BASE;
   const { indicadores } = licitacion;
 
   return (
@@ -96,6 +100,11 @@ export default function ComparativoOfertasPDF({
               indicadores.ahorroPct
             )})`}
           />
+          {licitacion.notaTipoCambio && (
+            <Text style={{ width: "100%", fontSize: 7.5, color: "#71717a" }}>
+              {licitacion.notaTipoCambio}
+            </Text>
+          )}
         </View>
 
         <View style={pdfStyles.seccion}>

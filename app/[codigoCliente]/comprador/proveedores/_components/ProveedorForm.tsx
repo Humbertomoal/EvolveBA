@@ -125,6 +125,16 @@ export default function ProveedorForm({
   const [contactoAdminCorreo, setContactoAdminCorreo] = useState(
     proveedorExistente?.contactoAdminCorreo ?? ""
   );
+  // Marcado cuando el vendedor usa los mismos datos que el contacto
+  // administrativo. Al crear uno nuevo arranca marcado (suelen ser la misma
+  // persona); al editar, marcado solo si los tres campos coinciden exactamente.
+  const [vendedorMismoQueAdmin, setVendedorMismoQueAdmin] = useState(() =>
+    !proveedorExistente
+      ? true
+      : proveedorExistente.vendedorNombre === proveedorExistente.contactoAdminNombre &&
+        proveedorExistente.vendedorCelular === proveedorExistente.contactoAdminTelefono &&
+        proveedorExistente.vendedorCorreo === proveedorExistente.contactoAdminCorreo
+  );
   const [tipoPersona, setTipoPersona] = useState(
     proveedorExistente?.tipoPersona ?? "Fisica"
   );
@@ -177,8 +187,8 @@ export default function ProveedorForm({
   // ── Derived errors ────────────────────────────────────────────────────────────
   const errores = {
     razonSocial: !razonSocial.trim() ? "Campo requerido" : null,
-    vendedorCelular: errCelular(vendedorCelular, false),
-    vendedorCorreo: errCorreo(vendedorCorreo, false),
+    vendedorCelular: vendedorMismoQueAdmin ? null : errCelular(vendedorCelular, false),
+    vendedorCorreo: vendedorMismoQueAdmin ? null : errCorreo(vendedorCorreo, false),
     contactoAdminNombre: !contactoAdminNombre.trim() ? "Campo requerido" : null,
     contactoAdminTelefono: errCelular(contactoAdminTelefono, false),
     contactoAdminCorreo: errCorreo(contactoAdminCorreo, true),
@@ -401,44 +411,63 @@ export default function ProveedorForm({
                 <option value="Inactivo">Inactivo</option>
               </select>
             </Campo>
-            <Campo label="Nombre del Vendedor">
+            <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
               <input
-                name="vendedorNombre"
-                type="text"
-                value={vendedorNombre}
-                onChange={(e) => setVendedorNombre(e.target.value)}
-                className={INPUT}
+                type="checkbox"
+                checked={vendedorMismoQueAdmin}
+                onChange={(e) => setVendedorMismoQueAdmin(e.target.checked)}
+                className="h-4 w-4 rounded border-zinc-300"
               />
-            </Campo>
-            <Campo
-              label="Celular del Vendedor"
-              error={verError("vendedorCelular")}
-            >
-              <input
-                name="vendedorCelular"
-                type="tel"
-                value={vendedorCelular}
-                onChange={(e) =>
-                  setVendedorCelular(formatTel(e.target.value))
-                }
-                onBlur={() => tocar("vendedorCelular")}
-                placeholder="442 123 4567"
-                className={iCls(!!verError("vendedorCelular"))}
-              />
-            </Campo>
-            <Campo
-              label="Correo del Vendedor"
-              error={verError("vendedorCorreo")}
-            >
-              <input
-                name="vendedorCorreo"
-                type="email"
-                value={vendedorCorreo}
-                onChange={(e) => setVendedorCorreo(e.target.value)}
-                onBlur={() => tocar("vendedorCorreo")}
-                className={iCls(!!verError("vendedorCorreo"))}
-              />
-            </Campo>
+              Mismos datos que el contacto administrativo
+            </label>
+            {vendedorMismoQueAdmin ? (
+              <>
+                <input type="hidden" name="vendedorNombre" value={contactoAdminNombre} />
+                <input type="hidden" name="vendedorCelular" value={contactoAdminTelefono} />
+                <input type="hidden" name="vendedorCorreo" value={contactoAdminCorreo} />
+              </>
+            ) : (
+              <>
+                <Campo label="Nombre del Vendedor">
+                  <input
+                    name="vendedorNombre"
+                    type="text"
+                    value={vendedorNombre}
+                    onChange={(e) => setVendedorNombre(e.target.value)}
+                    className={INPUT}
+                  />
+                </Campo>
+                <Campo
+                  label="Celular del Vendedor"
+                  error={verError("vendedorCelular")}
+                >
+                  <input
+                    name="vendedorCelular"
+                    type="tel"
+                    value={vendedorCelular}
+                    onChange={(e) =>
+                      setVendedorCelular(formatTel(e.target.value))
+                    }
+                    onBlur={() => tocar("vendedorCelular")}
+                    placeholder="442 123 4567"
+                    className={iCls(!!verError("vendedorCelular"))}
+                  />
+                </Campo>
+                <Campo
+                  label="Correo del Vendedor"
+                  error={verError("vendedorCorreo")}
+                >
+                  <input
+                    name="vendedorCorreo"
+                    type="email"
+                    value={vendedorCorreo}
+                    onChange={(e) => setVendedorCorreo(e.target.value)}
+                    onBlur={() => tocar("vendedorCorreo")}
+                    className={iCls(!!verError("vendedorCorreo"))}
+                  />
+                </Campo>
+              </>
+            )}
           </div>
         </fieldset>
 

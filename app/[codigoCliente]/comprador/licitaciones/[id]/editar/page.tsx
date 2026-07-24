@@ -5,6 +5,7 @@ import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedores } from "@/src/lib/proveedores";
 import { fechaParaInput } from "@/src/lib/dateUtils";
+import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import LicitacionForm, { type PreDatos, type UnidadDuracion } from "../../nueva/_components/LicitacionForm";
@@ -102,6 +103,7 @@ export default async function EditarLicitacionPage({
       moneda: item.moneda ?? "MXN",
     })),
     proveedoresInvitados: licitacion.proveedoresInvitados.map((p: any) => p.proveedorId),
+    tiposCambio: parseTiposCambio(licitacion.tiposCambio),
   };
 
   const [productos, proveedores, proveedorMateriales, jerarquias, tiposLicitacion, monedas, usuarioActual] =

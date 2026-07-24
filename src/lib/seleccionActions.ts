@@ -3,6 +3,12 @@
 import { prisma } from "@/src/lib/prisma";
 import { getCompradorSession } from "./compradorSession";
 import { calcularAnalisisPorItem, calcularResumenAhorro } from "./licitacionesAhorro";
+import {
+  convertirAMXN,
+  faltanTiposCambio,
+  notaTipoCambio,
+  parseTiposCambio,
+} from "./conversionMoneda";
 import type { FiltrosSeleccion, LicitacionSeleccion } from "./seleccionTypes";
 
 const LIMIT = 25;
@@ -56,7 +62,10 @@ export async function buscarSeleccionAction(
       estado: true,
       importeVenta: true,
       costoObjetivo: true,
-      asignaciones: { select: { cantidadAsignada: true, precioUnitario: true } },
+      tiposCambio: true,
+      asignaciones: {
+        select: { cantidadAsignada: true, precioUnitario: true, moneda: true },
+      },
     },
   });
 
@@ -99,8 +108,9 @@ export async function buscarSeleccionAction(
         precioUnitario: o.precioUnitario,
       }))
     );
+    const tiposCambio = parseTiposCambio(l.tiposCambio);
     const analisis = calcularAnalisisPorItem(itemsLic, ofertasLic);
-    const resumenAhorro = calcularResumenAhorro(analisis, ofertasLic.length > 0);
+    const resumenAhorro = calcularResumenAhorro(analisis, ofertasLic.length > 0, tiposCambio);
 
     const monedaCounts = new Map<string, number>();
     for (const item of itemsLic) {
@@ -108,6 +118,12 @@ export async function buscarSeleccionAction(
     }
     const monedaPredominante =
       [...monedaCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "MXN";
+
+    // Monedas en uso: incluye materiales y asignaciones (por si difieren).
+    const monedasEnUso = [
+      ...itemsLic.map((i) => i.moneda),
+      ...l.asignaciones.map((a) => a.moneda),
+    ];
 
     return {
       id: l.id,
@@ -118,12 +134,16 @@ export async function buscarSeleccionAction(
       estado: l.estado,
       importeVenta: l.importeVenta,
       costoObjetivoLicitacion: l.costoObjetivo,
+      // Costo total convertido a MXN (cada asignación desde su propia moneda).
       costoLicitacion: l.asignaciones.reduce(
-        (sum, a) => sum + a.precioUnitario * a.cantidadAsignada,
+        (sum, a) =>
+          sum + convertirAMXN(a.precioUnitario * a.cantidadAsignada, a.moneda, tiposCambio),
         0
       ),
       monedaPredominante,
       resumenAhorro,
+      notaTipoCambio: notaTipoCambio(monedasEnUso, tiposCambio),
+      faltanTiposCambio: faltanTiposCambio(monedasEnUso, tiposCambio),
     };
   });
 
