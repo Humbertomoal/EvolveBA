@@ -11,10 +11,9 @@ import {
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
 import {
-  convertirAMXN,
+  convertirAMoneda,
   faltanTiposCambio,
   notaTipoCambio,
-  MONEDA_BASE,
 } from "@/src/lib/conversionMoneda";
 import { cancelarLicitacionAction } from "@/src/lib/rondasActions";
 import {
@@ -504,19 +503,29 @@ export default function AsignacionForm({
     acc[moneda] = (acc[moneda] ?? 0) + sub1 + sub2;
     return acc;
   }, {} as Record<string, number>);
-  // Costo total agregado CONVERTIDO A MXN (cada subtotal desde su moneda).
+  // Moneda de consolidación de los totales de esta licitación.
+  const monedaConsol = licitacion.monedaConsolidacion ?? "MXN";
+  // Costo total agregado CONVERTIDO a la moneda de consolidación.
   const costoTotal = Object.entries(totalesPorMoneda).reduce(
-    (s, [moneda, v]) => s + convertirAMXN(v as number, moneda, licitacion.tiposCambio),
+    (s, [moneda, v]) =>
+      s + convertirAMoneda(v as number, moneda, monedaConsol, licitacion.tiposCambio),
     0
   );
 
   // Nota/aviso de tipo de cambio para los totales de esta pantalla.
   const monedasEnUso = items.map((i: any) => i.moneda);
-  const notaTC = notaTipoCambio(monedasEnUso, licitacion.tiposCambio);
-  const faltanTC = faltanTiposCambio(monedasEnUso, licitacion.tiposCambio);
+  const notaTC = notaTipoCambio(monedasEnUso, licitacion.tiposCambio, monedaConsol);
+  const faltanTC = faltanTiposCambio(monedasEnUso, licitacion.tiposCambio, monedaConsol);
 
-  const margen = licitacion.importeVenta != null ? licitacion.importeVenta - costoTotal : null;
-  const pctMargen = margen != null && licitacion.importeVenta ? (margen / licitacion.importeVenta) * 100 : null;
+  // Importe de venta (capturado en MXN) convertido a la moneda de consolidación
+  // para que el margen sea consistente con el costo.
+  const importeVentaConsol =
+    licitacion.importeVenta != null
+      ? convertirAMoneda(licitacion.importeVenta, "MXN", monedaConsol, licitacion.tiposCambio)
+      : null;
+  const margen = importeVentaConsol != null ? importeVentaConsol - costoTotal : null;
+  const pctMargen =
+    margen != null && importeVentaConsol ? (margen / importeVentaConsol) * 100 : null;
 
   // Conteo de precios/fechas modificados manualmente vs. la oferta original — para
   // el aviso superior y para el indicador "modificado" en cada celda.
@@ -915,13 +924,13 @@ export default function AsignacionForm({
                 Costo total de la licitación
                 {notaTC && (
                   <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                    {MONEDA_BASE}
+                    {monedaConsol}
                   </span>
                 )}
               </td>
               <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
                 {Object.keys(totalesPorMoneda).length > 0
-                  ? formatImporte(costoTotal, MONEDA_BASE)
+                  ? formatImporte(costoTotal, monedaConsol)
                   : "—"}
               </td>
             </tr>
@@ -935,10 +944,10 @@ export default function AsignacionForm({
             {margen != null && (
               <tr className="border-t border-zinc-100 bg-zinc-50">
                 <td colSpan={9} className="px-3 py-2 text-right text-xs text-zinc-500">
-                  $ Margen (Importe de venta {formatImporte(licitacion.importeVenta ?? 0, "MXN")} − Costo)
+                  $ Margen (Importe de venta {formatImporte(importeVentaConsol ?? 0, monedaConsol)} − Costo)
                 </td>
                 <td className={`px-3 py-2 text-right text-sm font-semibold ${margen >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-                  {formatImporte(margen, "MXN")}
+                  {formatImporte(margen, monedaConsol)}
                   {pctMargen != null && (
                     <span className="ml-1.5 text-xs font-normal">({pctMargen.toFixed(1)}%)</span>
                   )}

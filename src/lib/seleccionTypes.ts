@@ -29,8 +29,10 @@ export type LicitacionSeleccion = {
   costoLicitacion: number;
   // Métricas de ahorro — calculadas solo para las licitaciones visibles.
   monedaPredominante: string;
+  // Moneda en la que se muestran costoLicitacion y los KPIs de resumenAhorro.
+  monedaConsolidacion: string;
   resumenAhorro: ResumenAhorroCalculado;
-  // Nota discreta del TC usado o null si todo MXN; aviso si faltan tasas.
+  // Nota discreta del TC usado o null si todo en la moneda de consolidación; aviso si faltan tasas.
   notaTipoCambio: string | null;
   faltanTiposCambio: boolean;
 };

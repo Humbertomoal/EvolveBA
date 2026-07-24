@@ -2,7 +2,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { notFound } from "next/navigation";
 import {
-  convertirAMXN,
+  convertirAMoneda,
   parseTiposCambio,
   type TiposCambio,
 } from "@/src/lib/conversionMoneda";
@@ -28,9 +28,10 @@ export type OrdenCompraDetalle = {
     fechaEstimadaProveedor: string | null;
     subtotal: number;
   }[];
-  // Total agregado en MXN (líneas convertidas desde su moneda).
+  // Total agregado en la moneda de consolidación (líneas convertidas desde su moneda).
   total: number;
   tiposCambio: TiposCambio;
+  monedaConsolidacion: string;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,7 +50,14 @@ export default async function OrdenDetallePageWrapper({
   const raw: any = await db.ordenCompra.findUnique({
     where: { id },
     include: {
-      licitacion: { select: { numero: true, jerarquia: true, tiposCambio: true } },
+      licitacion: {
+        select: {
+          numero: true,
+          jerarquia: true,
+          tiposCambio: true,
+          monedaConsolidacion: true,
+        },
+      },
       proveedor: { select: { razonSocial: true } },
       lineas: { orderBy: { createdAt: "asc" } },
     },
@@ -58,6 +66,7 @@ export default async function OrdenDetallePageWrapper({
   if (!raw) notFound();
 
   const tiposCambio = parseTiposCambio(raw.licitacion.tiposCambio);
+  const monedaConsolidacion = raw.licitacion.monedaConsolidacion ?? "MXN";
 
   const orden: OrdenCompraDetalle = {
     id: raw.id,
@@ -86,10 +95,12 @@ export default async function OrdenDetallePageWrapper({
       subtotal: l.subtotal,
     })),
     total: (raw.lineas as { subtotal: number; moneda: string | null }[]).reduce(
-      (s, l) => s + convertirAMXN(l.subtotal, l.moneda ?? "MXN", tiposCambio),
+      (s, l) =>
+        s + convertirAMoneda(l.subtotal, l.moneda ?? "MXN", monedaConsolidacion, tiposCambio),
       0
     ),
     tiposCambio,
+    monedaConsolidacion,
   };
 
   return <OrdenDetalle orden={orden} basePath={basePath} />;

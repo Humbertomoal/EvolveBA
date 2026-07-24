@@ -7,7 +7,7 @@ import type { OrdenCompradorDetalle } from "../page";
 import { actualizarEstatusOrdenAction } from "@/src/lib/ordenesActions";
 import { descargarOrdenCompraPdfAction } from "@/src/lib/pdfActions";
 import { formatImporte } from "@/src/lib/monedas";
-import { notaTipoCambio, MONEDA_BASE } from "@/src/lib/conversionMoneda";
+import { notaTipoCambio } from "@/src/lib/conversionMoneda";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
@@ -62,7 +62,8 @@ export default function OrdenCompradorDetalle({
   }, {} as Record<string, number>);
   const notaTC = notaTipoCambio(
     orden.lineas.map((l) => l.moneda),
-    orden.tiposCambio
+    orden.tiposCambio,
+    orden.monedaConsolidacion
   );
 
   return (
@@ -177,18 +178,18 @@ export default function OrdenCompradorDetalle({
                     </td>
                   </tr>
                 ))}
-              {/* Total general en MXN */}
+              {/* Total general en la moneda de consolidación */}
               <tr className="border-t-2 border-zinc-200 bg-zinc-50">
                 <td colSpan={7} className="px-5 py-3 text-right text-sm font-semibold text-zinc-700">
                   Total general
                   {notaTC && (
                     <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                      {MONEDA_BASE}
+                      {orden.monedaConsolidacion}
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right text-sm font-bold text-zinc-900">
-                  {formatImporte(orden.total, MONEDA_BASE)}
+                  {formatImporte(orden.total, orden.monedaConsolidacion)}
                 </td>
               </tr>
               {notaTC && (

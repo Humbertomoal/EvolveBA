@@ -45,6 +45,8 @@ export type OrdenCompraRow = {
   jerarquia: string | null;
   fechaCreacion: string;
   fechaEstimadaEntrega: string | null;
+  // Total agregado en la moneda de consolidación de su licitación.
   total: number;
+  monedaConsolidacion: string;
   estado: string;
 };

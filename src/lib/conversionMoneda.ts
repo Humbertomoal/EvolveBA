@@ -1,20 +1,24 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Conversión de moneda a MXN — helper centralizado.
+// Conversión de moneda — helper centralizado.
 //
-// Modelo: moneda base MXN + tipos de cambio manuales congelados por licitación
-// (Licitacion.tiposCambio Json?). MXN siempre vale 1 y no se captura.
+// Modelo: las tasas (`tiposCambio`) se expresan SIEMPRE respecto a MXN
+// (Licitacion.tiposCambio Json?), p. ej. { USD: 17.20 } = 1 USD → 17.20 MXN.
+// MXN es la moneda pivote y vale 1; no se captura.
+//
+// La consolidación puede hacerse en CUALQUIER moneda (`monedaConsolidacion` de
+// la licitación, default MXN) vía `convertirAMoneda`, que cruza por MXN:
+//   monto_destino = monto * tasa(origen) / tasa(destino)
 //
 // Retrocompatibilidad (importante):
 //   - tiposCambio null/vacío + todo MXN  → funciona igual que antes (sin conversión).
 //   - tiposCambio null + monedas ≠ MXN   → NO truena: se usa tasa 1 por moneda y
 //     el UI debe mostrar el aviso de `faltanTiposCambio` para que el comprador
 //     capture las tasas.
-//
-// TODO (futuro, fuera de alcance): obtención automática de tasas desde una API.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { formatImporte } from "./monedas";
 
+/** Moneda pivote de las tasas (todas las tasas de `tiposCambio` son "a MXN"). */
 export const MONEDA_BASE = "MXN";
 
 /** Tasas respecto a MXN, ej. { USD: 17.20, EUR: 19.50 }. MXN no se incluye. */
@@ -50,16 +54,31 @@ export function tasaDe(
 }
 
 /**
- * Convierte `monto` (en `moneda`) a MXN usando las tasas congeladas.
+ * Convierte `monto` de `origen` a `destino` cruzando por MXN (la moneda pivote
+ * de las tasas):  monto_destino = monto * tasa(origen) / tasa(destino).
  * Único punto donde vive la fórmula: NO la dupliques en los call sites.
  */
+export function convertirAMoneda(
+  monto: number,
+  origen: string,
+  destino: string,
+  tiposCambio: TiposCambio | null | undefined
+): number {
+  if (!Number.isFinite(monto)) return 0;
+  if ((origen || MONEDA_BASE) === (destino || MONEDA_BASE)) return monto;
+  const tasaDestino = tasaDe(destino, tiposCambio);
+  // tasaDe nunca devuelve ≤ 0, pero por seguridad evitamos dividir por cero.
+  if (tasaDestino <= 0) return monto * tasaDe(origen, tiposCambio);
+  return (monto * tasaDe(origen, tiposCambio)) / tasaDestino;
+}
+
+/** Atajo: convierte a MXN (moneda pivote). Equivale a `convertirAMoneda(_, _, "MXN", _)`. */
 export function convertirAMXN(
   monto: number,
   moneda: string,
   tiposCambio: TiposCambio | null | undefined
 ): number {
-  if (!Number.isFinite(monto)) return 0;
-  return monto * tasaDe(moneda, tiposCambio);
+  return convertirAMoneda(monto, moneda, MONEDA_BASE, tiposCambio);
 }
 
 /** Monedas distintas de MXN presentes en una lista de códigos de moneda. */
@@ -73,14 +92,16 @@ export function monedasNoMXN(monedas: Iterable<string | null | undefined>): stri
 }
 
 /**
- * true si alguna moneda en uso (distinta de MXN) no tiene una tasa válida
- * registrada. Dispara el aviso visible "Faltan tipos de cambio…".
+ * true si falta la tasa (a MXN) de alguna moneda necesaria para consolidar:
+ * las monedas en uso ≠ MXN y, si la consolidación no es MXN, también la propia
+ * moneda de consolidación. Dispara el aviso visible "Faltan tipos de cambio…".
  */
 export function faltanTiposCambio(
   monedasEnUso: Iterable<string | null | undefined>,
-  tiposCambio: TiposCambio | null | undefined
+  tiposCambio: TiposCambio | null | undefined,
+  monedaConsolidacion: string = MONEDA_BASE
 ): boolean {
-  for (const moneda of monedasNoMXN(monedasEnUso)) {
+  for (const moneda of monedasNoMXN([...monedasEnUso, monedaConsolidacion])) {
     const tasa = tiposCambio?.[moneda];
     if (!(typeof tasa === "number" && tasa > 0)) return true;
   }
@@ -96,33 +117,49 @@ export function formatTasa(tasa: number): string {
 }
 
 /**
- * Nota discreta del tipo de cambio usado, ej.
- *   "Totales en MXN · TC USD 17.20"        (una moneda)
- *   "Totales en MXN · TC USD 17.20 · EUR 19.50"  (varias)
- * Devuelve null cuando no hubo conversión (todo MXN) → no se muestra nada.
+ * Nota discreta de las tasas usadas para consolidar, ej.
+ *   "Totales en MXN · TC USD 17.20"                 (consolida en MXN)
+ *   "Totales en USD · TC USD 17.20 · EUR 19.50"     (consolida en USD)
+ * Lista la tasa (a MXN) de cada moneda involucrada en la conversión, incluida
+ * la de consolidación si no es MXN. Devuelve null cuando no hubo conversión
+ * (todo en la misma moneda de consolidación) → no se muestra nada.
  */
 export function notaTipoCambio(
   monedasEnUso: Iterable<string | null | undefined>,
-  tiposCambio: TiposCambio | null | undefined
+  tiposCambio: TiposCambio | null | undefined,
+  monedaConsolidacion: string = MONEDA_BASE
 ): string | null {
-  const monedas = monedasNoMXN(monedasEnUso);
-  if (monedas.length === 0) return null;
-  const partes = monedas.map((m) => `${m} ${formatTasa(tasaDe(m, tiposCambio))}`);
-  return `Totales en MXN · TC ${partes.join(" · ")}`;
+  const destino = monedaConsolidacion || MONEDA_BASE;
+  // ¿Hay al menos un monto en una moneda distinta a la de consolidación?
+  let hayConversion = false;
+  for (const m of monedasEnUso) {
+    if ((m || MONEDA_BASE) !== destino) {
+      hayConversion = true;
+      break;
+    }
+  }
+  if (!hayConversion) return null;
+  const relevantes = monedasNoMXN([...monedasEnUso, destino]);
+  if (relevantes.length === 0) return null;
+  const partes = relevantes.map((m) => `${m} ${formatTasa(tasaDe(m, tiposCambio))}`);
+  return `Totales en ${destino} · TC ${partes.join(" · ")}`;
 }
 
 /**
  * Presentación combinada "USD 1,200 (MXN 20,640)" para una línea individual
- * cuando ayuda mostrar ambos. Si la moneda ya es MXN, devuelve solo el MXN.
+ * cuando ayuda mostrar ambos. Si la moneda de la línea ya es la de destino,
+ * devuelve solo un importe.
  */
 export function formatMontoConMXN(
   monto: number,
   moneda: string,
-  tiposCambio: TiposCambio | null | undefined
+  tiposCambio: TiposCambio | null | undefined,
+  monedaDestino: string = MONEDA_BASE
 ): string {
-  if ((moneda || MONEDA_BASE) === MONEDA_BASE) {
-    return formatImporte(monto, MONEDA_BASE);
+  const destino = monedaDestino || MONEDA_BASE;
+  if ((moneda || MONEDA_BASE) === destino) {
+    return formatImporte(monto, destino);
   }
-  const enMXN = convertirAMXN(monto, moneda, tiposCambio);
-  return `${formatImporte(monto, moneda)} (${formatImporte(enMXN, MONEDA_BASE)})`;
+  const convertido = convertirAMoneda(monto, moneda, destino, tiposCambio);
+  return `${formatImporte(monto, moneda)} (${formatImporte(convertido, destino)})`;
 }

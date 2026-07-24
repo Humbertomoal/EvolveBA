@@ -17,6 +17,9 @@ export type CatalogoValorDTO = {
   simbolo: string | null;
   activo: boolean;
   orden: number;
+  // Solo tipo == "MONEDA" (≠ MXN): tasa a MXN y su última actualización (ISO).
+  tipoCambio: number | null;
+  tipoCambioActualizado: string | null;
 };
 
 export async function getCatalogosActivos(
@@ -36,11 +39,49 @@ export async function getCatalogosActivos(
 
 export async function getTodosLosCatalogos(clienteId = "default"): Promise<CatalogoValorDTO[]> {
   try {
-    return await db.catalogoValor.findMany({
+    const rows = await db.catalogoValor.findMany({
       where: { clienteId },
       orderBy: [{ tipo: "asc" }, { orden: "asc" }],
     });
+    // Normaliza a DTO serializable (fecha → ISO) para el client component.
+    return rows.map((v: any) => ({
+      id: v.id,
+      tipo: v.tipo,
+      codigo: v.codigo,
+      nombre: v.nombre,
+      simbolo: v.simbolo ?? null,
+      activo: v.activo,
+      orden: v.orden,
+      tipoCambio: v.tipoCambio ?? null,
+      tipoCambioActualizado: v.tipoCambioActualizado
+        ? new Date(v.tipoCambioActualizado).toISOString()
+        : null,
+    }));
   } catch {
     return [];
+  }
+}
+
+/**
+ * Tipos de cambio actuales de Settings (CatalogoValor tipo "MONEDA", ≠ MXN con
+ * tasa > 0), como mapa { USD: 17.2 }. Es lo que hereda una licitación al crearse.
+ */
+export async function getTiposCambioActuales(
+  clienteId = "default"
+): Promise<Record<string, number>> {
+  try {
+    const rows = await db.catalogoValor.findMany({
+      where: { tipo: "MONEDA", clienteId },
+      select: { codigo: true, tipoCambio: true },
+    });
+    const out: Record<string, number> = {};
+    for (const r of rows as { codigo: string; tipoCambio: number | null }[]) {
+      if (r.codigo !== "MXN" && typeof r.tipoCambio === "number" && r.tipoCambio > 0) {
+        out[r.codigo] = r.tipoCambio;
+      }
+    }
+    return out;
+  } catch {
+    return {};
   }
 }

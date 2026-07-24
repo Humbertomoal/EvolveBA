@@ -5,7 +5,7 @@ import { prisma } from "@/src/lib/prisma";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { calcularAnalisisPorItem, calcularResumenAhorro } from "@/src/lib/licitacionesAhorro";
 import {
-  convertirAMXN,
+  convertirAMoneda,
   notaTipoCambio,
   parseTiposCambio,
 } from "@/src/lib/conversionMoneda";
@@ -37,7 +37,14 @@ export async function descargarOrdenCompraPdfAction(
   const orden = await prisma.ordenCompra.findUnique({
     where: { id: ordenId },
     include: {
-      licitacion: { select: { numero: true, instrucciones: true, tiposCambio: true } },
+      licitacion: {
+        select: {
+          numero: true,
+          instrucciones: true,
+          tiposCambio: true,
+          monedaConsolidacion: true,
+        },
+      },
       proveedor: {
         select: {
           razonSocial: true,
@@ -53,8 +60,9 @@ export async function descargarOrdenCompraPdfAction(
   if (!orden) throw new Error("No se encontró la orden de compra.");
 
   const tiposCambio = parseTiposCambio(orden.licitacion?.tiposCambio);
-  const totalMXN = orden.lineas.reduce(
-    (s, l) => s + convertirAMXN(l.subtotal, l.moneda ?? "MXN", tiposCambio),
+  const monedaConsol = (orden.licitacion as any)?.monedaConsolidacion ?? "MXN";
+  const totalConsolidado = orden.lineas.reduce(
+    (s, l) => s + convertirAMoneda(l.subtotal, l.moneda ?? "MXN", monedaConsol, tiposCambio),
     0
   );
 
@@ -81,10 +89,12 @@ export async function descargarOrdenCompraPdfAction(
       fechaEntregaObjetivo: l.fechaEntregaObjetivo,
       subtotal: l.subtotal,
     })),
-    totalMXN,
+    totalConsolidado,
+    monedaConsolidacion: monedaConsol,
     notaTipoCambio: notaTipoCambio(
       orden.lineas.map((l) => l.moneda),
-      tiposCambio
+      tiposCambio,
+      monedaConsol
     ),
   };
 
@@ -128,17 +138,25 @@ async function cargarLicitacionParaPdf(licitacionId: string) {
     [...monedaCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "MXN";
 
   const tiposCambio = parseTiposCambio(licitacion.tiposCambio);
+  const monedaConsolidacion = (licitacion as any).monedaConsolidacion ?? "MXN";
   const analisis = calcularAnalisisPorItem(licitacion.items, ofertas);
-  const resumenAhorro = calcularResumenAhorro(analisis, ofertas.length > 0, tiposCambio);
+  const resumenAhorro = calcularResumenAhorro(
+    analisis,
+    ofertas.length > 0,
+    tiposCambio,
+    monedaConsolidacion
+  );
   const notaTC = notaTipoCambio(
     licitacion.items.map((i) => i.moneda),
-    tiposCambio
+    tiposCambio,
+    monedaConsolidacion
   );
 
   return {
     licitacion,
     ofertas,
     monedaPredominante,
+    monedaConsolidacion,
     analisis,
     resumenAhorro,
     tiposCambio,
@@ -161,7 +179,7 @@ export async function descargarResumenLicitacionPdfAction(
   const cliente = clienteDesdeBasePath(basePath);
   if (!cliente) throw new Error("No se encontró la configuración del cliente.");
 
-  const { licitacion, monedaPredominante, analisis, notaTC } =
+  const { licitacion, monedaPredominante, monedaConsolidacion, tiposCambio, analisis, notaTC } =
     await cargarLicitacionParaPdf(licitacionId);
 
   let resultado: ResumenLicitacionPdfData["resultado"] = null;
@@ -207,8 +225,13 @@ export async function descargarResumenLicitacionPdfAction(
     fechaFinLicitacion: licitacion.fechaFinLicitacion,
     fechaInicioRangoEntrega: licitacion.fechaInicioRangoEntrega,
     fechaFinRangoEntrega: licitacion.fechaFinRangoEntrega,
-    costoObjetivo: licitacion.costoObjetivo,
+    // costoObjetivo se captura en MXN; se muestra en la moneda de consolidación.
+    costoObjetivo:
+      licitacion.costoObjetivo != null
+        ? convertirAMoneda(licitacion.costoObjetivo, "MXN", monedaConsolidacion, tiposCambio)
+        : null,
     monedaPredominante,
+    monedaConsolidacion,
     notaTipoCambio: notaTC,
     instrucciones: licitacion.instrucciones,
     materiales: licitacion.items.map((item) => ({
@@ -243,8 +266,15 @@ export async function descargarComparativoOfertasPdfAction(
   const cliente = clienteDesdeBasePath(basePath);
   if (!cliente) throw new Error("No se encontró la configuración del cliente.");
 
-  const { licitacion, ofertas, monedaPredominante, analisis, resumenAhorro, notaTC } =
-    await cargarLicitacionParaPdf(licitacionId);
+  const {
+    licitacion,
+    ofertas,
+    monedaPredominante,
+    monedaConsolidacion,
+    analisis,
+    resumenAhorro,
+    notaTC,
+  } = await cargarLicitacionParaPdf(licitacionId);
 
   // Proveedor con el mejor precio actual por material (para "Proveedor ganador").
   const proveedorGanadorPorItem = new Map<string, string>();
@@ -305,6 +335,7 @@ export async function descargarComparativoOfertasPdfAction(
     fechaEjecucion: licitacion.fechaEjecucion,
     fechaFinLicitacion: licitacion.fechaFinLicitacion,
     monedaPredominante,
+    monedaConsolidacion,
     notaTipoCambio: notaTC,
     indicadores: {
       presupuestoObjetivoTotal: resumenAhorro.presupuestoObjetivoTotal,

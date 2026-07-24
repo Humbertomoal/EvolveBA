@@ -2,7 +2,7 @@
 // licitaciones-proceso y la tabla de Selección de Proveedores, para que
 // ambas vistas usen exactamente las mismas fórmulas.
 
-import { convertirAMXN, type TiposCambio } from "./conversionMoneda";
+import { convertirAMoneda, MONEDA_BASE, type TiposCambio } from "./conversionMoneda";
 
 export type LicitacionItemParaAhorro = {
   id: string;
@@ -117,29 +117,31 @@ export function calcularAnalisisPorItem(
 
 /**
  * Agrega el análisis por material en los totales/KPIs de la licitación.
- * Todos los totales se devuelven CONVERTIDOS A MXN usando los tipos de cambio
- * congelados de la licitación (cada material se convierte desde su propia
- * moneda). Con `tiposCambio` null/omitido y materiales no-MXN se usa tasa 1
- * (retrocompatibilidad); el UI debe avisar con `faltanTiposCambio`.
+ * Todos los totales se devuelven CONVERTIDOS a `monedaConsolidacion` (default
+ * MXN) usando los tipos de cambio congelados de la licitación (cada material se
+ * convierte desde su propia moneda). Con `tiposCambio` null/omitido y monedas
+ * sin tasa se usa tasa 1 (retrocompatibilidad); el UI debe avisar con
+ * `faltanTiposCambio`.
  */
 export function calcularResumenAhorro(
   analisis: AnalisisItemAhorro[],
   hayOfertas: boolean,
-  tiposCambio?: TiposCambio | null
+  tiposCambio?: TiposCambio | null,
+  monedaConsolidacion: string = MONEDA_BASE
 ): ResumenAhorroCalculado {
-  const aMXN = (monto: number, moneda: string) =>
-    convertirAMXN(monto, moneda, tiposCambio);
+  const aConsolidacion = (monto: number, moneda: string) =>
+    convertirAMoneda(monto, moneda, monedaConsolidacion, tiposCambio);
 
   const presupuestoObjetivoTotal = analisis.reduce(
-    (s, a) => s + aMXN(a.objetivoTotal, a.moneda),
+    (s, a) => s + aConsolidacion(a.objetivoTotal, a.moneda),
     0
   );
   const mejorPrecioActualTotal = analisis.reduce(
-    (s, a) => s + aMXN(a.mejorActualTotal ?? 0, a.moneda),
+    (s, a) => s + aConsolidacion(a.mejorActualTotal ?? 0, a.moneda),
     0
   );
   const primeraRondaTotal = analisis.reduce(
-    (s, a) => s + aMXN(a.primeraRondaTotal ?? 0, a.moneda),
+    (s, a) => s + aConsolidacion(a.primeraRondaTotal ?? 0, a.moneda),
     0
   );
 

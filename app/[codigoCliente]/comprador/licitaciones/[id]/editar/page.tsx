@@ -104,6 +104,7 @@ export default async function EditarLicitacionPage({
     })),
     proveedoresInvitados: licitacion.proveedoresInvitados.map((p: any) => p.proveedorId),
     tiposCambio: parseTiposCambio(licitacion.tiposCambio),
+    monedaConsolidacion: (licitacion as any).monedaConsolidacion ?? "MXN",
   };
 
   const [productos, proveedores, proveedorMateriales, jerarquias, tiposLicitacion, monedas, usuarioActual] =

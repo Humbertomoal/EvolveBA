@@ -3,7 +3,7 @@ import { prisma } from "@/src/lib/prisma";
 import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedores } from "@/src/lib/proveedores";
-import { getCatalogosActivos } from "@/src/lib/getCatalogos";
+import { getCatalogosActivos, getTiposCambioActuales } from "@/src/lib/getCatalogos";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import LicitacionForm from "./_components/LicitacionForm";
 
@@ -16,7 +16,7 @@ export default async function NuevaLicitacionPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [productos, proveedores, proveedorMateriales, ultima, jerarquias, tiposLicitacion, monedas, usuarioActual] =
+  const [productos, proveedores, proveedorMateriales, ultima, jerarquias, tiposLicitacion, monedas, tiposCambioSettings, usuarioActual] =
     await Promise.all([
       getProductos(),
       getProveedores(),
@@ -28,6 +28,7 @@ export default async function NuevaLicitacionPage({
       getCatalogosActivos("JERARQUIA"),
       getCatalogosActivos("TIPO_LICITACION"),
       getCatalogosActivos("MONEDA"),
+      getTiposCambioActuales(),
       getUsuarioActual(),
     ]);
 
@@ -44,6 +45,7 @@ export default async function NuevaLicitacionPage({
       proveedorMateriales={proveedorMateriales}
       siguienteNumero={siguienteNumero}
       catalogos={catalogos}
+      tiposCambioSettings={tiposCambioSettings}
       usuarioActual={usuarioActual}
     />
   );

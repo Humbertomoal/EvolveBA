@@ -26,7 +26,6 @@ import { prepararAdjuntosCorreoAction } from "@/src/lib/adjuntosCorreoActions";
 import { generarTablaMateriales } from "@/src/lib/plantillasCorreo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
-import { MONEDA_BASE } from "@/src/lib/conversionMoneda";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
 // ── Types (exported for use in server page) ───────────────────────────────────
@@ -260,6 +259,7 @@ export default function DetalleLicitacion({
   noLeidosPorProveedor = {},
   notaTipoCambio = null,
   faltanTiposCambio = false,
+  monedaConsolidacion = "MXN",
 }: {
   id: string;
   numero: string;
@@ -280,6 +280,8 @@ export default function DetalleLicitacion({
   notaTipoCambio?: string | null;
   // true si hay monedas ≠ MXN sin tipo de cambio capturado (totales dudosos).
   faltanTiposCambio?: boolean;
+  // Moneda en la que se muestran los totales agregados (default MXN).
+  monedaConsolidacion?: string;
 }) {
   const router = useRouter();
   usePageTitle(`Licitación ${numero}`);
@@ -477,14 +479,14 @@ export default function DetalleLicitacion({
                       </td>
                       <td className="px-4 py-3 text-right text-zinc-600">
                         {p.totalInicial != null ? (
-                          formatMoneda(p.totalInicial, MONEDA_BASE)
+                          formatMoneda(p.totalInicial, monedaConsolidacion)
                         ) : (
                           <span className="text-zinc-300">Sin ofertas</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-zinc-800">
                         {p.mejorTotalActual != null
-                          ? formatMoneda(p.mejorTotalActual, MONEDA_BASE)
+                          ? formatMoneda(p.mejorTotalActual, monedaConsolidacion)
                           : "—"}
                       </td>
                       <td className={`px-4 py-3 text-right font-medium ${varColorClass(p.variacionPct)}`}>
@@ -565,7 +567,7 @@ export default function DetalleLicitacion({
                 <p className="mt-1 text-xl font-semibold text-zinc-900">
                   {formatMoneda(
                     resumenAhorro.presupuestoObjetivoTotal,
-                    MONEDA_BASE
+                    monedaConsolidacion
                   )}
                 </p>
               </div>
@@ -573,7 +575,7 @@ export default function DetalleLicitacion({
                 <p className="mt-1 text-xl font-semibold text-zinc-900">
                   {formatMoneda(
                     resumenAhorro.primeraRondaTotal,
-                    MONEDA_BASE
+                    monedaConsolidacion
                   )}
                 </p>
               </KpiCard>
@@ -584,7 +586,7 @@ export default function DetalleLicitacion({
               </KpiCard>
               <KpiCard label="Ahorro" hayOfertas={resumenAhorro.hayOfertas}>
                 <p className={`mt-1 text-xl font-semibold ${ahorroColorClass(resumenAhorro.ahorroTotal)}`}>
-                  {formatMoneda(resumenAhorro.ahorroTotal, MONEDA_BASE)}
+                  {formatMoneda(resumenAhorro.ahorroTotal, monedaConsolidacion)}
                   <span className="ml-1.5 text-sm font-medium">
                     ({formatPct(resumenAhorro.ahorroPct)})
                   </span>
@@ -659,26 +661,26 @@ export default function DetalleLicitacion({
                       <td className="px-4 py-3 text-right">
                         {formatMoneda(
                           resumenAhorro.presupuestoObjetivoTotal,
-                          MONEDA_BASE
+                          monedaConsolidacion
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {formatMoneda(
                           resumenAhorro.primeraRondaTotal,
-                          MONEDA_BASE
+                          monedaConsolidacion
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {formatMoneda(
                           resumenAhorro.mejorPrecioActualTotal,
-                          MONEDA_BASE
+                          monedaConsolidacion
                         )}
                       </td>
                       <td className={`px-4 py-3 text-right ${varColorClass(resumenAhorro.variacionPct)}`}>
                         {formatPct(resumenAhorro.variacionPct)}
                       </td>
                       <td className={`px-4 py-3 text-right ${ahorroColorClass(resumenAhorro.ahorroTotal)}`}>
-                        {formatMoneda(resumenAhorro.ahorroTotal, MONEDA_BASE)}
+                        {formatMoneda(resumenAhorro.ahorroTotal, monedaConsolidacion)}
                       </td>
                     </tr>
                   </tfoot>
@@ -955,11 +957,11 @@ export default function DetalleLicitacion({
                         )}
                       </td>
                       <td className="py-2 text-right font-medium text-zinc-800">
-                        {formatMoneda(r.totalCotizado, MONEDA_BASE)}
+                        {formatMoneda(r.totalCotizado, monedaConsolidacion)}
                       </td>
                       <td className={`py-2 text-right font-medium ${varColorClass(r.vsObjetivoMonto)}`}>
                         {r.vsObjetivoMonto > 0 ? "+" : ""}
-                        {formatMoneda(r.vsObjetivoMonto, MONEDA_BASE)}{" "}
+                        {formatMoneda(r.vsObjetivoMonto, monedaConsolidacion)}{" "}
                         ({formatPct(r.vsObjetivoPct)})
                       </td>
                       <td className="py-2 text-center">

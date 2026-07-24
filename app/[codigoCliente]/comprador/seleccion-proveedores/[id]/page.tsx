@@ -30,6 +30,7 @@ export default async function DetalleSeleccionPage({
       importeVenta: true,
       costoObjetivo: true,
       tiposCambio: true,
+      monedaConsolidacion: true,
       estado: true,
       items: {
         select: {
@@ -134,6 +135,7 @@ export default async function DetalleSeleccionPage({
     costoObjetivo: licitacion.costoObjetivo,
     estado: licitacion.estado,
     tiposCambio: parseTiposCambio(licitacion.tiposCambio),
+    monedaConsolidacion: (licitacion as any).monedaConsolidacion ?? "MXN",
   };
 
   // ── Si ya hay asignaciones: vista de seguimiento ─────────────────────────────

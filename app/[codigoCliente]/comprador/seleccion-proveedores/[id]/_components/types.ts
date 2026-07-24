@@ -52,4 +52,6 @@ export type LicitacionInfo = {
   estado: string;
   // Tipos de cambio congelados (respecto a MXN) para convertir totales.
   tiposCambio: TiposCambio;
+  // Moneda en la que se consolidan los totales (default MXN).
+  monedaConsolidacion: string;
 };

@@ -16,10 +16,9 @@ import {
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
 import {
-  convertirAMXN,
+  convertirAMoneda,
   faltanTiposCambio,
   notaTipoCambio,
-  MONEDA_BASE,
 } from "@/src/lib/conversionMoneda";
 import {
   prepararResultadoInternoAction,
@@ -226,25 +225,28 @@ export default function SeguimientoView({
     acc[moneda] = (acc[moneda] ?? 0) + a.cantidadAsignada * a.precioUnitario;
     return acc;
   }, {} as Record<string, number>);
-  // Costo total agregado CONVERTIDO A MXN (cada subtotal desde su moneda).
+  // Moneda de consolidación de los totales de esta licitación.
+  const monedaConsol = licitacion.monedaConsolidacion ?? "MXN";
+  // Costo total agregado CONVERTIDO a la moneda de consolidación.
   const costoTotal = Object.entries(totalesPorMoneda).reduce(
-    (s, [moneda, v]) => s + convertirAMXN(v as number, moneda, licitacion.tiposCambio),
+    (s, [moneda, v]) =>
+      s + convertirAMoneda(v as number, moneda, monedaConsol, licitacion.tiposCambio),
     0
   );
 
   // Nota/aviso de tipo de cambio para los totales de esta pantalla.
   const monedasEnUso = asignaciones.map((a: any) => a.moneda);
-  const notaTC = notaTipoCambio(monedasEnUso, licitacion.tiposCambio);
-  const faltanTC = faltanTiposCambio(monedasEnUso, licitacion.tiposCambio);
+  const notaTC = notaTipoCambio(monedasEnUso, licitacion.tiposCambio, monedaConsol);
+  const faltanTC = faltanTiposCambio(monedasEnUso, licitacion.tiposCambio, monedaConsol);
 
-  const margen =
+  // Importe de venta (capturado en MXN) convertido a la consolidación.
+  const importeVentaConsol =
     licitacion.importeVenta != null
-      ? licitacion.importeVenta - costoTotal
+      ? convertirAMoneda(licitacion.importeVenta, "MXN", monedaConsol, licitacion.tiposCambio)
       : null;
+  const margen = importeVentaConsol != null ? importeVentaConsol - costoTotal : null;
   const pctMargen =
-    margen != null && licitacion.importeVenta
-      ? (margen / licitacion.importeVenta) * 100
-      : null;
+    margen != null && importeVentaConsol ? (margen / importeVentaConsol) * 100 : null;
 
   async function handleForzarCierre() {
     if (
@@ -487,13 +489,13 @@ export default function SeguimientoView({
                 Costo total
                 {notaTC && (
                   <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                    {MONEDA_BASE}
+                    {monedaConsol}
                   </span>
                 )}
               </td>
               <td className="px-3 py-3 text-right text-sm font-bold text-zinc-900">
                 {Object.keys(totalesPorMoneda).length > 0
-                  ? formatImporte(costoTotal, MONEDA_BASE)
+                  ? formatImporte(costoTotal, monedaConsol)
                   : "—"}
               </td>
               <td colSpan={6} />
@@ -510,7 +512,7 @@ export default function SeguimientoView({
               <tr className="border-t border-zinc-100 bg-zinc-50">
                 <td colSpan={3} className="px-3 py-2 text-right text-xs text-zinc-500">$ Margen</td>
                 <td className={`px-3 py-2 text-right text-sm font-semibold ${margen >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-                  {formatImporte(margen, "MXN")}
+                  {formatImporte(margen, monedaConsol)}
                   {pctMargen != null && (
                     <span className="ml-1.5 text-xs font-normal">({pctMargen.toFixed(1)}%)</span>
                   )}

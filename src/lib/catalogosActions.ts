@@ -112,3 +112,31 @@ export async function actualizarOrdenAction(id: string, orden: number): Promise<
   revalidatePath("/", "layout");
   return { ok: true };
 }
+
+/**
+ * Guarda manualmente el tipo de cambio (a MXN) de una moneda de catálogo y
+ * sella la fecha de actualización. Rechaza MXN (siempre vale 1) y tasas ≤ 0.
+ */
+export async function actualizarTipoCambioMonedaAction(
+  id: string,
+  tipoCambio: number
+): Promise<{ ok: boolean; error?: string; actualizado?: string }> {
+  if (!Number.isFinite(tipoCambio) || tipoCambio <= 0) {
+    return { ok: false, error: "El tipo de cambio debe ser mayor que 0." };
+  }
+  try {
+    const valor: any = await db.catalogoValor.findUnique({ where: { id } });
+    if (!valor) return { ok: false, error: "No encontrado." };
+    if (valor.tipo !== "MONEDA") return { ok: false, error: "No es una moneda." };
+    if (valor.codigo === "MXN") return { ok: false, error: "MXN siempre vale 1." };
+    const ahora = new Date();
+    await db.catalogoValor.update({
+      where: { id },
+      data: { tipoCambio, tipoCambioActualizado: ahora },
+    });
+    revalidatePath("/", "layout");
+    return { ok: true, actualizado: ahora.toISOString() };
+  } catch {
+    return { ok: false, error: "Error al guardar el tipo de cambio." };
+  }
+}

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
 import { getProveedorIdActual } from "./proveedorSession";
 import { getCompradorSession } from "./compradorSession";
-import { convertirAMXN, parseTiposCambio } from "./conversionMoneda";
+import { convertirAMoneda, parseTiposCambio } from "./conversionMoneda";
 import {
   LIMIT_ORDENES,
   type FiltrosOrdenes,
@@ -143,7 +143,14 @@ export async function buscarOrdenesProveedorAction(
     take: LIMIT_ORDENES + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     include: {
-      licitacion: { select: { numero: true, jerarquia: true, tiposCambio: true } },
+      licitacion: {
+        select: {
+          numero: true,
+          jerarquia: true,
+          tiposCambio: true,
+          monedaConsolidacion: true,
+        },
+      },
       lineas: { select: { subtotal: true, moneda: true } },
     },
   });
@@ -155,6 +162,7 @@ export async function buscarOrdenesProveedorAction(
   return {
     ordenes: batch.map((o: any) => {
       const tiposCambio = parseTiposCambio(o.licitacion.tiposCambio);
+      const monedaConsolidacion = o.licitacion.monedaConsolidacion ?? "MXN";
       return {
         id: o.id,
         numero: o.numero,
@@ -164,11 +172,13 @@ export async function buscarOrdenesProveedorAction(
         fechaEstimadaEntrega: o.fechaEstimadaEntrega
           ? (o.fechaEstimadaEntrega as Date).toISOString()
           : null,
-        // Total agregado en MXN (líneas convertidas desde su moneda).
+        // Total agregado en la moneda de consolidación de la licitación.
         total: (o.lineas as { subtotal: number; moneda: string | null }[]).reduce(
-          (s, l) => s + convertirAMXN(l.subtotal, l.moneda ?? "MXN", tiposCambio),
+          (s, l) =>
+            s + convertirAMoneda(l.subtotal, l.moneda ?? "MXN", monedaConsolidacion, tiposCambio),
           0
         ),
+        monedaConsolidacion,
         estado: o.estado,
       };
     }),

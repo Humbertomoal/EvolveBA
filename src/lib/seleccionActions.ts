@@ -4,7 +4,7 @@ import { prisma } from "@/src/lib/prisma";
 import { getCompradorSession } from "./compradorSession";
 import { calcularAnalisisPorItem, calcularResumenAhorro } from "./licitacionesAhorro";
 import {
-  convertirAMXN,
+  convertirAMoneda,
   faltanTiposCambio,
   notaTipoCambio,
   parseTiposCambio,
@@ -63,6 +63,7 @@ export async function buscarSeleccionAction(
       importeVenta: true,
       costoObjetivo: true,
       tiposCambio: true,
+      monedaConsolidacion: true,
       asignaciones: {
         select: { cantidadAsignada: true, precioUnitario: true, moneda: true },
       },
@@ -109,8 +110,14 @@ export async function buscarSeleccionAction(
       }))
     );
     const tiposCambio = parseTiposCambio(l.tiposCambio);
+    const monedaConsolidacion = (l as any).monedaConsolidacion ?? "MXN";
     const analisis = calcularAnalisisPorItem(itemsLic, ofertasLic);
-    const resumenAhorro = calcularResumenAhorro(analisis, ofertasLic.length > 0, tiposCambio);
+    const resumenAhorro = calcularResumenAhorro(
+      analisis,
+      ofertasLic.length > 0,
+      tiposCambio,
+      monedaConsolidacion
+    );
 
     const monedaCounts = new Map<string, number>();
     for (const item of itemsLic) {
@@ -134,16 +141,24 @@ export async function buscarSeleccionAction(
       estado: l.estado,
       importeVenta: l.importeVenta,
       costoObjetivoLicitacion: l.costoObjetivo,
-      // Costo total convertido a MXN (cada asignación desde su propia moneda).
+      // Costo total convertido a la moneda de consolidación (cada asignación
+      // desde su propia moneda).
       costoLicitacion: l.asignaciones.reduce(
         (sum, a) =>
-          sum + convertirAMXN(a.precioUnitario * a.cantidadAsignada, a.moneda, tiposCambio),
+          sum +
+          convertirAMoneda(
+            a.precioUnitario * a.cantidadAsignada,
+            a.moneda,
+            monedaConsolidacion,
+            tiposCambio
+          ),
         0
       ),
       monedaPredominante,
+      monedaConsolidacion,
       resumenAhorro,
-      notaTipoCambio: notaTipoCambio(monedasEnUso, tiposCambio),
-      faltanTiposCambio: faltanTiposCambio(monedasEnUso, tiposCambio),
+      notaTipoCambio: notaTipoCambio(monedasEnUso, tiposCambio, monedaConsolidacion),
+      faltanTiposCambio: faltanTiposCambio(monedasEnUso, tiposCambio, monedaConsolidacion),
     };
   });
 

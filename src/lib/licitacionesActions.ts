@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { parsearFechaMexico } from "@/src/lib/dateUtils";
+import { getTiposCambioActuales } from "@/src/lib/getCatalogos";
 
 type ItemInput = {
   productoId: string;
@@ -49,6 +50,8 @@ export type LicitacionInput = {
   proveedoresInvitados: string[];
   // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
   tiposCambio?: Record<string, number>;
+  // Moneda de consolidación de los totales (default MXN).
+  monedaConsolidacion?: string;
 };
 
 // Normaliza el mapa de tipos de cambio: descarta MXN y tasas no positivas.
@@ -96,6 +99,16 @@ export async function crearLicitacionAction(
   const esManualEnProceso =
     datos.modoLicitacion === "Manual" && datos.estado === "En Proceso";
 
+  // Herencia congelada: parte de los tipos de cambio actuales de Settings y los
+  // sobrescribe con lo que envió el formulario (override manual del comprador).
+  // El resultado queda CONGELADO en la licitación; cambiar Settings después no
+  // afecta a esta licitación.
+  const tiposCambioSettings = await getTiposCambioActuales("default");
+  const tiposCambioCongelado = sanearTiposCambio({
+    ...tiposCambioSettings,
+    ...(datos.tiposCambio ?? {}),
+  });
+
   const licitacion = await prisma.licitacion.create({
     data: {
       numero: datos.numero,
@@ -115,7 +128,8 @@ export async function crearLicitacionAction(
       instrucciones: datos.instrucciones,
       archivosAdjuntos:
         datos.archivosAdjuntos.length > 0 ? JSON.stringify(datos.archivosAdjuntos) : null,
-      tiposCambio: sanearTiposCambio(datos.tiposCambio) ?? undefined,
+      tiposCambio: tiposCambioCongelado ?? undefined,
+      monedaConsolidacion: datos.monedaConsolidacion || "MXN",
       estado: datos.estado,
       modoLicitacion: datos.modoLicitacion,
       compradorId,
@@ -226,6 +240,9 @@ export async function actualizarLicitacionAction(
       // MXN) se omite y se conserva el valor previo (tasas sin uso son inocuas).
       ...(sanearTiposCambio(datos.tiposCambio)
         ? { tiposCambio: sanearTiposCambio(datos.tiposCambio)! }
+        : {}),
+      ...(datos.monedaConsolidacion
+        ? { monedaConsolidacion: datos.monedaConsolidacion }
         : {}),
       modoLicitacion: datos.modoLicitacion,
       estado: esFutura ? "Programada" : datos.estado,

@@ -30,8 +30,12 @@ function formatFecha(iso: string | null): string {
   });
 }
 
-function formatMoneda(n: number): string {
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+function formatMoneda(n: number, moneda: string = "MXN"): string {
+  try {
+    return n.toLocaleString("es-MX", { style: "currency", currency: moneda });
+  } catch {
+    return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+  }
 }
 
 const ESTATUS_VARIANT: Record<string, BadgeVariant> = {
@@ -215,7 +219,7 @@ export default function OrdenesTabla({
                   <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaCreacion)}</td>
                   <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaEstimadaEntrega)}</td>
                   <td className={`${CELL} text-right font-medium text-zinc-800`}>
-                    {formatMoneda(o.total)}
+                    {formatMoneda(o.total, o.monedaConsolidacion)}
                   </td>
                   <td className={CELL}>
                     <EstatusBadge estado={o.estado} />

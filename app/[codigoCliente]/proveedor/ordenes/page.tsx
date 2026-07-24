@@ -1,7 +1,7 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
-import { convertirAMXN, parseTiposCambio } from "@/src/lib/conversionMoneda";
+import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import OrdenesTabla from "./_components/OrdenesTabla";
 import {
@@ -31,7 +31,14 @@ export default async function MisOrdenesPage({
         orderBy: { fechaCreacion: "desc" },
         take: LIMIT_ORDENES + 1,
         include: {
-          licitacion: { select: { numero: true, jerarquia: true, tiposCambio: true } },
+          licitacion: {
+            select: {
+              numero: true,
+              jerarquia: true,
+              tiposCambio: true,
+              monedaConsolidacion: true,
+            },
+          },
           lineas: { select: { subtotal: true, moneda: true } },
         },
       })
@@ -43,6 +50,7 @@ export default async function MisOrdenesPage({
 
   const initialData: OrdenCompraRow[] = batch.map((o: any) => {
     const tiposCambio = parseTiposCambio(o.licitacion.tiposCambio);
+    const monedaConsolidacion = o.licitacion.monedaConsolidacion ?? "MXN";
     return {
       id: o.id,
       numero: o.numero,
@@ -52,11 +60,13 @@ export default async function MisOrdenesPage({
       fechaEstimadaEntrega: o.fechaEstimadaEntrega
         ? (o.fechaEstimadaEntrega as Date).toISOString()
         : null,
-      // Total agregado en MXN (líneas convertidas desde su moneda).
+      // Total agregado en la moneda de consolidación de la licitación.
       total: (o.lineas as { subtotal: number; moneda: string | null }[]).reduce(
-        (s, l) => s + convertirAMXN(l.subtotal, l.moneda ?? "MXN", tiposCambio),
+        (s, l) =>
+          s + convertirAMoneda(l.subtotal, l.moneda ?? "MXN", monedaConsolidacion, tiposCambio),
         0
       ),
+      monedaConsolidacion,
       estado: o.estado,
     };
   });

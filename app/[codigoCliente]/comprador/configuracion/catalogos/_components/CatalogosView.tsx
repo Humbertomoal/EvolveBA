@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import type { CatalogoValorDTO } from "@/src/lib/getCatalogos";
 import {
@@ -11,7 +11,9 @@ import {
   eliminarCatalogoValorAction,
   toggleActivoCatalogoValorAction,
   actualizarOrdenAction,
+  actualizarTipoCambioMonedaAction,
 } from "@/src/lib/catalogosActions";
+import { obtenerTipoCambioBanxico } from "@/src/lib/banxicoActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
 
@@ -51,6 +53,7 @@ export default function CatalogosView({
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [banxicoLoadingId, setBanxicoLoadingId] = useState<string | null>(null);
 
   // Modal form state
   const [formCodigo, setFormCodigo] = useState("");
@@ -174,6 +177,45 @@ export default function CatalogosView({
     router.refresh();
   }
 
+  async function handleTipoCambio(id: string, valorStr: string) {
+    const tasa = parseFloat(valorStr);
+    if (!Number.isFinite(tasa) || tasa <= 0) {
+      toast.error("El tipo de cambio debe ser mayor que 0.");
+      return;
+    }
+    const result = await actualizarTipoCambioMonedaAction(id, tasa);
+    if (!result.ok) {
+      toast.error(result.error ?? "No se pudo guardar el tipo de cambio.");
+      return;
+    }
+    toast.success("Tipo de cambio actualizado");
+    router.refresh();
+  }
+
+  async function handleBanxico(id: string) {
+    setBanxicoLoadingId(id);
+    const result = await obtenerTipoCambioBanxico(clienteId);
+    setBanxicoLoadingId(null);
+    if (!result.ok) {
+      toast.error(result.error ?? "No se pudo actualizar desde Banxico.");
+      return;
+    }
+    toast.success(
+      `USD actualizado desde Banxico: ${result.tipoCambio?.toFixed(4)} MXN` +
+        (result.fechaDatoLabel ? ` (dato del ${result.fechaDatoLabel})` : "")
+    );
+    router.refresh();
+  }
+
+  function formatActualizado(iso: string | null): string {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("es-MX", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+
   const INPUT_MODAL =
     "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-zinc-400";
 
@@ -257,6 +299,8 @@ export default function CatalogosView({
                   <th className="px-4 py-2.5">Código</th>
                   <th className="px-4 py-2.5">Nombre</th>
                   {esMonedaTab && <th className="px-4 py-2.5">Símbolo</th>}
+                  {esMonedaTab && <th className="px-4 py-2.5">Tipo de cambio (MXN)</th>}
+                  {esMonedaTab && <th className="px-4 py-2.5">Actualizado</th>}
                   <th className="px-4 py-2.5">Estado</th>
                   <th className="px-4 py-2.5 text-right">Acciones</th>
                 </tr>
@@ -279,6 +323,50 @@ export default function CatalogosView({
                     <td className="px-4 py-2.5 text-zinc-800">{v.nombre}</td>
                     {esMonedaTab && (
                       <td className="px-4 py-2.5 text-zinc-500">{v.simbolo ?? "—"}</td>
+                    )}
+                    {esMonedaTab && (
+                      <td className="px-4 py-2.5">
+                        {v.codigo === "MXN" ? (
+                          <span className="text-xs text-zinc-400">1 (base)</span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.0001"
+                              defaultValue={v.tipoCambio ?? ""}
+                              key={`${v.id}-${v.tipoCambio ?? ""}`}
+                              placeholder="—"
+                              onBlur={(e) => {
+                                const nuevo = e.target.value.trim();
+                                if (nuevo !== "" && nuevo !== String(v.tipoCambio ?? "")) {
+                                  handleTipoCambio(v.id, nuevo);
+                                }
+                              }}
+                              className="w-24 rounded border border-zinc-200 px-2 py-1 text-right text-xs focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            {v.codigo === "USD" && (
+                              <button
+                                type="button"
+                                disabled={banxicoLoadingId === v.id}
+                                onClick={() => handleBanxico(v.id)}
+                                title="Actualizar desde Banxico (tipo de cambio FIX USD/MXN)"
+                                className="flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                              >
+                                <IconRefresh
+                                  className={`h-3.5 w-3.5 ${banxicoLoadingId === v.id ? "animate-spin" : ""}`}
+                                />
+                                {banxicoLoadingId === v.id ? "Actualizando…" : "Banxico"}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    )}
+                    {esMonedaTab && (
+                      <td className="px-4 py-2.5 text-xs text-zinc-500">
+                        {v.codigo === "MXN" ? "—" : formatActualizado(v.tipoCambioActualizado)}
+                      </td>
                     )}
                     <td className="px-4 py-2.5">
                       <button

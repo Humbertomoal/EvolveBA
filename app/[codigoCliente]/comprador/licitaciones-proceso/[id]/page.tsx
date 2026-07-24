@@ -12,7 +12,7 @@ import {
   primeraRondaConOferta,
 } from "@/src/lib/licitacionesAhorro";
 import {
-  convertirAMXN,
+  convertirAMoneda,
   faltanTiposCambio,
   notaTipoCambio,
   parseTiposCambio,
@@ -111,11 +111,12 @@ export default async function DetalleLicitacionProcesoPage({
   const monedaPredominante =
     [...monedaCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "MXN";
 
-  // ── Tipos de cambio congelados de la licitación (todos los totales → MXN) ───
+  // ── Tipos de cambio congelados + moneda de consolidación de la licitación ───
   const tiposCambio = parseTiposCambio(licitacion.tiposCambio);
+  const monedaConsolidacion = (licitacion as any).monedaConsolidacion ?? "MXN";
   const monedasEnUso = licitacion.items.map((item: any) => item.moneda);
-  const notaTC = notaTipoCambio(monedasEnUso, tiposCambio);
-  const faltanTC = faltanTiposCambio(monedasEnUso, tiposCambio);
+  const notaTC = notaTipoCambio(monedasEnUso, tiposCambio, monedaConsolidacion);
+  const faltanTC = faltanTiposCambio(monedasEnUso, tiposCambio, monedaConsolidacion);
 
   // ── Análisis de ahorro por producto (lógica compartida) ────────────────────
   const analisisBase = calcularAnalisisPorItem(licitacion.items, todasLasOfertas);
@@ -134,7 +135,12 @@ export default async function DetalleLicitacionProcesoPage({
   }));
 
   const resumenAhorro: ResumenAhorro = {
-    ...calcularResumenAhorro(analisisBase, todasLasOfertas.length > 0, tiposCambio),
+    ...calcularResumenAhorro(
+      analisisBase,
+      todasLasOfertas.length > 0,
+      tiposCambio,
+      monedaConsolidacion
+    ),
     monedaPredominante,
   };
   const { presupuestoObjetivoTotal } = resumenAhorro;
@@ -178,7 +184,7 @@ export default async function DetalleLicitacionProcesoPage({
           ? ofertasPrimeraRondaProveedor.reduce((sum: number, o: any) => {
               const item = itemsPorId.get(o.licitacionItemId);
               const subtotal = o.precioUnitario * (item?.cantidadSolicitada ?? 0);
-              return sum + convertirAMXN(subtotal, item?.moneda ?? "MXN", tiposCambio);
+              return sum + convertirAMoneda(subtotal, item?.moneda ?? "MXN", monedaConsolidacion, tiposCambio);
             }, 0)
           : null;
 
@@ -194,7 +200,7 @@ export default async function DetalleLicitacionProcesoPage({
                 .map((o: any) => o.precioUnitario);
               const mejor = Math.min(...preciosItem);
               const subtotal = mejor * (item?.cantidadSolicitada ?? 0);
-              return sum + convertirAMXN(subtotal, item?.moneda ?? "MXN", tiposCambio);
+              return sum + convertirAMoneda(subtotal, item?.moneda ?? "MXN", monedaConsolidacion, tiposCambio);
             }, 0)
           : null;
 
@@ -213,7 +219,7 @@ export default async function DetalleLicitacionProcesoPage({
         const totalCotizado = ofertasEnRonda.reduce((sum: number, o: any) => {
           const item = itemsPorId.get(o.licitacionItemId);
           const subtotal = o.precioUnitario * (item?.cantidadSolicitada ?? 0);
-          return sum + convertirAMXN(subtotal, item?.moneda ?? "MXN", tiposCambio);
+          return sum + convertirAMoneda(subtotal, item?.moneda ?? "MXN", monedaConsolidacion, tiposCambio);
         }, 0);
         const vsObjetivoMonto = totalCotizado - presupuestoObjetivoTotal;
         const vsObjetivoPct = (vsObjetivoMonto / presupuestoObjetivoSafe) * 100;
@@ -396,6 +402,7 @@ export default async function DetalleLicitacionProcesoPage({
       noLeidosPorProveedor={noLeidosPorProveedor}
       notaTipoCambio={notaTC}
       faltanTiposCambio={faltanTC}
+      monedaConsolidacion={monedaConsolidacion}
     />
   );
 }

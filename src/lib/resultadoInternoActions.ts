@@ -7,11 +7,7 @@ import {
 } from "@/src/lib/licitacionesAhorro";
 import { generarTablaGanadores, type ItemTablaGanador } from "@/src/lib/plantillasCorreo";
 import { formatImporte } from "@/src/lib/monedas";
-import {
-  notaTipoCambio,
-  parseTiposCambio,
-  MONEDA_BASE,
-} from "@/src/lib/conversionMoneda";
+import { notaTipoCambio, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { generarExcelHistoricoAdjunto } from "@/src/lib/historicoPujasActions";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
@@ -39,6 +35,7 @@ export async function prepararResultadoInternoAction(
       numero: true,
       compradorId: true,
       tiposCambio: true,
+      monedaConsolidacion: true,
       items: {
         select: {
           id: true,
@@ -52,6 +49,7 @@ export async function prepararResultadoInternoAction(
   if (!licitacion) return VACIO;
 
   const tiposCambio = parseTiposCambio(licitacion.tiposCambio);
+  const monedaConsol = (licitacion as any).monedaConsolidacion ?? "MXN";
 
   const ofertas = await prisma.ofertaItem.findMany({
     where: { licitacionItem: { licitacionId } },
@@ -67,10 +65,11 @@ export async function prepararResultadoInternoAction(
     })),
     ofertas
   );
-  const resumen = calcularResumenAhorro(analisis, ofertas.length > 0, tiposCambio);
+  const resumen = calcularResumenAhorro(analisis, ofertas.length > 0, tiposCambio, monedaConsol);
   const notaTC = notaTipoCambio(
     licitacion.items.map((i) => i.moneda),
-    tiposCambio
+    tiposCambio,
+    monedaConsol
   );
 
   // Ganadores → tablaGanadores.
@@ -125,11 +124,11 @@ export async function prepararResultadoInternoAction(
     numeroLicitacion: licitacion.numero,
     nombreComprador: comprador ? `${comprador.nombre} ${comprador.apellido}`.trim() : "",
     // Agregados en MXN (líneas convertidas con los tipos de cambio congelados).
-    presupuestoObjetivo: formatImporte(resumen.presupuestoObjetivoTotal, MONEDA_BASE),
-    totalPrimeraRonda: formatImporte(resumen.primeraRondaTotal, MONEDA_BASE),
-    mejorCostoTotal: formatImporte(resumen.mejorPrecioActualTotal, MONEDA_BASE),
+    presupuestoObjetivo: formatImporte(resumen.presupuestoObjetivoTotal, monedaConsol),
+    totalPrimeraRonda: formatImporte(resumen.primeraRondaTotal, monedaConsol),
+    mejorCostoTotal: formatImporte(resumen.mejorPrecioActualTotal, monedaConsol),
     adherenciaPrecio: `${resumen.adherenciaPct.toFixed(1)}%`,
-    ahorroTotal: formatImporte(resumen.ahorroTotal, MONEDA_BASE),
+    ahorroTotal: formatImporte(resumen.ahorroTotal, monedaConsol),
     // Nota del TC usado; vacío si todo MXN (la línea de la plantilla se colapsa).
     notaTipoCambio: notaTC ?? "",
     tablaGanadores: generarTablaGanadores(itemsGanadores),

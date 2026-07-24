@@ -84,6 +84,8 @@ export type PreDatos = {
   proveedoresInvitados: string[];
   // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
   tiposCambio?: Record<string, number>;
+  // Moneda de consolidación de los totales (default MXN).
+  monedaConsolidacion?: string;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -157,6 +159,7 @@ export default function LicitacionForm({
   inicial,
   siguienteNumero = "0001",
   catalogos,
+  tiposCambioSettings = {},
   usuarioActual = null,
 }: {
   basePath: string;
@@ -171,6 +174,9 @@ export default function LicitacionForm({
     tiposLicitacion: { codigo: string; nombre: string }[];
     monedas: { codigo: string; nombre: string; simbolo?: string | null }[];
   };
+  // Tipos de cambio actuales de Settings — al CREAR se heredan (prellenan) aquí
+  // y quedan congelados en la licitación. En edición no se re-heredan.
+  tiposCambioSettings?: Record<string, number>;
   usuarioActual?: UsuarioActual | null;
 }) {
   const modoEdicion = inicial !== undefined;
@@ -201,9 +207,12 @@ export default function LicitacionForm({
 
   // ── Tipos de cambio (por moneda ≠ MXN usada en los materiales) ────────────────
   // Valores como string para los inputs; se persisten como número en buildDatos.
+  // Al CREAR se heredan de Settings (tiposCambioSettings); al EDITAR se usan los
+  // ya congelados en la licitación (inicial.tiposCambio).
   const [tiposCambio, setTiposCambio] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
-    for (const [moneda, tasa] of Object.entries(inicial?.tiposCambio ?? {})) {
+    const fuente = modoEdicion ? (inicial?.tiposCambio ?? {}) : tiposCambioSettings;
+    for (const [moneda, tasa] of Object.entries(fuente)) {
       init[moneda] = String(tasa);
     }
     return init;
@@ -211,6 +220,15 @@ export default function LicitacionForm({
   function setTasa(moneda: string, valor: string) {
     setTiposCambio((prev) => ({ ...prev, [moneda]: valor }));
   }
+  // Monedas cuya tasa vino heredada de Settings (para mostrar el origen).
+  const [heredadasDeSettings] = useState<Set<string>>(
+    () => new Set(modoEdicion ? [] : Object.keys(tiposCambioSettings))
+  );
+
+  // ── Moneda de consolidación de los totales (default MXN) ──────────────────────
+  const [monedaConsolidacion, setMonedaConsolidacion] = useState(
+    inicial?.monedaConsolidacion ?? "MXN"
+  );
   // Una vez cerrada la licitación, las tasas quedan fijas (solo lectura) para
   // preservar la auditoría de cómo se calcularon los totales.
   const tcReadonly =
@@ -596,6 +614,7 @@ Asistente de Inteligencia Artificial`;
         },
         {} as Record<string, number>
       ),
+      monedaConsolidacion: monedaConsolidacion || "MXN",
     };
   }
 
@@ -799,14 +818,15 @@ Asistente de Inteligencia Artificial`;
         i.precioObjetivo !== ""
     );
 
-  // Monedas distintas de MXN realmente usadas por los materiales — determinan
-  // qué tipos de cambio hay que capturar. Si todo es MXN, no se pide nada.
+  // Monedas distintas de MXN cuyas tasas hay que capturar: las usadas por los
+  // materiales MÁS la moneda de consolidación si no es MXN (se necesita su tasa
+  // para convertir). Si todo es MXN y se consolida en MXN, no se pide nada.
   const monedasParaTC = [
     ...new Set(
-      items
-        .filter((i) => i.productoId)
-        .map((i) => i.moneda)
-        .filter((m) => m && m !== "MXN")
+      [
+        ...items.filter((i) => i.productoId).map((i) => i.moneda),
+        monedaConsolidacion,
+      ].filter((m) => m && m !== "MXN")
     ),
   ].sort();
   const faltanTasas = monedasParaTC.some(
@@ -1588,52 +1608,83 @@ Asistente de Inteligencia Artificial`;
         </div>
       </fieldset>
 
-      {/* Tipos de cambio — solo si hay materiales en monedas distintas de MXN */}
-      {monedasParaTC.length > 0 && (
-        <fieldset className="space-y-3 rounded-lg border border-zinc-200 p-4">
-          <legend className="px-1 text-sm font-semibold text-zinc-800">
-            Tipos de cambio
-          </legend>
-          <p className="text-xs text-zinc-500">
-            Los totales de la licitación se consolidan en MXN. Captura el tipo de
-            cambio de cada moneda usada por los materiales.
-            {tcReadonly && " (fijos: la licitación ya está cerrada)"}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {monedasParaTC.map((m) => {
-              const invalido = intentoGuardar && !(parseFloat(tiposCambio[m]) > 0);
-              return (
-                <Campo
-                  key={m}
-                  label={`Tipo de cambio ${m} → MXN`}
-                  required
-                  error={invalido ? "Captura una tasa válida (> 0)" : null}
-                >
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.0001"
-                      inputMode="decimal"
-                      value={tiposCambio[m] ?? ""}
-                      onChange={(e) => setTasa(m, e.target.value)}
-                      readOnly={tcReadonly}
-                      placeholder={`1 ${m} = ? MXN`}
-                      className={`${iClass(invalido)} pr-14 ${tcReadonly ? "bg-zinc-100 text-zinc-500" : ""}`}
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-zinc-400">
-                      MXN
+      {/* Moneda de consolidación + tipos de cambio */}
+      <fieldset className="space-y-3 rounded-lg border border-zinc-200 p-4">
+        <legend className="px-1 text-sm font-semibold text-zinc-800">
+          Consolidación y tipos de cambio
+        </legend>
+
+        <Campo label="Moneda de consolidación de totales">
+          <select
+            value={monedaConsolidacion}
+            onChange={(e) => setMonedaConsolidacion(e.target.value)}
+            disabled={tcReadonly}
+            className={`${INPUT} sm:max-w-xs ${tcReadonly ? "bg-zinc-100 text-zinc-500" : ""}`}
+          >
+            {(() => {
+              const opciones = catalogos?.monedas?.length
+                ? catalogos.monedas.map((m) => m.codigo)
+                : MONEDAS.map((m) => m.codigo);
+              // Garantiza MXN presente y sin duplicados.
+              const set = [...new Set(["MXN", ...opciones])];
+              return set.map((codigo) => (
+                <option key={codigo} value={codigo}>
+                  {codigo} — {nombreMoneda(codigo)}
+                </option>
+              ));
+            })()}
+          </select>
+          <span className="mt-1 block text-[11px] text-zinc-400">
+            Todos los totales y KPIs de la licitación se muestran en esta moneda.
+          </span>
+        </Campo>
+
+        {monedasParaTC.length > 0 && (
+          <>
+            <p className="text-xs text-zinc-500">
+              Captura el tipo de cambio (a MXN) de cada moneda usada por los
+              materiales o por la consolidación.
+              {tcReadonly && " (fijos: la licitación ya está cerrada)"}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {monedasParaTC.map((m) => {
+                const invalido = intentoGuardar && !(parseFloat(tiposCambio[m]) > 0);
+                const heredada = heredadasDeSettings.has(m);
+                return (
+                  <Campo
+                    key={m}
+                    label={`Tipo de cambio ${m} → MXN`}
+                    required
+                    error={invalido ? "Captura una tasa válida (> 0)" : null}
+                  >
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.0001"
+                        inputMode="decimal"
+                        value={tiposCambio[m] ?? ""}
+                        onChange={(e) => setTasa(m, e.target.value)}
+                        readOnly={tcReadonly}
+                        placeholder={`1 ${m} = ? MXN`}
+                        className={`${iClass(invalido)} pr-14 ${tcReadonly ? "bg-zinc-100 text-zinc-500" : ""}`}
+                      />
+                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-zinc-400">
+                        MXN
+                      </span>
+                    </div>
+                    <span className="mt-1 block text-[11px] text-zinc-400">
+                      {heredada
+                        ? "Heredado de configuración (editable)"
+                        : `${nombreMoneda(m)} · 1 ${m} equivale a esta cantidad en MXN`}
                     </span>
-                  </div>
-                  <span className="mt-1 block text-[11px] text-zinc-400">
-                    {nombreMoneda(m)} · 1 {m} equivale a esta cantidad en MXN
-                  </span>
-                </Campo>
-              );
-            })}
-          </div>
-        </fieldset>
-      )}
+                  </Campo>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </fieldset>
 
       {/* Bottom action buttons */}
       <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-6">

@@ -319,7 +319,7 @@ export default function SeleccionTabla({
 
                     {/* Costo Objetivo — siempre disponible desde la creación */}
                     <td className="px-3 py-3 text-right text-zinc-600">
-                      {formatMoneda(r.presupuestoObjetivoTotal, "MXN")}
+                      {formatMoneda(r.presupuestoObjetivoTotal, l.monedaConsolidacion)}
                     </td>
 
                     {!r.hayOfertas ? (
@@ -334,10 +334,10 @@ export default function SeleccionTabla({
                     ) : (
                       <>
                         <td className="px-3 py-3 text-right text-zinc-600">
-                          {formatMoneda(r.primeraRondaTotal, "MXN")}
+                          {formatMoneda(r.primeraRondaTotal, l.monedaConsolidacion)}
                         </td>
                         <td className="px-3 py-3 text-right font-medium text-zinc-800">
-                          {formatMoneda(r.mejorPrecioActualTotal, "MXN")}
+                          {formatMoneda(r.mejorPrecioActualTotal, l.monedaConsolidacion)}
                         </td>
                         <td className="px-3 py-3 text-center">
                           <span
@@ -347,7 +347,7 @@ export default function SeleccionTabla({
                           </span>
                         </td>
                         <td className={`px-3 py-3 text-right font-medium ${ahorroColorClass(r.ahorroTotal)}`}>
-                          {formatMoneda(r.ahorroTotal, "MXN")}
+                          {formatMoneda(r.ahorroTotal, l.monedaConsolidacion)}
                           <span className="ml-1 text-xs font-normal">
                             ({formatPct(r.ahorroPct)})
                           </span>

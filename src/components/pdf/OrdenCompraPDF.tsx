@@ -1,7 +1,6 @@
 import { Document, Text, View } from "@react-pdf/renderer";
 import type { Cliente } from "@/src/config/clientes";
 import { formatImporte } from "@/src/lib/monedas";
-import { MONEDA_BASE } from "@/src/lib/conversionMoneda";
 import PDFLayout from "./PDFLayout";
 import { pdfStyles } from "./pdfStyles";
 import { formatFechaPdf, nd } from "./pdfHelpers";
@@ -29,8 +28,9 @@ export type OrdenCompraPdfData = {
     fechaEntregaObjetivo: string | Date | null;
     subtotal: number;
   }[];
-  // Total agregado en MXN y nota del TC usado (null si todo MXN).
-  totalMXN: number;
+  // Total agregado en la moneda de consolidación y nota del TC usado.
+  totalConsolidado: number;
+  monedaConsolidacion: string;
   notaTipoCambio: string | null;
 };
 
@@ -136,7 +136,7 @@ export default function OrdenCompraPDF({
                   </Text>
                 </View>
               ))}
-            {/* Total general en MXN */}
+            {/* Total general en la moneda de consolidación */}
             <View style={pdfStyles.tablaFooterRow}>
               <Text
                 style={[
@@ -144,7 +144,7 @@ export default function OrdenCompraPDF({
                   { width: "80%", textAlign: "right", fontFamily: "Helvetica-Bold" },
                 ]}
               >
-                Total ({MONEDA_BASE})
+                Total ({orden.monedaConsolidacion})
               </Text>
               <Text
                 style={[
@@ -152,7 +152,7 @@ export default function OrdenCompraPDF({
                   { width: "20%", textAlign: "right", fontFamily: "Helvetica-Bold" },
                 ]}
               >
-                {formatImporte(orden.totalMXN, MONEDA_BASE)}
+                {formatImporte(orden.totalConsolidado, orden.monedaConsolidacion)}
               </Text>
             </View>
           </View>
