@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/actualizar-tipo-cambio",
+      "schedule": "0 14 * * 1-5"
+    }
+  ]
+}
