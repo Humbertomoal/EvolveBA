@@ -17,8 +17,10 @@ export type TableroData = {
     productoNombre: string;
     familia: string | null;
     cantidadTotal: number;
-    precioObjetivoPromedio: number;
-    precioAdjudicadoPromedio: number;
+    // Precios promedio en MXN, misma base que el detalle: primera ronda vs.
+    // mejor precio (el ahorro = primera ronda − mejor precio).
+    precioPrimeraRondaPromedio: number;
+    precioMejorPromedio: number;
     ahorroTotal: number;
   }[];
   onTimeProveedor: {

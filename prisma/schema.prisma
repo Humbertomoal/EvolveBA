@@ -117,6 +117,24 @@ model Licitacion {
   asignaciones         AsignacionMaterial[]
   ordenes              OrdenCompra[]
   mensajes             ChatMensaje[]
+  estadoLogs           LicitacionEstadoLog[]
+}
+
+// Bitácora de cambios de estado de una licitación — una fila por transición.
+// Alimenta los KPIs de tiempo por etapa del Tablero de Indicadores.
+model LicitacionEstadoLog {
+  id             String     @id @default(cuid())
+  licitacionId   String
+  licitacion     Licitacion @relation(fields: [licitacionId], references: [id])
+  // Nulo en la primera entrada (creación) o cuando se desconoce el estado previo.
+  estadoAnterior String?
+  estadoNuevo    String
+  at             DateTime   @default(now())
+  // Usuario que provocó el cambio, si está disponible; null en transiciones
+  // automáticas (por tiempo) o de sistema.
+  usuarioId      String?
+
+  @@index([licitacionId])
 }
 
 model LicitacionItem {

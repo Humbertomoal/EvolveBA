@@ -24,13 +24,13 @@ export default function GraficaPrecios({
     labels: data.map((d) => `Lic. ${d.numero}`),
     datasets: [
       {
-        label: "Precio inicial (ronda 1)",
+        label: "Precio primera ronda (MXN)",
         data: data.map((d) => d.precioInicial),
         backgroundColor: "rgba(59, 130, 246, 0.8)",
         borderRadius: 4,
       },
       {
-        label: "Precio final adjudicado",
+        label: "Mejor precio (MXN)",
         data: data.map((d) => d.precioFinal),
         backgroundColor: "rgba(34, 197, 94, 0.8)",
         borderRadius: 4,

@@ -138,7 +138,7 @@ const VALUE_PROPS = [
   {
     icon: <IconBolt size={22} stroke="#1B4D3E" />,
     title: "Agilidad de punta a punta",
-    desc: "Lanza una licitación y da de alta proveedores en minutos, no semanas, con flujos configurables.",
+    desc: "Reduce los tiempos de negociación y de análisis de ofertas de proveedores en tu proceso de compras.",
   },
   {
     icon: (
@@ -156,12 +156,12 @@ const VALUE_PROPS = [
       </svg>
     ),
     title: "Automatización del proceso",
-    desc: "Validaciones, notificaciones y seguimiento automático en cada etapa de compras.",
+    desc: "Tu proceso de negociación y análisis de cotizaciones, validaciones, notificaciones y seguimiento automático en cada etapa de compras.",
   },
   {
     icon: <IconBarChart size={22} stroke="#1B4D3E" />,
     title: "Reportes por industria",
-    desc: "Tableros de indicadores configurados para tu sector, listos desde el primer día.",
+    desc: "Tableros de indicadores configurados con el desempeño de todo tu proceso de compras de punta a punta.",
   },
 ];
 
@@ -173,7 +173,7 @@ const FLUJO_STEPS = [
       </svg>
     ),
     title: "Alta de proveedor",
-    desc: "Registro, validación de RFC y catálogo.",
+    desc: "Proveedores cotizan en tiempo real, consigues reducir tus costos gracias a la tecnología.",
   },
   { icon: <IconSend size={22} />, title: "Lanzamiento", desc: "Se publica la licitación a proveedores calificados." },
   { icon: <IconClock size={22} />, title: "En proceso", desc: "Proveedores cotizan y comparan en tiempo real." },
@@ -207,18 +207,24 @@ const MODULOS = [
     title: "Lanzamiento de Licitaciones",
     desc: "Formulario completo con materiales, precios objetivo, fechas y proveedores. Licitación abierta o cotización manual.",
     highlight: "De días a minutos: el sistema notifica a proveedores automáticamente.",
+    destacado: true,
+    nota: "Tecnología que reduce hasta el 20% de los costos de tus compras.",
   },
   {
     icon: <IconClock size={19} />,
     title: "Licitaciones en Proceso",
-    desc: "Rondas en curso con countdown, cierre forzado y resumen de mejores ofertas por material.",
+    desc: "Proveedores cotizan en tiempo real, consigues reducir tus costos gracias a la tecnología.",
     highlight: "La competencia entre rondas baja precios de forma automática.",
+    destacado: true,
+    nota: "Tecnología que reduce hasta el 20% de los costos de tus compras.",
   },
   {
     icon: <IconCheck size={19} />,
     title: "Selección de Proveedores",
-    desc: "Asignación de ganadores por material, con split de cantidad y ajuste manual.",
-    highlight: "Reparte automáticamente entre postores y reduce el riesgo de desabasto.",
+    desc: "Asignación automática de ganadores por material, con split de cantidad y ajuste manual al final en caso de ser necesario.",
+    highlight: "Reparte automáticamente entre proveedores garantizando la totalidad de tus cantidades de compra.",
+    destacado: true,
+    nota: "Tecnología que reduce hasta el 20% de los costos de tus compras.",
   },
   {
     icon: (
@@ -227,19 +233,19 @@ const MODULOS = [
       </svg>
     ),
     title: "Licitaciones Finalizadas",
-    desc: "Historial paginado con ganadores, asignación y detalle de pujas por ronda.",
+    desc: "Historial con ganadores, asignación y detalle de pujas por ronda.",
     highlight: "Auditoría completa y cumplimiento de transparencia en compras.",
   },
   {
     icon: <IconTruck size={19} />,
     title: "Órdenes de Compra",
-    desc: "Generación automática de OC con estatus de tránsito, entrega y PDF descargable.",
+    desc: "con integración a tu ERP si lo necesitas.",
     highlight: "Trazabilidad completa de la licitación a la entrega.",
   },
   {
     icon: <IconBarChart size={19} />,
     title: "Tablero de Indicadores",
-    desc: "KPIs de ahorro, precio inicial vs. final, adherencia y on-time delivery por proveedor.",
+    desc: "KPIs de ahorro, precio inicial vs. final, y adherencia por proveedor.",
     highlight: "Visibilidad ejecutiva del desempeño de compras.",
   },
   {
@@ -405,19 +411,25 @@ export default async function Home() {
             style={{ background: "rgba(143,227,166,0.14)", animation: "fadeUp 0.6s ease both" }}
           >
             <span className="h-[7px] w-[7px] rounded-full bg-[#8FE3A6]" style={{ animation: "pulseDot 1.8s ease-in-out infinite" }} />
-            SISTEMA DE GESTIÓN DE LICITACIONES
+            SISTEMA DE AUTOMATIZACIÓN DE COMPRAS "PURCHASE OPTIMIZER"
           </div>
           <h1
             className="mb-[22px] text-[40px] font-extrabold leading-[1.06] tracking-[-0.03em] text-[#FAFAF8] text-pretty md:text-[58px]"
             style={{ animation: "fadeUp 0.7s ease 0.05s both" }}
           >
-            Conecta compras y proveedores en un solo flujo, sin fricción.
+            Automatiza las negociaciones de tus compras y ahorra hasta el 20% promedio de tus costos o más.
           </h1>
           <p
             className="mx-auto mb-9 max-w-[560px] text-[17px] font-medium leading-[1.55] text-[#C7D6CE] md:text-[19px]"
             style={{ animation: "fadeUp 0.7s ease 0.1s both" }}
           >
-            Evolve BA automatiza el alta de proveedores, el lanzamiento de licitaciones y la selección de ganadores, con reportes a la medida de tu industria.
+            Automatiza parcial o totalmente tu proceso de compras y reduce los costos de tus principales con tecnología desarrollada por Evolve BA.
+          </p>
+          <p
+            className="mx-auto mb-9 max-w-[520px] text-[14px] font-medium italic leading-[1.5] text-[#9FB3A8]"
+            style={{ animation: "fadeUp 0.7s ease 0.13s both" }}
+          >
+            *Si tienes ERP, pregunta por la integración y automatización entre tecnologías (SAP, Oracle, Dynamics o tu sistema a medida vía API).
           </p>
           <div className="flex flex-wrap justify-center gap-4" style={{ animation: "fadeUp 0.7s ease 0.15s both" }}>
             <a href="#contacto" className="flex items-center gap-2 rounded-full bg-[#8FE3A6] px-7 py-[15px] text-[16px] font-bold text-[#0F332A] transition-colors hover:bg-[#A6F0BC]">
@@ -505,8 +517,8 @@ export default async function Home() {
             icon: (
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2v8h8" /><path d="M20.5 15a8.5 8.5 0 1 1-6-8.1" /></svg>
             ),
-            value: "-70%",
-            label: "tiempo de alta de proveedores",
+            value: "70%",
+            label: "de reducción en tiempo de compras",
           },
           {
             icon: (
@@ -522,6 +534,13 @@ export default async function Home() {
             value: "1 sola",
             label: "plataforma para compras y proveedores",
           },
+          {
+            icon: (
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" /></svg>
+            ),
+            value: "100%",
+            label: "de las métricas de tu proceso de compras, de punta a punta",
+          },
         ].map((s) => (
           <div key={s.label} className="flex items-center justify-center gap-4">
             {s.icon}
@@ -536,7 +555,7 @@ export default async function Home() {
       {/* ── TRUST BAR ─────────────────────────────────────────────────────── */}
       <section className={`mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 border-b border-[#EFEEE8] py-14 md:grid-cols-[1.1fr_1fr] ${SECTION_X}`}>
         <div>
-          <div className="mb-5 text-[13px] font-bold tracking-[0.03em] text-[#8B968F]">CONFÍAN EN EVOLVE BA EQUIPOS DE COMPRAS EN:</div>
+          <div className="mb-5 text-[13px] font-bold tracking-[0.03em] text-[#8B968F]">CONFÍAN EN PURCHASE OTIMIZER EQUIPOS DE COMPRAS EN:</div>
           <div className="flex flex-wrap gap-x-11 gap-y-4 text-[14px] font-bold text-[#B7BCB3]">
             {["MANUFACTURA", "ENERGÍA", "RETAIL", "CONSTRUCCIÓN", "SERVICIOS"].map((x) => (
               <div key={x}>{x}</div>
@@ -552,7 +571,7 @@ export default async function Home() {
       {/* ── VALUE PROPS ───────────────────────────────────────────────────── */}
       <section className={`mx-auto max-w-[1280px] py-16 md:py-[100px] ${SECTION_X}`}>
         <div className="mx-auto mb-16 max-w-[640px] text-center">
-          <div className={`${EYEBROW} mb-3.5`}>POR QUÉ EVOLVE BA</div>
+          <div className={`${EYEBROW} mb-3.5`}>POR QUÉ PO</div>
           <h2 className="text-[30px] font-extrabold tracking-[-0.02em] text-[#173F35] text-pretty md:text-[40px]">Agilidad, integración y control, en un solo lugar</h2>
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -624,12 +643,24 @@ export default async function Home() {
         </div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {MODULOS.map((m) => (
-            <div key={m.title} className="flex items-start gap-4 rounded-[16px] border border-[#EFEEE8] bg-white p-[26px] transition-colors hover:border-[#8FE3A6]">
+            <div
+              key={m.title}
+              className={`flex items-start gap-4 rounded-[16px] border p-[26px] transition-colors ${
+                m.destacado
+                  ? "border-[#8FE3A6] bg-[#EFFBF3]"
+                  : "border-[#EFEEE8] bg-white hover:border-[#8FE3A6]"
+              }`}
+            >
               <div className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-[11px] bg-[#173F35]">{m.icon}</div>
               <div>
                 <div className="mb-1.5 text-[16px] font-bold text-[#173F35]">{m.title}</div>
                 <div className="mb-2 text-[14px] leading-[1.55] text-[#5C665F]">{m.desc}</div>
                 <div className="text-[12.5px] font-semibold leading-[1.5] text-[#1B4D3E]">{m.highlight}</div>
+                {m.nota && (
+                  <div className="mt-3 border-t border-[#8FE3A6]/40 pt-2.5 text-[12.5px] font-bold italic leading-[1.45] text-[#173F35]">
+                    {m.nota}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -644,10 +675,10 @@ export default async function Home() {
         />
         <div className="relative mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-16">
           <div>
-            <div className="mb-3.5 text-[13px] font-bold tracking-[0.04em] text-[#8FE3A6]">INTEGRACIÓN CON TU ERP</div>
+            <div className="mb-3.5 text-[13px] font-bold tracking-[0.04em] text-[#8FE3A6]">INTEGRACIÓN CON TU ERP(Para las empresas que usen ERP)</div>
             <h2 className="mb-5 text-[30px] font-extrabold tracking-[-0.02em] text-[#FAFAF8] text-pretty md:text-[38px]">Se conecta con el sistema que ya usas, sin migraciones</h2>
             <p className="mb-7 text-[16px] leading-[1.65] text-[#C7D6CE]">
-              Evolve BA se integra vía API con SAP, Oracle, Microsoft Dynamics y sistemas a medida. Sincroniza catálogo, proveedores y órdenes de compra en ambas direcciones, sin doble captura.
+              El optimizador de compras se integra vía API con SAP, Oracle, Microsoft Dynamics y sistemas a medida. Sincroniza catálogo, proveedores y órdenes de compra en ambas direcciones, sin doble captura.
             </p>
             <div className="flex flex-col gap-4">
               {ERP_BULLETS.map((b) => (

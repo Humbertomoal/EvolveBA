@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
+import {
+  registrarCambioEstado,
+  getUsuarioIdActual,
+  ESTADO_ESPERANDO_DECISION,
+} from "@/src/lib/estadoLog";
 
 export type OfertaManual = {
   licitacionItemId: string;
@@ -76,10 +81,27 @@ export async function finalizarCapturaManualAction(
   basePath: string
 ): Promise<void> {
   await Promise.all([upsertOfertas(ofertas), actualizarFechasRequeridas(fechasRequeridas)]);
+
+  const anterior = await prisma.licitacion.findUnique({
+    where: { id: licitacionId },
+    select: { estado: true, esperandoDecision: true },
+  });
+
   await prisma.licitacion.update({
     where: { id: licitacionId },
     data: { estado: "Cerrada", fechaCerrada: new Date() },
   });
+
+  const estadoAnterior = anterior?.esperandoDecision
+    ? ESTADO_ESPERANDO_DECISION
+    : anterior?.estado ?? null;
+  await registrarCambioEstado(
+    licitacionId,
+    estadoAnterior,
+    "Cerrada",
+    await getUsuarioIdActual()
+  );
+
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
   revalidatePath(`${basePath}/comprador/seleccion-proveedores`);
 }

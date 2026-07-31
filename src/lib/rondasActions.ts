@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
+import {
+  registrarCambioEstado,
+  getUsuarioIdActual,
+  ESTADO_ESPERANDO_DECISION,
+} from "@/src/lib/estadoLog";
 
 // Fuerza el fin de la ronda actual:
 // - Si es ronda intermedia: avanza a la siguiente
@@ -18,6 +23,7 @@ export async function forzarAvanceRondaAction(
 
   const now = new Date();
   if (lic.rondaActual < lic.maxRondas) {
+    // Solo avanza de ronda: el estado sigue "En Proceso" (no se registra).
     await prisma.licitacion.update({
       where: { id },
       data: { rondaActual: lic.rondaActual + 1, inicioRondaActual: now },
@@ -27,6 +33,12 @@ export async function forzarAvanceRondaAction(
       where: { id },
       data: { esperandoDecision: true, fechaFinReal: now, fechaEsperandoDecision: now },
     });
+    await registrarCambioEstado(
+      id,
+      "En Proceso",
+      ESTADO_ESPERANDO_DECISION,
+      await getUsuarioIdActual()
+    );
   }
 
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
@@ -43,7 +55,7 @@ export async function agregarRondaExtraAction(
 ): Promise<void> {
   const lic = await prisma.licitacion.findUnique({
     where: { id },
-    select: { rondaActual: true, maxRondas: true },
+    select: { rondaActual: true, maxRondas: true, esperandoDecision: true },
   });
   if (!lic) return;
 
@@ -57,6 +69,16 @@ export async function agregarRondaExtraAction(
     },
   });
 
+  // Reabre las rondas: si venía de "Esperando Decisión", vuelve a "En Proceso".
+  if (lic.esperandoDecision) {
+    await registrarCambioEstado(
+      id,
+      ESTADO_ESPERANDO_DECISION,
+      "En Proceso",
+      await getUsuarioIdActual()
+    );
+  }
+
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
 }
 
@@ -64,10 +86,23 @@ export async function cerrarLicitacionAction(
   id: string,
   basePath: string
 ): Promise<void> {
+  // Lee el estado previo para encadenar bien la bitácora (En Proceso o el
+  // pseudo-estado "Esperando Decisión" según el flag).
+  const anterior = await prisma.licitacion.findUnique({
+    where: { id },
+    select: { estado: true, esperandoDecision: true },
+  });
+
   await prisma.licitacion.update({
     where: { id },
     data: { estado: "Cerrada", esperandoDecision: false, fechaCerrada: new Date() },
   });
+
+  const estadoAnterior = anterior?.esperandoDecision
+    ? ESTADO_ESPERANDO_DECISION
+    : anterior?.estado ?? null;
+  await registrarCambioEstado(id, estadoAnterior, "Cerrada", await getUsuarioIdActual());
+
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
 }
 
@@ -75,10 +110,21 @@ export async function cancelarLicitacionAction(
   id: string,
   basePath: string
 ): Promise<void> {
+  const anterior = await prisma.licitacion.findUnique({
+    where: { id },
+    select: { estado: true, esperandoDecision: true },
+  });
+
   await prisma.licitacion.update({
     where: { id },
     data: { estado: "Cancelada", esperandoDecision: false, fechaCancelada: new Date() },
   });
+
+  const estadoAnterior = anterior?.esperandoDecision
+    ? ESTADO_ESPERANDO_DECISION
+    : anterior?.estado ?? null;
+  await registrarCambioEstado(id, estadoAnterior, "Cancelada", await getUsuarioIdActual());
+
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
   revalidatePath(`${basePath}/comprador/seleccion-proveedores`);
 }

@@ -1,6 +1,17 @@
 import { prisma } from "@/src/lib/prisma";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { getCompradorSession } from "@/src/lib/compradorSession";
+import {
+  calcularAnalisisPorItem,
+  calcularResumenAhorro,
+  type LicitacionItemParaAhorro,
+  type OfertaParaAhorro,
+} from "@/src/lib/licitacionesAhorro";
+import {
+  convertirAMoneda,
+  parseTiposCambio,
+  MONEDA_BASE,
+} from "@/src/lib/conversionMoneda";
 import TableroView from "./_components/TableroView";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import type { TableroData, FiltrosActivos } from "./_components/types";
@@ -107,13 +118,14 @@ export default async function TableroIndicadoresPage({
     db.licitacion.findMany({
       where: licitWhere,
       include: {
+        // Los escalares de Licitacion (tiposCambio, numero, jerarquia…) y de
+        // LicitacionItem (id, moneda, precioObjetivo, cantidadSolicitada) se
+        // incluyen automáticamente con `include`. El ahorro se calcula desde
+        // las ofertas (no desde asignaciones), igual que el detalle.
         items: {
           include: {
             producto: { select: { nombre: true, familia: true } },
             ofertas: { select: { precioUnitario: true, ronda: true } },
-            asignaciones: {
-              select: { precioUnitario: true, cantidadAsignada: true },
-            },
           },
         },
       },
@@ -130,31 +142,109 @@ export default async function TableroIndicadoresPage({
   // ── KPI 1: Licitaciones totales ───────────────────────────────────────────
   const licitacionesTotales: number = licitaciones.length;
 
-  // ── KPI 2: Ahorro total ───────────────────────────────────────────────────
-  let ahorroTotal = 0;
+  // ── Cálculo unificado de ahorro / adherencia / precios ─────────────────────
+  // Mismas fórmulas que el detalle de licitación (licitacionesAhorro.ts:
+  // primeraRonda − mejorActual, adherencia = objetivo / mejorActual), y TODO
+  // convertido a MXN (moneda base) con los tiposCambio congelados de cada
+  // licitación. Una sola pasada alimenta el KPI de ahorro, el de adherencia,
+  // la gráfica de precio inicial vs final y la de ahorro por material.
+  let ahorroTotal = 0; // Σ ahorro (MXN), mismo signo que el detalle
+  let objetivoAcumMXN = 0; // numerador de la adherencia global
+  let mejorAcumMXN = 0; // denominador de la adherencia global
+  const precioChart: TableroData["precioChart"] = [];
+
+  type MaterialAcc = {
+    productoNombre: string;
+    familia: string | null;
+    cantidadTotal: number;
+    primeraRondaSumMXN: number;
+    mejorSumMXN: number;
+    ahorroSumMXN: number;
+  };
+  const matMap = new Map<string, MaterialAcc>();
+
   for (const lic of licitaciones) {
-    for (const item of lic.items) {
-      const obj = item.precioObjetivo ?? 0;
-      for (const a of item.asignaciones) {
-        const s = (obj - a.precioUnitario) * a.cantidadAsignada;
-        if (s > 0) ahorroTotal += s;
-      }
+    const itemsAhorro: LicitacionItemParaAhorro[] = lic.items.map((it: any) => ({
+      id: it.id,
+      cantidadSolicitada: it.cantidadSolicitada,
+      precioObjetivo: it.precioObjetivo,
+      moneda: it.moneda,
+    }));
+    const ofertasAhorro: OfertaParaAhorro[] = lic.items.flatMap((it: any) =>
+      it.ofertas.map((o: any) => ({
+        licitacionItemId: it.id,
+        ronda: o.ronda,
+        precioUnitario: o.precioUnitario,
+      }))
+    );
+
+    const tiposCambio = parseTiposCambio(lic.tiposCambio);
+    const analisis = calcularAnalisisPorItem(itemsAhorro, ofertasAhorro);
+    const resumen = calcularResumenAhorro(
+      analisis,
+      ofertasAhorro.length > 0,
+      tiposCambio,
+      MONEDA_BASE
+    );
+
+    // KPI ahorro (MXN) y adherencia global (Σobjetivo / Σmejor).
+    ahorroTotal += resumen.ahorroTotal;
+    if (resumen.hayOfertas && resumen.mejorPrecioActualTotal > 0) {
+      objetivoAcumMXN += resumen.presupuestoObjetivoTotal;
+      mejorAcumMXN += resumen.mejorPrecioActualTotal;
+    }
+
+    // Gráfica: precio primera ronda vs mejor precio (MXN) por licitación.
+    if (resumen.hayOfertas && resumen.primeraRondaTotal > 0) {
+      precioChart.push({
+        numero: lic.numero,
+        jerarquia: lic.jerarquia ?? null,
+        precioInicial: resumen.primeraRondaTotal,
+        precioFinal: resumen.mejorPrecioActualTotal,
+        ahorro: resumen.ahorroTotal,
+        ahorroPercent:
+          resumen.ahorroPct != null ? Math.round(resumen.ahorroPct * 10) / 10 : 0,
+      });
+    }
+
+    // Gráfica: ahorro por material (MXN), misma definición que el detalle.
+    for (let i = 0; i < analisis.length; i++) {
+      const a = analisis[i];
+      if (a.ahorroTotal == null) continue; // material sin puja → fuera del ahorro
+      const it = lic.items[i];
+      const nombre: string = it.producto.nombre;
+      const toMXN = (v: number) => convertirAMoneda(v, a.moneda, MONEDA_BASE, tiposCambio);
+
+      const acc = matMap.get(nombre) ?? {
+        productoNombre: nombre,
+        familia: (it.producto.familia ?? null) as string | null,
+        cantidadTotal: 0,
+        primeraRondaSumMXN: 0,
+        mejorSumMXN: 0,
+        ahorroSumMXN: 0,
+      };
+      acc.cantidadTotal += a.cantidadSolicitada;
+      acc.primeraRondaSumMXN += toMXN(a.primeraRondaTotal ?? 0);
+      acc.mejorSumMXN += toMXN(a.mejorActualTotal ?? 0);
+      acc.ahorroSumMXN += toMXN(a.ahorroTotal);
+      matMap.set(nombre, acc);
     }
   }
 
-  // ── KPI 3: Adherencia de precios ──────────────────────────────────────────
-  let conObj = 0;
-  let adherentes = 0;
-  for (const lic of licitaciones) {
-    for (const item of lic.items) {
-      if (!item.precioObjetivo || !item.ofertas.length) continue;
-      conObj++;
-      const minOferta = Math.min(...item.ofertas.map((o: any) => o.precioUnitario));
-      if (minOferta <= item.precioObjetivo) adherentes++;
-    }
-  }
   const adherenciaPrecios: number | null =
-    conObj > 0 ? Math.round((adherentes / conObj) * 100) : null;
+    mejorAcumMXN > 0 ? Math.round((objetivoAcumMXN / mejorAcumMXN) * 1000) / 10 : null;
+
+  const ahorroMaterial: TableroData["ahorroMaterial"] = Array.from(matMap.values())
+    .filter((m) => m.ahorroSumMXN > 0)
+    .sort((a, b) => b.ahorroSumMXN - a.ahorroSumMXN)
+    .map((m) => ({
+      productoNombre: m.productoNombre,
+      familia: m.familia,
+      cantidadTotal: m.cantidadTotal,
+      precioPrimeraRondaPromedio: m.cantidadTotal > 0 ? m.primeraRondaSumMXN / m.cantidadTotal : 0,
+      precioMejorPromedio: m.cantidadTotal > 0 ? m.mejorSumMXN / m.cantidadTotal : 0,
+      ahorroTotal: m.ahorroSumMXN,
+    }));
 
   // ── KPI 4: On-time delivery ───────────────────────────────────────────────
   const entregadas = ordenes.filter((o: any) =>
@@ -173,84 +263,6 @@ export default async function TableroIndicadoresPage({
     ordenes.length > 0
       ? Math.round((aTiempoTotal / ordenes.length) * 100)
       : null;
-
-  // ── Graph 1: Precio inicial vs final por licitación ───────────────────────
-  const precioChart: TableroData["precioChart"] = [];
-  for (const lic of licitaciones) {
-    let inicialTotal = 0;
-    let finalTotal = 0;
-    let tieneData = false;
-    for (const item of lic.items) {
-      const ronda1 = item.ofertas.filter((o: any) => o.ronda === 1);
-      if (!ronda1.length || !item.asignaciones.length) continue;
-      tieneData = true;
-      const minR1 = Math.min(...ronda1.map((o: any) => o.precioUnitario));
-      inicialTotal += minR1 * (item.cantidadSolicitada || 0);
-      for (const a of item.asignaciones) {
-        finalTotal += a.precioUnitario * a.cantidadAsignada;
-      }
-    }
-    if (tieneData && inicialTotal > 0) {
-      const ahorro = inicialTotal - finalTotal;
-      precioChart.push({
-        numero: lic.numero,
-        jerarquia: lic.jerarquia ?? null,
-        precioInicial: inicialTotal,
-        precioFinal: finalTotal,
-        ahorro,
-        ahorroPercent: Math.round((ahorro / inicialTotal) * 1000) / 10,
-      });
-    }
-  }
-
-  // ── Graph 2: Ahorro por material ──────────────────────────────────────────
-  const matMap = new Map<
-    string,
-    {
-      productoNombre: string;
-      familia: string | null;
-      cantidadTotal: number;
-      objSum: number;
-      adjSum: number;
-      adjCant: number;
-      ahorroTotal: number;
-    }
-  >();
-  for (const lic of licitaciones) {
-    for (const item of lic.items) {
-      if (!item.asignaciones.length) continue;
-      const nombre: string = item.producto.nombre;
-      const e = matMap.get(nombre) ?? {
-        productoNombre: nombre,
-        familia: item.producto.familia ?? null,
-        cantidadTotal: 0,
-        objSum: 0,
-        adjSum: 0,
-        adjCant: 0,
-        ahorroTotal: 0,
-      };
-      e.cantidadTotal += item.cantidadSolicitada || 0;
-      for (const a of item.asignaciones) {
-        const obj = item.precioObjetivo ?? a.precioUnitario;
-        e.objSum += obj * a.cantidadAsignada;
-        e.adjSum += a.precioUnitario * a.cantidadAsignada;
-        e.adjCant += a.cantidadAsignada;
-        e.ahorroTotal += (obj - a.precioUnitario) * a.cantidadAsignada;
-      }
-      matMap.set(nombre, e);
-    }
-  }
-  const ahorroMaterial: TableroData["ahorroMaterial"] = Array.from(matMap.values())
-    .filter((m) => m.ahorroTotal > 0)
-    .sort((a: any, b: any) => b.ahorroTotal - a.ahorroTotal)
-    .map((m) => ({
-      productoNombre: m.productoNombre,
-      familia: m.familia,
-      cantidadTotal: m.cantidadTotal,
-      precioObjetivoPromedio: m.adjCant > 0 ? m.objSum / m.adjCant : 0,
-      precioAdjudicadoPromedio: m.adjCant > 0 ? m.adjSum / m.adjCant : 0,
-      ahorroTotal: m.ahorroTotal,
-    }));
 
   // ── Graph 3: On-time delivery por proveedor ───────────────────────────────
   const provMap = new Map<

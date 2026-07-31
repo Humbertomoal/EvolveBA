@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { crearOrdenesCompraParaLicitacion } from "./ordenesUtils";
+import { registrarCambioEstado, getUsuarioIdActual } from "./estadoLog";
 
 export type FilaAsignacion = {
   licitacionItemId: string;
@@ -31,6 +32,11 @@ export async function confirmarAsignacionesAction(
     Date.now() + tiempoConfirmacionHoras * 60 * 60 * 1000
   );
 
+  const anterior = await prisma.licitacion.findUnique({
+    where: { id: licitacionId },
+    select: { estado: true },
+  });
+
   await prisma.$transaction([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).asignacionMaterial.createMany({
@@ -57,6 +63,14 @@ export async function confirmarAsignacionesAction(
     }),
   ]);
 
+  // Best-effort tras la transacción principal (no la tumba si falla el log).
+  await registrarCambioEstado(
+    licitacionId,
+    anterior?.estado ?? null,
+    "Finalizada",
+    await getUsuarioIdActual()
+  );
+
   // OC no se crea aquí: estatus sigue "Pendiente". Se crea al confirmar/forzar cierre.
 
   revalidar(basePath, licitacionId);
@@ -67,6 +81,11 @@ export async function finalizarSinEsperarAction(
   filas: FilaAsignacion[],
   basePath: string
 ): Promise<void> {
+  const anterior = await prisma.licitacion.findUnique({
+    where: { id: licitacionId },
+    select: { estado: true },
+  });
+
   await prisma.$transaction([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).asignacionMaterial.createMany({
@@ -92,6 +111,13 @@ export async function finalizarSinEsperarAction(
       data: { estado: "Finalizada", fechaFinalizada: new Date() },
     }),
   ]);
+
+  await registrarCambioEstado(
+    licitacionId,
+    anterior?.estado ?? null,
+    "Finalizada",
+    await getUsuarioIdActual()
+  );
 
   await crearOrdenesCompraParaLicitacion(licitacionId);
 

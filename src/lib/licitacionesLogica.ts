@@ -1,4 +1,5 @@
 import { prisma } from "@/src/lib/prisma";
+import { registrarCambioEstado, ESTADO_ESPERANDO_DECISION } from "@/src/lib/estadoLog";
 
 export async function verificarYActualizarEstado(licitacionId: string): Promise<void> {
   const lic = await prisma.licitacion.findUnique({
@@ -29,6 +30,8 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
       where: { id: licitacionId },
       data: { estado: "En Proceso", rondaActual: 1, inicioRondaActual: now, fechaInicioLicitacion: now },
     });
+    // Transición automática (por tiempo): sin usuario.
+    await registrarCambioEstado(licitacionId, "Programada", "En Proceso", null);
     return;
   }
 
@@ -54,5 +57,12 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
       where: { id: licitacionId },
       data: { esperandoDecision: true, fechaFinReal: now, fechaEsperandoDecision: now },
     });
+    // Entra a la etapa "Esperando Decisión" (automática, sin usuario).
+    await registrarCambioEstado(
+      licitacionId,
+      "En Proceso",
+      ESTADO_ESPERANDO_DECISION,
+      null
+    );
   }
 }

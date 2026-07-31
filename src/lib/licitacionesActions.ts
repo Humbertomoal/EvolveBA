@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { parsearFechaMexico } from "@/src/lib/dateUtils";
 import { getTiposCambioActuales } from "@/src/lib/getCatalogos";
+import { registrarCambioEstado, getUsuarioIdActual } from "@/src/lib/estadoLog";
 
 type ItemInput = {
   productoId: string;
@@ -137,6 +138,14 @@ export async function crearLicitacionAction(
       ...(esManualEnProceso ? { rondaActual: 1, inicioRondaActual: new Date(), fechaInicioLicitacion: new Date() } : {}),
     },
   });
+
+  // Primera entrada de la bitácora: creación (estadoAnterior null).
+  await registrarCambioEstado(
+    licitacion.id,
+    null,
+    licitacion.estado,
+    await getUsuarioIdActual()
+  );
 
   const itemsValidos = datos.items.filter((item) => item.productoId !== "");
   if (itemsValidos.length > 0) {
@@ -283,6 +292,14 @@ export async function actualizarLicitacionAction(
   }
 
   const estadoFinal = esFutura ? "Programada" : datos.estado;
+
+  // Registra el cambio de estado si lo hubo (el helper ignora anterior===nuevo).
+  await registrarCambioEstado(
+    id,
+    estadoPrevio,
+    estadoFinal,
+    await getUsuarioIdActual()
+  );
 
   revalidatePath(`${basePath}/comprador/licitaciones`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);

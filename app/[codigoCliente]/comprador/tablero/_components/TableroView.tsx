@@ -225,8 +225,8 @@ export default function TableroView({
                   <th className="pb-2 pr-4">Material</th>
                   <th className="pb-2 pr-4">Categoría</th>
                   <th className="pb-2 pr-4 text-right">Cantidad total</th>
-                  <th className="pb-2 pr-4 text-right">P. objetivo prom.</th>
-                  <th className="pb-2 pr-4 text-right">P. adjudicado prom.</th>
+                  <th className="pb-2 pr-4 text-right">P. primera ronda prom.</th>
+                  <th className="pb-2 pr-4 text-right">P. mejor prom.</th>
                   <th className="pb-2 text-right">Ahorro total</th>
                 </tr>
               </thead>
@@ -236,8 +236,8 @@ export default function TableroView({
                     <td className="py-2 pr-4 font-medium">{row.productoNombre}</td>
                     <td className="py-2 pr-4 text-zinc-500">{row.familia ?? "—"}</td>
                     <td className="py-2 pr-4 text-right">{row.cantidadTotal.toLocaleString("es-MX")}</td>
-                    <td className="py-2 pr-4 text-right">${fmt(row.precioObjetivoPromedio)}</td>
-                    <td className="py-2 pr-4 text-right">${fmt(row.precioAdjudicadoPromedio)}</td>
+                    <td className="py-2 pr-4 text-right">${fmt(row.precioPrimeraRondaPromedio)}</td>
+                    <td className="py-2 pr-4 text-right">${fmt(row.precioMejorPromedio)}</td>
                     <td className="py-2 text-right font-medium text-green-600">${fmt(row.ahorroTotal)}</td>
                   </tr>
                 ))}
