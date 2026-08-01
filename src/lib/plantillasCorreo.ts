@@ -175,3 +175,27 @@ export function generarTablaGanadores(asignaciones: ItemTablaGanador[]): string 
     })
     .join("\n");
 }
+
+export type ItemMaterialGanado = {
+  material: string;
+  cantidad: number;
+  unidad: string;
+  precioUnitario: number;
+  moneda: string;
+};
+
+/**
+ * Tabla (texto plano) de los materiales que ganó UN proveedor — para el correo
+ * NOTIFICACION_GANADORES, que ya va dirigido a ese proveedor (por eso, a
+ * diferencia de generarTablaGanadores, no incluye la columna "proveedor").
+ * Muestra material, cantidad y precio asignado; respeta multi-moneda por línea.
+ */
+export function generarTablaMaterialesGanados(items: ItemMaterialGanado[]): string {
+  if (items.length === 0) return "Sin materiales.";
+  return items
+    .map((i) => {
+      const subtotal = i.cantidad * i.precioUnitario;
+      return `- ${i.material}: ${i.cantidad.toLocaleString("es-MX")} ${i.unidad} × ${formatImporte(i.precioUnitario, i.moneda)} = ${formatImporte(subtotal, i.moneda)}`;
+    })
+    .join("\n");
+}

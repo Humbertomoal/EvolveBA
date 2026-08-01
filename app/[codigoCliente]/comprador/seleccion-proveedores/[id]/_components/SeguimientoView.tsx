@@ -24,6 +24,12 @@ import {
   prepararResultadoInternoAction,
   type DatosResultadoInterno,
 } from "@/src/lib/resultadoInternoActions";
+import {
+  prepararNotificacionesGanadoresAction,
+  type DatosNotificacionesGanadores,
+} from "@/src/lib/notificacionesGanadoresActions";
+import type { TipoCorreo } from "@/src/lib/plantillasCorreo";
+import type { AdjuntoCorreo } from "@/src/lib/emailService";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import ModalCorreo from "@/src/components/ModalCorreo";
@@ -193,6 +199,26 @@ ${[...grupos.entries()]
   w.document.close();
 }
 
+// Un paso de la cola de correos (props que se pasan a ModalCorreo).
+type PasoCorreo = {
+  key: string;
+  tipo: TipoCorreo;
+  tituloModal: string;
+  variables: Record<string, string>;
+  destinatarios: string[];
+  variablesPorDestinatario?: Record<string, Record<string, string>>;
+  adjuntos?: AdjuntoCorreo[];
+  aviso?: string;
+};
+
+// Aviso (para el modal) de cuántos proveedores quedaron fuera por no tener correo.
+function avisoExcluidos(n: number): string | undefined {
+  if (n <= 0) return undefined;
+  return `${n} proveedor${n === 1 ? "" : "es"} sin correo ${
+    n === 1 ? "quedó" : "quedaron"
+  } fuera de esta notificación.`;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SeguimientoView({
@@ -213,8 +239,9 @@ export default function SeguimientoView({
   const [modalReasignar, setModalReasignar] = useState<AsignacionDetalle | null>(null);
   const [nuevoProveedorId, setNuevoProveedorId] = useState<string>("");
   const [ejecutando, setEjecutando] = useState(false);
-  const [modalResultadoInterno, setModalResultadoInterno] =
-    useState<DatosResultadoInterno | null>(null);
+  // Cola secuencial de correos tras forzar cierre: RESULTADO_INTERNO →
+  // GANADORES → NO_GANADORES (misma mecánica que AsignacionForm).
+  const [colaCorreos, setColaCorreos] = useState<PasoCorreo[]>([]);
 
   const todosConfirmados = asignaciones.every(
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
@@ -257,21 +284,64 @@ export default function SeguimientoView({
       return;
     setEjecutando(true);
     await forzarCierreSeleccionAction(licitacion.id, basePath);
-    // forzarCierreSeleccionAction crea las OC restantes — cierre formal, así
-    // que aquí también se ofrece RESULTADO_INTERNO. router.refresh() se
-    // retrasa hasta cerrar el modal (ver AsignacionForm.tsx para el motivo).
-    const datos = await prepararResultadoInternoAction(licitacion.id);
+    // forzarCierreSeleccionAction crea las OC restantes. El router.refresh() se
+    // retrasa hasta VACIAR la cola de correos (ver AsignacionForm.tsx).
+    const [resultado, notif] = await Promise.all([
+      prepararResultadoInternoAction(licitacion.id),
+      prepararNotificacionesGanadoresAction(licitacion.id),
+    ]);
     setEjecutando(false);
-    if (datos.destinatarios.length > 0) {
-      setModalResultadoInterno(datos);
-    } else {
-      router.refresh();
-    }
+    iniciarColaCorreos(resultado, notif);
   }
 
-  function cerrarModalResultadoInterno() {
-    setModalResultadoInterno(null);
-    router.refresh();
+  // Arma y arranca la cola RESULTADO_INTERNO → GANADORES → NO_GANADORES,
+  // incluyendo solo los pasos con destinatarios. Si ninguno tiene, refresca.
+  function iniciarColaCorreos(
+    resultado: DatosResultadoInterno,
+    notif: DatosNotificacionesGanadores
+  ) {
+    const pasos: PasoCorreo[] = [];
+    if (resultado.destinatarios.length > 0) {
+      pasos.push({
+        key: "resultado",
+        tipo: "RESULTADO_INTERNO",
+        tituloModal: "Resultados internos",
+        variables: resultado.variables,
+        destinatarios: resultado.destinatarios,
+        adjuntos: resultado.adjuntos,
+      });
+    }
+    if (notif.ganadores.destinatarios.length > 0) {
+      pasos.push({
+        key: "ganadores",
+        tipo: "NOTIFICACION_GANADORES",
+        tituloModal: "Notificar a ganadores",
+        variables: notif.ganadores.variables,
+        destinatarios: notif.ganadores.destinatarios,
+        variablesPorDestinatario: notif.ganadores.variablesPorDestinatario,
+        aviso: avisoExcluidos(notif.ganadores.excluidos),
+      });
+    }
+    if (notif.noGanadores.destinatarios.length > 0) {
+      pasos.push({
+        key: "noGanadores",
+        tipo: "NOTIFICACION_NO_GANADORES",
+        tituloModal: "Notificar a no ganadores",
+        variables: notif.noGanadores.variables,
+        destinatarios: notif.noGanadores.destinatarios,
+        variablesPorDestinatario: notif.noGanadores.variablesPorDestinatario,
+        aviso: avisoExcluidos(notif.noGanadores.excluidos),
+      });
+    }
+    if (pasos.length > 0) setColaCorreos(pasos);
+    else router.refresh();
+  }
+
+  // Cierra/envía el modal actual y avanza; al vaciar la cola, recién refresca.
+  function avanzarCola() {
+    const resto = colaCorreos.slice(1);
+    setColaCorreos(resto);
+    if (resto.length === 0) router.refresh();
   }
 
   async function handleReasignar() {
@@ -626,17 +696,21 @@ export default function SeguimientoView({
         </div>
       )}
 
-      {/* ── Modal: correo de resultados internos (comprador + supervisor) ─── */}
-      {modalResultadoInterno && (
+      {/* ── Cola de correos: RESULTADO_INTERNO → GANADORES → NO_GANADORES ──── */}
+      {colaCorreos.length > 0 && (
         <ModalCorreo
+          key={colaCorreos[0].key}
           abierto
-          onCerrar={cerrarModalResultadoInterno}
-          onEnviado={cerrarModalResultadoInterno}
-          tipo="RESULTADO_INTERNO"
+          onCerrar={avanzarCola}
+          onEnviado={avanzarCola}
+          tipo={colaCorreos[0].tipo}
+          tituloModal={colaCorreos[0].tituloModal}
           codigoCliente={codigoCliente}
-          variables={modalResultadoInterno.variables}
-          destinatarios={modalResultadoInterno.destinatarios}
-          adjuntos={modalResultadoInterno.adjuntos}
+          variables={colaCorreos[0].variables}
+          destinatarios={colaCorreos[0].destinatarios}
+          variablesPorDestinatario={colaCorreos[0].variablesPorDestinatario}
+          adjuntos={colaCorreos[0].adjuntos}
+          aviso={colaCorreos[0].aviso}
         />
       )}
     </div>

@@ -30,6 +30,7 @@ export default function ModalCorreo({
   aviso,
   variablesPorDestinatario,
   notaPersonalizacion,
+  tituloModal,
 }: {
   abierto: boolean;
   onCerrar: () => void;
@@ -53,6 +54,8 @@ export default function ModalCorreo({
   variablesPorDestinatario?: Record<string, Record<string, string>>;
   /** Nota informativa mostrada arriba del cuerpo cuando hay personalización por destinatario. */
   notaPersonalizacion?: string;
+  /** Título del header del modal. Si se omite, usa el título por defecto. */
+  tituloModal?: string;
 }) {
   const [cargando, setCargando] = useState(true);
   const [asuntoOriginal, setAsuntoOriginal] = useState("");
@@ -166,7 +169,7 @@ export default function ModalCorreo({
           <div className="flex items-center gap-2">
             <IconMail className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-zinc-900">
-              {tipo ? "Vista previa del correo" : "Redactar correo"}
+              {tituloModal ?? (tipo ? "Vista previa del correo" : "Redactar correo")}
             </h2>
           </div>
           <button
