@@ -154,6 +154,14 @@ model LicitacionItem {
   asignaciones AsignacionMaterial[]
 }
 
+// OJO CON LA MONEDA: la moneda de una línea vive en LicitacionItem.moneda — la
+// fija el comprador al crear la licitación y el proveedor cotiza EN esa moneda
+// (no elige la suya). El campo `moneda` de aquí abajo NO se escribe en ningún
+// lado (ni ofertasActions.ts ni capturaManualActions.ts lo mandan en el create),
+// así que siempre vale su default "MXN" y NO es confiable: leerlo para mostrar o
+// guardar importes reintroduce el bug de "1,500 USD se muestra como 1,500 MXN".
+// Si algún día se decide que el proveedor pueda cotizar en otra moneda, hay que
+// poblarlo explícitamente y migrar las filas existentes antes de confiar en él.
 model OfertaItem {
   id                   String         @id @default(cuid())
   licitacionItemId     String
@@ -165,7 +173,7 @@ model OfertaItem {
   cantidadDisponible   Float
   puedeCumplirFecha    Boolean        @default(true)
   fechaEstimadaEntrega DateTime?
-  moneda               String         @default("MXN")
+  moneda               String         @default("MXN") // NO CONFIAR — ver nota arriba; la buena es LicitacionItem.moneda
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 

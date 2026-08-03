@@ -38,6 +38,10 @@ export default async function DetalleSeleccionPage({
           cantidadSolicitada: true,
           fechaEntrega: true,
           createdAt: true,
+          // La moneda de la línea vive en LicitacionItem (NO en OfertaItem, ver
+          // schema.prisma). Sin este campo cada línea caía al default "MXN" y
+          // los subtotales de un material en USD se mostraban y GUARDABAN en MXN.
+          moneda: true,
           producto: { select: { nombre: true, unidadMedida: true } },
         },
         orderBy: { createdAt: "asc" },
@@ -81,7 +85,10 @@ export default async function DetalleSeleccionPage({
   });
 
   // ── Construir items para la forma de asignación ──────────────────────────────
-  const items: ItemParaAsignacion[] = licitacion.items.map((item: any) => {
+  // `item` sin anotar como `any` a propósito: así el tipo inferido por Prisma
+  // manda, y si alguien vuelve a quitar `moneda` del select de arriba esto deja
+  // de compilar en vez de caer silenciosamente a "MXN".
+  const items: ItemParaAsignacion[] = licitacion.items.map((item) => {
     const itemOfertas = todasLasOfertas.filter(
       (o: any) => o.licitacionItemId === item.id
     );
@@ -112,8 +119,7 @@ export default async function DetalleSeleccionPage({
       unidadMedida: item.producto.unidadMedida,
       cantidadSolicitada: item.cantidadSolicitada,
       fechaEntrega: item.fechaEntrega?.toISOString() ?? null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      moneda: (item as any).moneda ?? "MXN",
+      moneda: item.moneda,
       ofertas,
     };
   });
@@ -157,8 +163,10 @@ export default async function DetalleSeleccionPage({
       lineasOC.map((l: any) => [l.asignacionId, l.ordenCompra.numero])
     );
 
+    // `a` sin anotar como `any`: el tipo inferido por Prisma (include trae todos
+    // los escalares, `moneda` incluida) es lo que protege este mapeo.
     const asignaciones: AsignacionDetalle[] = asignacionesExistentes.map(
-      (a: any) => {
+      (a) => {
         // Ofertas alternativas para reasignación (todos excepto el actual proveedor)
         const itemOfertas = todasLasOfertas.filter(
           (o: any) => o.licitacionItemId === a.licitacionItemId
@@ -189,8 +197,9 @@ export default async function DetalleSeleccionPage({
           licitacionItemId: a.licitacionItemId,
           productoNombre: a.licitacionItem.producto.nombre,
           unidadMedida: a.licitacionItem.producto.unidadMedida,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          moneda: (a as any).moneda ?? "MXN",
+          // Moneda congelada al asignar. OJO: en filas creadas antes del fix del
+          // select de arriba puede venir "MXN" aunque el material fuera USD.
+          moneda: a.moneda,
           proveedorId: a.proveedorId,
           proveedorNombre: a.proveedor.razonSocial,
           cantidadAsignada: a.cantidadAsignada,
