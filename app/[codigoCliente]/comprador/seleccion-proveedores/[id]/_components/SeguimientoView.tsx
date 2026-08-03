@@ -4,6 +4,7 @@ import {
   IconCheck,
   IconClock,
   IconDownload,
+  IconPencil,
   IconRefresh,
   IconX,
 } from "@tabler/icons-react";
@@ -11,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  editarAsignacionPendienteAction,
   finalizarLicitacionAction,
   forzarCierreSeleccionAction,
   reasignarProveedorAction,
@@ -212,6 +214,14 @@ type PasoCorreo = {
   aviso?: string;
 };
 
+// Cantidades en Float: se comparan con tolerancia para no marcar descuadre por
+// el error de redondeo de un 0.1 + 0.2 (mismo criterio que AsignacionForm).
+const EPSILON_CANTIDAD = 0.001;
+
+function fmtCantidad(n: number): string {
+  return n.toLocaleString("es-MX", { maximumFractionDigits: 4 });
+}
+
 // Aviso (para el modal) de cuántos proveedores quedaron fuera por no tener correo.
 function avisoExcluidos(n: number): string | undefined {
   if (n <= 0) return undefined;
@@ -282,6 +292,10 @@ export default function SeguimientoView({
   const [modalReasignar, setModalReasignar] = useState<AsignacionDetalle | null>(null);
   const [nuevoProveedorId, setNuevoProveedorId] = useState<string>("");
   const [ejecutando, setEjecutando] = useState(false);
+  // Edición de una asignación aún no validada por el proveedor.
+  const [modalEditar, setModalEditar] = useState<AsignacionDetalle | null>(null);
+  const [editCantidad, setEditCantidad] = useState<string>("");
+  const [editFecha, setEditFecha] = useState<string>("");
   // Cola secuencial de correos tras forzar cierre: RESULTADO_INTERNO →
   // GANADORES → NO_GANADORES (misma mecánica que AsignacionForm).
   const [colaCorreos, setColaCorreos] = useState<PasoCorreo[]>([]);
@@ -447,6 +461,64 @@ export default function SeguimientoView({
     setModalReasignar(a);
   }
 
+  // Suma ya asignada de un material EXCLUYENDO una fila (la que se está
+  // editando), para calcular cómo quedaría la cobertura con el valor nuevo.
+  // Un material puede estar repartido entre proveedor primario y secundario.
+  function sumaAsignadaDelItem(licitacionItemId: string, excluirId: string): number {
+    return asignaciones
+      .filter((a) => a.licitacionItemId === licitacionItemId && a.id !== excluirId)
+      .reduce((suma, a) => suma + a.cantidadAsignada, 0);
+  }
+
+  function openEditar(a: AsignacionDetalle) {
+    setEditCantidad(String(a.cantidadAsignada));
+    setEditFecha(
+      a.fechaEstimadaProveedor
+        ? new Date(a.fechaEstimadaProveedor).toISOString().split("T")[0]
+        : ""
+    );
+    setModalEditar(a);
+  }
+
+  async function handleEditar() {
+    if (!modalEditar) return;
+    const cantidad = parseFloat(editCantidad);
+    if (!Number.isFinite(cantidad) || cantidad < 0) return;
+
+    // Aviso (no bloqueo) si la edición deja el material descuadrado: el
+    // comprador tiene la última palabra, igual que en AsignacionForm.
+    const otras = sumaAsignadaDelItem(modalEditar.licitacionItemId, modalEditar.id);
+    const nuevaSuma = otras + cantidad;
+    if (Math.abs(nuevaSuma - modalEditar.cantidadSolicitada) >= EPSILON_CANTIDAD) {
+      const diff = nuevaSuma - modalEditar.cantidadSolicitada;
+      const detalle =
+        diff < 0
+          ? `faltarían ${fmtCantidad(-diff)} ${modalEditar.unidadMedida}`
+          : `sobrarían ${fmtCantidad(diff)} ${modalEditar.unidadMedida}`;
+      const ok = window.confirm(
+        `Con este cambio, ${modalEditar.productoNombre} quedaría en ${fmtCantidad(nuevaSuma)} de ${fmtCantidad(modalEditar.cantidadSolicitada)} ${modalEditar.unidadMedida} (${detalle}).\n\nLa orden de compra se generará con la cantidad asignada.\n\n¿Guardar de todas formas?`
+      );
+      if (!ok) return;
+    }
+
+    setEjecutando(true);
+    const { actualizada } = await editarAsignacionPendienteAction(
+      modalEditar.id,
+      cantidad,
+      editFecha || null,
+      licitacion.id,
+      basePath
+    );
+    setEjecutando(false);
+    setModalEditar(null);
+    if (!actualizada) {
+      window.alert(
+        "Este material ya fue validado por el proveedor, así que no se guardaron los cambios. Se recargará la pantalla con el estado actual."
+      );
+    }
+    router.refresh();
+  }
+
   const CELL = "px-3 py-3 text-sm";
 
   return (
@@ -604,7 +676,20 @@ export default function SeguimientoView({
                     <span className="text-zinc-300">—</span>
                   )}
                 </td>
+                {/* Acciones: los tres casos son mutuamente excluyentes.
+                    Pendiente → Editar · Rechazado → Reasignar ·
+                    Aprobado/Confirmado → nada (ya validado, con OC emitida). */}
                 <td className={CELL}>
+                  {a.estatusProveedor === "Pendiente" && (
+                    <button
+                      type="button"
+                      onClick={() => openEditar(a)}
+                      className="flex items-center gap-1 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                      <IconPencil className="h-3.5 w-3.5" />
+                      Editar
+                    </button>
+                  )}
                   {a.estatusProveedor === "Rechazado" && (
                     <button
                       type="button"
@@ -683,6 +768,104 @@ export default function SeguimientoView({
         licitacionNumero={licitacion.numero}
         proveedoresParticipantes={proveedoresParticipantes}
       />
+
+      {/* Modal: Editar asignación pendiente */}
+      {modalEditar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-md flex-col rounded-xl bg-white shadow-xl">
+            <div className="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-zinc-900">
+                  Editar asignación
+                </h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {modalEditar.productoNombre} — {modalEditar.proveedorNombre}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalEditar(null)}
+                className="shrink-0 rounded-md p-1 text-zinc-400 hover:text-zinc-700"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <p className="rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                Solicitado del material:{" "}
+                <span className="font-medium text-zinc-800">
+                  {fmtCantidad(modalEditar.cantidadSolicitada)} {modalEditar.unidadMedida}
+                </span>
+                {sumaAsignadaDelItem(modalEditar.licitacionItemId, modalEditar.id) > 0 && (
+                  <>
+                    {" · "}ya asignado a otros proveedores:{" "}
+                    <span className="font-medium text-zinc-800">
+                      {fmtCantidad(
+                        sumaAsignadaDelItem(modalEditar.licitacionItemId, modalEditar.id)
+                      )}{" "}
+                      {modalEditar.unidadMedida}
+                    </span>
+                  </>
+                )}
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-500">
+                  Cantidad asignada ({modalEditar.unidadMedida})
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={editCantidad}
+                  onChange={(e) => setEditCantidad(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-500">
+                  Fecha estimada del proveedor
+                </label>
+                <input
+                  type="date"
+                  value={editFecha}
+                  onChange={(e) => setEditFecha(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <p className="text-[11px] text-zinc-400">
+                  Fecha objetivo: {formatFecha(modalEditar.fechaObjetivo)}. Vacío = sin
+                  estimado.
+                </p>
+              </div>
+
+              <p className="text-[11px] text-zinc-500">
+                El proveedor validará sobre estos valores. Editar no reinicia su plazo
+                de confirmación ni cambia el estatus.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setModalEditar(null)}
+                className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleEditar}
+                disabled={ejecutando || !(parseFloat(editCantidad) >= 0)}
+                className="rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:opacity-50"
+              >
+                {ejecutando ? "Guardando…" : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Reasignar */}
       {modalReasignar && (

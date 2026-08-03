@@ -197,6 +197,7 @@ export default async function DetalleSeleccionPage({
           licitacionItemId: a.licitacionItemId,
           productoNombre: a.licitacionItem.producto.nombre,
           unidadMedida: a.licitacionItem.producto.unidadMedida,
+          cantidadSolicitada: a.licitacionItem.cantidadSolicitada,
           // Moneda congelada al asignar. OJO: en filas creadas antes del fix del
           // select de arriba puede venir "MXN" aunque el material fuera USD.
           moneda: a.moneda,

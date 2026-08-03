@@ -204,6 +204,47 @@ export async function reasignarProveedorAction(
 }
 
 /**
+ * Ajusta cantidad y fecha estimada de una asignación MIENTRAS el proveedor no
+ * la haya validado. El comprador tiene la última palabra: la edición es final y
+ * el proveedor validará sobre el valor editado.
+ *
+ * El candado vive en el `where`, no en la UI. Con `updateMany` filtrando por
+ * `estatusProveedor: "Pendiente"`, si el proveedor valida entre que se pintó la
+ * pantalla y que el comprador guarda, el update NO aplica y `count` vuelve 0 —
+ * el cliente avisa y recarga. Un `update` por id pisaría una asignación ya
+ * aprobada (que además ya tiene orden de compra emitida).
+ *
+ * Deliberadamente NO toca `estatusProveedor`, `fechaLimiteConfirmacion`,
+ * `fechaConfirmacion` ni `motivoRechazo`: editar no re-dispara la validación ni
+ * reinicia el plazo que ya está corriendo.
+ */
+export async function editarAsignacionPendienteAction(
+  asignacionId: string,
+  cantidadAsignada: number,
+  fechaEstimadaProveedor: string | null,
+  licitacionId: string,
+  basePath: string
+): Promise<{ actualizada: boolean }> {
+  const { count } = await prisma.asignacionMaterial.updateMany({
+    where: { id: asignacionId, estatusProveedor: "Pendiente" },
+    data: {
+      cantidadAsignada,
+      fechaEstimadaProveedor: fechaEstimadaProveedor
+        ? new Date(fechaEstimadaProveedor)
+        : null,
+    },
+  });
+
+  if (count === 0) return { actualizada: false };
+
+  // Revalidación normal: esta acción no crea asignaciones, así que la vista
+  // sigue siendo SeguimientoView y no hay cola de correos abierta que tumbar
+  // (a diferencia de confirmar/finalizar, ver revalidarSeleccionAction).
+  revalidar(basePath, licitacionId);
+  return { actualizada: true };
+}
+
+/**
  * "Dar por validadas las pendientes": atajo DENTRO de la etapa de validación
  * para cuando un proveedor no responde en su plazo. Pasa las asignaciones
  * Pendiente → Aprobado y crea las OC que falten.

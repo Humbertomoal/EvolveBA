@@ -25,6 +25,9 @@ export type AsignacionDetalle = {
   licitacionItemId: string;
   productoNombre: string;
   unidadMedida: string;
+  // Cantidad pedida del material (de LicitacionItem). Referencia para el modal
+  // de edición y para avisar si la suma asignada deja de cuadrar.
+  cantidadSolicitada: number;
   moneda: string;
   proveedorId: string;
   proveedorNombre: string;
