@@ -285,6 +285,8 @@ export default async function DetalleLicitacionPage({
       proveedorId={proveedorId}
       basePath={basePath}
       items={items}
+      tiposCambio={licitacion.tiposCambio}
+      monedaConsolidacion={(licitacion as { monedaConsolidacion?: string }).monedaConsolidacion ?? "MXN"}
       noLeidosInicial={noLeidosInicial}
     />
   );

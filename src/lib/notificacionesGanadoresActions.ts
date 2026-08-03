@@ -152,10 +152,22 @@ export async function prepararNotificacionesGanadoresAction(
       numeroLicitacion
     );
 
+    // TEMP diagnóstico: conteos de datos y destinatarios de cada grupo.
+    console.log("###COLA_CORREOS### [notificaciones]", {
+      asignaciones: asignaciones.length,
+      proveedoresGanadores: ganadoresMap.size,
+      ofertasFilas: ofertas.length,
+      proveedoresNoGanadores: noGanadoresMap.size,
+      ganadoresDestinatarios: ganadores.destinatarios.length,
+      ganadoresExcluidos: ganadores.excluidos,
+      noGanadoresDestinatarios: noGanadores.destinatarios.length,
+      noGanadoresExcluidos: noGanadores.excluidos,
+    });
+
     return { ganadores, noGanadores };
   } catch (error) {
     console.error(
-      "[prepararNotificacionesGanadoresAction] fallo preparando notificaciones",
+      "###COLA_CORREOS### [notificaciones] fallo preparando notificaciones",
       error
     );
     return VACIO;

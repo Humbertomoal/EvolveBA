@@ -284,12 +284,18 @@ export default function SeguimientoView({
       return;
     setEjecutando(true);
     await forzarCierreSeleccionAction(licitacion.id, basePath);
+    console.log("###COLA_CORREOS### [SeguimientoView] forzarCierreSeleccionAction OK");
     // forzarCierreSeleccionAction crea las OC restantes. El router.refresh() se
     // retrasa hasta VACIAR la cola de correos (ver AsignacionForm.tsx).
     const [resultado, notif] = await Promise.all([
       prepararResultadoInternoAction(licitacion.id),
       prepararNotificacionesGanadoresAction(licitacion.id),
     ]);
+    console.log("###COLA_CORREOS### [SeguimientoView] preparación lista", {
+      resultadoDestinatarios: resultado.destinatarios.length,
+      ganadoresDestinatarios: notif.ganadores.destinatarios.length,
+      noGanadoresDestinatarios: notif.noGanadores.destinatarios.length,
+    });
     setEjecutando(false);
     iniciarColaCorreos(resultado, notif);
   }
@@ -333,6 +339,11 @@ export default function SeguimientoView({
         aviso: avisoExcluidos(notif.noGanadores.excluidos),
       });
     }
+    console.log("###COLA_CORREOS### [SeguimientoView] iniciarColaCorreos", {
+      pasos: pasos.map((p) => p.key),
+      total: pasos.length,
+      accion: pasos.length > 0 ? "setColaCorreos" : "router.refresh (cola vacía)",
+    });
     if (pasos.length > 0) setColaCorreos(pasos);
     else router.refresh();
   }

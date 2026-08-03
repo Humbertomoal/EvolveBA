@@ -26,6 +26,7 @@ import {
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { MONEDAS } from "@/src/lib/monedas";
+import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { formatFechaMexico, parsearFechaMexico } from "@/src/lib/dateUtils";
 import { generarTablaMateriales, type ItemTablaMaterial } from "@/src/lib/plantillasCorreo";
 import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
@@ -764,9 +765,17 @@ Asistente de Inteligencia Artificial`;
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
-  // Price calculations
-  const subtotales = items.map(
-    (i) => (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0)
+  // Price calculations — cada subtotal se convierte a la moneda de consolidación
+  // (con los tipos de cambio capturados en el formulario) ANTES de sumar, para
+  // no mezclar monedas. Misma fórmula que "licitación en proceso".
+  const tiposCambioTotales = parseTiposCambio(tiposCambio);
+  const subtotales = items.map((i) =>
+    convertirAMoneda(
+      (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0),
+      i.moneda,
+      monedaConsolidacion,
+      tiposCambioTotales
+    )
   );
   const totalProductos = subtotales.reduce((s, v) => s + v, 0);
   const costoObjetivoNum = parseFloat(costoObjetivo) || 0;
@@ -1588,7 +1597,9 @@ Asistente de Inteligencia Artificial`;
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span className="text-zinc-500">
                 Total de productos:{" "}
-                <span className="font-semibold text-zinc-900">${fmt(totalProductos)}</span>
+                <span className="font-semibold text-zinc-900">
+                  ${fmt(totalProductos)} {monedaConsolidacion}
+                </span>
               </span>
               {costoObjetivoNum > 0 && (
                 mismatchTotal ? (

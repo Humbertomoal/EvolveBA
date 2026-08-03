@@ -120,6 +120,15 @@ export async function prepararResultadoInternoAction(
     ),
   ];
 
+  // TEMP diagnóstico: por qué RESULTADO_INTERNO puede quedar sin destinatarios.
+  console.log("###COLA_CORREOS### [resultadoInterno]", {
+    compradorId: licitacion.compradorId,
+    compradorEncontrado: !!comprador,
+    compradorEmail: comprador?.email ?? null,
+    supervisoresConEmail: supervisores.filter((s) => s.email).length,
+    destinatarios: destinatarios.length,
+  });
+
   const variables: Record<string, string> = {
     numeroLicitacion: licitacion.numero,
     nombreComprador: comprador ? `${comprador.nombre} ${comprador.apellido}`.trim() : "",

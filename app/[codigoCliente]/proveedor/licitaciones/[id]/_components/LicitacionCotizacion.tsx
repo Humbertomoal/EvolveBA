@@ -13,6 +13,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import { enviarOfertaAction } from "@/src/lib/ofertasActions";
 import { formatImporte } from "@/src/lib/monedas";
+import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
 
@@ -116,6 +117,8 @@ export default function LicitacionCotizacion({
   proveedorId,
   basePath,
   items,
+  tiposCambio,
+  monedaConsolidacion = "MXN",
   noLeidosInicial = 0,
   nombreComprador = "Comprador",
 }: {
@@ -134,6 +137,8 @@ export default function LicitacionCotizacion({
   proveedorId: string;
   basePath: string;
   items: ItemDetalle[];
+  tiposCambio?: unknown;
+  monedaConsolidacion?: string;
   noLeidosInicial?: number;
   nombreComprador?: string;
 }) {
@@ -268,7 +273,18 @@ export default function LicitacionCotizacion({
       return acc;
     }, {} as Record<string, number>);
   }, [filas, items]);
-  const valorTotal = Object.values(totalesPorMoneda).reduce((s, v) => s + v, 0);
+  // Total consolidado: convierte cada subtotal por moneda a la moneda de
+  // consolidación con los tipos de cambio congelados de la licitación.
+  const totalConsolidado = useMemo(() => {
+    const tc = parseTiposCambio(tiposCambio);
+    return Object.entries(totalesPorMoneda).reduce(
+      (s, [moneda, total]) =>
+        s + convertirAMoneda(total, moneda, monedaConsolidacion, tc),
+      0
+    );
+  }, [totalesPorMoneda, tiposCambio, monedaConsolidacion]);
+  // Solo tiene sentido mostrar el consolidado cuando hay más de una moneda.
+  const hayVariasMonedas = Object.keys(totalesPorMoneda).length > 1;
 
   // ── Row helpers ───────────────────────────────────────────────────────────
   function setFila(idx: number, campo: keyof FilaState, valor: string | boolean) {
@@ -793,6 +809,14 @@ export default function LicitacionCotizacion({
                   {formatImporte(total as number, moneda)}
                 </p>
               ))}
+              {hayVariasMonedas && (
+                <p className="text-xs font-medium text-zinc-500">
+                  Total consolidado:{" "}
+                  <span className="font-semibold text-zinc-900">
+                    {formatImporte(totalConsolidado, monedaConsolidacion)}
+                  </span>
+                </p>
+              )}
               {Object.keys(totalesPorMoneda).length === 0 && (
                 <p className="text-2xl font-bold text-zinc-300">—</p>
               )}
