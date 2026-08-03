@@ -84,6 +84,72 @@ function esPosteriorAFechaObjetivo(
   return fechaEstimada > new Date(fechaObjetivo).toISOString().split("T")[0];
 }
 
+// ── Cobertura por material ────────────────────────────────────────────────────
+// Cuánto se está asignando de un material vs cuánto se pidió. Nada en el modelo
+// liga cantidadAsignada con cantidadSolicitada, así que sin esto se puede
+// confirmar 1 de 2 (comprar de menos) o 3 de 2 (comprar de más) en silencio, y
+// las órdenes de compra salen con esas cantidades.
+
+// Cantidades en Float: se comparan con tolerancia para no marcar descuadre por
+// el error de redondeo de un 0.1 + 0.2.
+const EPSILON_CANTIDAD = 0.001;
+
+export type CoberturaMaterial = {
+  licitacionItemId: string;
+  nombre: string;
+  unidad: string;
+  solicitada: number;
+  asignada: number;
+  /** asignada − solicitada: > 0 sobra, < 0 falta, ≈ 0 exacto. */
+  diferencia: number;
+  exacta: boolean;
+};
+
+/**
+ * Suma asignada de un material aplicando LAS MISMAS reglas de inclusión que
+ * buildFilas (proveedor elegido + oferta existente), para que el indicador
+ * refleje exactamente lo que se va a guardar y no una cuenta paralela.
+ */
+function calcularCobertura(
+  item: ItemParaAsignacion,
+  fila: ItemAsignacion | undefined
+): CoberturaMaterial {
+  const tieneOferta = (proveedorId: string) =>
+    item.ofertas.some((o) => o.proveedorId === proveedorId);
+
+  let asignada = 0;
+  if (fila?.primary.proveedorId && tieneOferta(fila.primary.proveedorId)) {
+    asignada += fila.primary.cantidad;
+  }
+  if (fila?.secondary?.proveedorId && tieneOferta(fila.secondary.proveedorId)) {
+    asignada += fila.secondary.cantidad;
+  }
+
+  const diferencia = asignada - item.cantidadSolicitada;
+  return {
+    licitacionItemId: item.licitacionItemId,
+    nombre: item.productoNombre,
+    unidad: item.unidadMedida,
+    solicitada: item.cantidadSolicitada,
+    asignada,
+    diferencia,
+    exacta: Math.abs(diferencia) < EPSILON_CANTIDAD,
+  };
+}
+
+function fmtCantidad(n: number): string {
+  return n.toLocaleString("es-MX", { maximumFractionDigits: 4 });
+}
+
+/** Texto del indicador: "2 de 2 asignadas" · "1 de 2 · falta 1" · "3 de 2 · sobra 1". */
+function textoCobertura(c: CoberturaMaterial): string {
+  const base = `${fmtCantidad(c.asignada)} de ${fmtCantidad(c.solicitada)}`;
+  if (c.exacta) return `${base} asignadas`;
+  return c.diferencia < 0
+    ? `${base} · falta ${fmtCantidad(-c.diferencia)}`
+    : `${base} · sobra ${fmtCantidad(c.diferencia)}`;
+}
+
 function initAsignacion(
   items: ItemParaAsignacion[]
 ): Record<string, ItemAsignacion> {
@@ -472,6 +538,28 @@ export default function AsignacionForm({
     });
   }
 
+  // Cobertura de cada material (vive en el render: se recalcula en cada tecla).
+  const coberturas = items.map((item) =>
+    calcularCobertura(item, asignacion[item.licitacionItemId])
+  );
+  const coberturaPorItem = new Map(coberturas.map((c) => [c.licitacionItemId, c]));
+  const descuadres = coberturas.filter((c) => !c.exacta);
+
+  /**
+   * Avisa (sin bloquear) si algún material no queda exactamente cubierto. El
+   * comprador puede querer comprar de menos a propósito, así que solo se le
+   * pide confirmar. Devuelve false si decide regresar a corregir.
+   */
+  function confirmarDescuadres(): boolean {
+    if (descuadres.length === 0) return true;
+    const detalle = descuadres
+      .map((c) => `• ${c.nombre}: ${textoCobertura(c)} ${c.unidad}`)
+      .join("\n");
+    return window.confirm(
+      `Hay ${descuadres.length} material(es) cuya cantidad asignada no coincide con la solicitada:\n\n${detalle}\n\nLas órdenes de compra se generarán con las cantidades asignadas.\n\n¿Continuar de todas formas?`
+    );
+  }
+
   function buildFilas(): FilaAsignacion[] {
     const filas: FilaAsignacion[] = [];
     for (const item of items) {
@@ -517,6 +605,7 @@ export default function AsignacionForm({
   // se ofrece UN solo correo (GANADOR_TENTATIVO); los no ganadores no se enteran
   // todavía — su correo sale hasta finalizar, en SeguimientoView.
   async function handleConfirmar() {
+    if (!confirmarDescuadres()) return;
     setGuardando("confirmar");
     await confirmarAsignacionesAction(licitacion.id, buildFilas(), tiempoHoras);
     console.log("###COLA_CORREOS### [AsignacionForm] confirmarAsignacionesAction OK");
@@ -565,6 +654,8 @@ export default function AsignacionForm({
   }
 
   async function handleFinalizar() {
+    // Primero el descuadre (problema con los datos), luego la intención.
+    if (!confirmarDescuadres()) return;
     if (!window.confirm("¿Finalizar sin esperar confirmación de proveedores?")) return;
     setGuardando("finalizar");
     await finalizarSinEsperarAction(licitacion.id, buildFilas());
@@ -830,12 +921,28 @@ export default function AsignacionForm({
                 (o: any) => o.proveedorId !== fila.primary.proveedorId
               );
 
+              const cobertura = coberturaPorItem.get(item.licitacionItemId);
+
               return (
                 <Fragment key={item.licitacionItemId}>
                   {/* Fila principal */}
                   <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                     <td className={`${CELL} font-medium text-zinc-800`}>
                       {item.productoNombre}
+                      {cobertura && (
+                        <span
+                          className={`mt-0.5 block text-[11px] font-normal ${
+                            cobertura.exacta
+                              ? "text-emerald-600"
+                              : cobertura.diferencia < 0
+                                ? "text-amber-600"
+                                : "text-red-600"
+                          }`}
+                        >
+                          {textoCobertura(cobertura)}
+                          {cobertura.exacta && " ✓"}
+                        </span>
+                      )}
                     </td>
                     <td className={`${CELL} text-right text-zinc-600`}>
                       {item.cantidadSolicitada}
@@ -962,8 +1069,13 @@ export default function AsignacionForm({
                       <td className={`${CELL} pl-8 text-zinc-500`}>
                         <span className="text-xs">↳ {item.productoNombre} (resto)</span>
                       </td>
+                      {/* La cantidad REALMENTE asignada al secundario — la misma
+                          que el input de esta fila. Antes mostraba el resto
+                          teórico (solicitada − primario), que al editar el input
+                          del secundario dejaba dos números distintos en la misma
+                          fila y el de esta columna no era el que se guardaba. */}
                       <td className={`${CELL} text-right text-xs text-zinc-400`}>
-                        {item.cantidadSolicitada - fila.primary.cantidad}
+                        {fmtCantidad(fila.secondary.cantidad)}
                         <span className="ml-1">{item.unidadMedida}</span>
                       </td>
                       <td className={CELL}>
