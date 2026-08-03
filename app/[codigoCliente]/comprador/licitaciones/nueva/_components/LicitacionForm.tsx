@@ -149,6 +149,50 @@ function fmtFecha(dateStr: string) {
   });
 }
 
+/**
+ * Suma de los materiales con cada subtotal (cantidad × precio) CONVERTIDO a la
+ * moneda de consolidación ANTES de sumar — nunca mezcla monedas en crudo.
+ *
+ * Único lugar donde vive esta suma: la usan tanto el "Total de productos" que se
+ * muestra abajo del formulario como el autollenado del Presupuesto Objetivo, así
+ * que ambos siempre coinciden y quedan expresados en la moneda de consolidación.
+ * `tiposCambio` llega como el mapa de strings del formulario (lo normaliza
+ * parseTiposCambio: descarta vacíos e inválidos).
+ */
+function totalMaterialesConvertido(
+  items: ItemFila[],
+  tiposCambio: Record<string, string>,
+  monedaConsolidacion: string
+): number {
+  const tasas = parseTiposCambio(tiposCambio);
+  return items.reduce(
+    (suma, i) =>
+      suma +
+      convertirAMoneda(
+        (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0),
+        i.moneda,
+        monedaConsolidacion,
+        tasas
+      ),
+    0
+  );
+}
+
+/**
+ * Valor EXACTO que debe tener el input del Presupuesto Objetivo cuando está
+ * autollenado: la suma convertida, o "" si aún no hay nada que sumar. Único
+ * lugar donde vive ese formato — el ref `ultimoAutollenado` guarda justamente
+ * esta cadena para poder comparar contra lo que hay en el campo.
+ */
+function presupuestoAutollenado(
+  items: ItemFila[],
+  tiposCambio: Record<string, string>,
+  monedaConsolidacion: string
+): string {
+  const total = totalMaterialesConvertido(items, tiposCambio, monedaConsolidacion);
+  return total > 0 ? total.toFixed(2) : "";
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function LicitacionForm({
@@ -230,6 +274,31 @@ export default function LicitacionForm({
   const [monedaConsolidacion, setMonedaConsolidacion] = useState(
     inicial?.monedaConsolidacion ?? "MXN"
   );
+
+  // Último valor que ESTE formulario autollenó en el Presupuesto Objetivo. Sirve
+  // para distinguir "sigue siendo el autollenado" de "el comprador lo escribió a
+  // mano": si el campo difiere de este ref, hubo edición manual y no se pisa.
+  //
+  // Semilla al EDITAR: el presupuesto guardado se toma como autollenado solo si
+  // coincide (numéricamente, el guardado viene sin .00) con la suma convertida de
+  // los materiales guardados. Si el comprador lo había fijado a mano, difiere y
+  // queda protegido desde el primer render.
+  const ultimoAutollenado = useRef<string>(
+    (() => {
+      const guardado = inicial?.costoObjetivo ?? "";
+      if (!guardado) return "";
+      const auto = presupuestoAutollenado(
+        inicial?.items ?? [],
+        Object.fromEntries(
+          Object.entries(inicial?.tiposCambio ?? {}).map(([m, t]) => [m, String(t)])
+        ),
+        inicial?.monedaConsolidacion ?? "MXN"
+      );
+      return Math.abs((parseFloat(guardado) || 0) - (parseFloat(auto) || 0)) < 0.01
+        ? guardado
+        : "";
+    })()
+  );
   // Una vez cerrada la licitación, las tasas quedan fijas (solo lectura) para
   // preservar la auditoría de cómo se calcularon los totales.
   const tcReadonly =
@@ -302,6 +371,26 @@ export default function LicitacionForm({
     ]);
   }
 
+  // Escribe el Presupuesto Objetivo autollenado y recuerda ese mismo valor en el
+  // ref. Todo autollenado pasa por aquí, para que campo y ref nunca se separen.
+  function aplicarAutollenado(nuevosItems: ItemFila[]) {
+    const valor = presupuestoAutollenado(nuevosItems, tiposCambio, monedaConsolidacion);
+    ultimoAutollenado.current = valor;
+    setCostoObjetivo(valor);
+  }
+
+  // Cambio de tipo de cambio o de moneda de consolidación → el presupuesto
+  // autollenado quedó expresado con la tasa vieja: se recalcula solo. Si el
+  // comprador lo escribió a mano (el campo difiere del ref) se respeta intacto y
+  // solo aparece el aviso "Difiere del Costo Objetivo".
+  useEffect(() => {
+    if (costoObjetivo !== ultimoAutollenado.current) return; // editado a mano
+    const valor = presupuestoAutollenado(items, tiposCambio, monedaConsolidacion);
+    if (valor === costoObjetivo) return;
+    ultimoAutollenado.current = valor;
+    setCostoObjetivo(valor);
+  }, [tiposCambio, monedaConsolidacion, items, costoObjetivo]);
+
   function cambiarItem(id: string, campo: keyof ItemFila, valor: string) {
     setBannerInfo(null);
     const newItems = items.map((item: any) => {
@@ -320,14 +409,11 @@ export default function LicitacionForm({
 
     setItems(newItems);
 
-    // Price or qty change → update costoObjetivo from sum of subtotals (unidirectional)
+    // Price or qty change → update costoObjetivo from sum of subtotals (unidirectional).
+    // La suma va CONVERTIDA a la moneda de consolidación (misma lógica que el
+    // "Total de productos"): el presupuesto queda siempre en esa moneda.
     if (campo === "precioObjetivo" || campo === "cantidadSolicitada") {
-      const newTotal = newItems.reduce(
-        (sum: any, i: any) =>
-          sum + (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0),
-        0
-      );
-      setCostoObjetivo(newTotal > 0 ? newTotal.toFixed(2) : "");
+      aplicarAutollenado(newItems);
     }
 
     // Auto-extend Fin Rango de Entrega when a product delivery date exceeds it
@@ -346,12 +432,7 @@ export default function LicitacionForm({
   function eliminarItem(id: string) {
     const newItems = items.filter((item) => item._id !== id);
     setItems(newItems);
-    const newTotal = newItems.reduce(
-      (sum: any, i: any) =>
-        sum + (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0),
-      0
-    );
-    setCostoObjetivo(newTotal > 0 ? newTotal.toFixed(2) : "");
+    aplicarAutollenado(newItems);
   }
 
   function handleFechaFinLicitacionChange(valor: string) {
@@ -767,17 +848,13 @@ Asistente de Inteligencia Artificial`;
 
   // Price calculations — cada subtotal se convierte a la moneda de consolidación
   // (con los tipos de cambio capturados en el formulario) ANTES de sumar, para
-  // no mezclar monedas. Misma fórmula que "licitación en proceso".
-  const tiposCambioTotales = parseTiposCambio(tiposCambio);
-  const subtotales = items.map((i) =>
-    convertirAMoneda(
-      (parseFloat(i.cantidadSolicitada) || 0) * (parseFloat(i.precioObjetivo) || 0),
-      i.moneda,
-      monedaConsolidacion,
-      tiposCambioTotales
-    )
+  // no mezclar monedas. Misma fórmula que "licitación en proceso" y EXACTAMENTE
+  // la misma que autollena el Presupuesto Objetivo (totalMaterialesConvertido).
+  const totalProductos = totalMaterialesConvertido(
+    items,
+    tiposCambio,
+    monedaConsolidacion
   );
-  const totalProductos = subtotales.reduce((s, v) => s + v, 0);
   const costoObjetivoNum = parseFloat(costoObjetivo) || 0;
   const mismatchTotal =
     costoObjetivoNum > 0 &&
