@@ -4,6 +4,9 @@ export type TipoCorreo =
   | "INVITACION_LICITACION"
   | "CAMBIO_FECHA"
   | "RESULTADO_INTERNO"
+  // Asignación PRELIMINAR: se manda al confirmar ganadores, cuando la licitación
+  // pasa a "Esperando Validación" y el proveedor todavía puede rechazar.
+  | "NOTIFICACION_GANADOR_TENTATIVO"
   | "NOTIFICACION_GANADORES"
   | "NOTIFICACION_NO_GANADORES"
   | "CONFIRMACION_CIERRE";
@@ -150,6 +153,35 @@ Ganadores por material:
 {tablaGanadores}
 
 Se adjunta el archivo Excel con el detalle de todas las rondas y ofertas recibidas.
+
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
+{firmaCorreo}`,
+    activo: true,
+  },
+  NOTIFICACION_GANADOR_TENTATIVO: {
+    asunto:
+      "Licitación {numeroLicitacion} - Valida tu asignación antes del {fechaLimiteValidacion}",
+    cuerpo: `Estimado {nombreProveedor}.
+
+Nos da gusto informarte que tu oferta resultó seleccionada en la licitación {numeroLicitacion} para los siguientes materiales:
+
+{tablaMateriales}
+
+Esta asignación es preliminar. Antes de emitir la orden de compra necesitamos que confirmes que puedes cumplir con las cantidades y las fechas de entrega indicadas arriba.
+
+Para validarla:
+
+1. Ingresa al portal: {urlPortal}
+2. Entra a la licitación {numeroLicitacion}.
+3. Revisa cada material y confirma o rechaza la asignación.
+
+Tienes hasta el {fechaLimiteValidacion} para responder. Si no recibimos tu confirmación en ese plazo, el comprador podrá dar por validada la asignación o reasignar los materiales a otro participante.
+
+Si detectas cualquier diferencia en cantidades o fechas, rechaza la asignación indicando el motivo y el comprador se pondrá en contacto contigo.
+
+Agradecemos tu participación.
 
 Atentamente,
 {nombreAsistente}

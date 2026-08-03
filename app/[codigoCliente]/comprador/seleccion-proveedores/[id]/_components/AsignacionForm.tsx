@@ -511,11 +511,56 @@ export default function AsignacionForm({
     return filas;
   }
 
+  // MOMENTO 1: confirma ganadores y les manda su asignación PRELIMINAR para que
+  // validen fechas y cantidad. La licitación queda en "Esperando Validación" y
+  // se ofrece UN solo correo (GANADOR_TENTATIVO); los no ganadores no se enteran
+  // todavía — su correo sale hasta finalizar, en SeguimientoView.
   async function handleConfirmar() {
     setGuardando("confirmar");
     await confirmarAsignacionesAction(licitacion.id, buildFilas(), tiempoHoras, basePath);
-    router.refresh();
+    console.log("###COLA_CORREOS### [AsignacionForm] confirmarAsignacionesAction OK");
+    // Igual que en handleFinalizar: el router.refresh() se retrasa hasta vaciar
+    // la cola, porque al refrescar la vista cambia a SeguimientoView y el modal
+    // desaparecería a la mitad.
+    const notif = await prepararNotificacionesGanadoresAction(licitacion.id).catch(
+      (error) => {
+        console.error(
+          "###COLA_CORREOS### [AsignacionForm] prepararNotificacionesGanadoresAction rechazó",
+          error
+        );
+        return NOTIF_VACIO;
+      }
+    );
+    console.log("###COLA_CORREOS### [AsignacionForm] preparación tentativa lista", {
+      ganadoresDestinatarios: notif.ganadores.destinatarios.length,
+      ganadoresExcluidos: notif.ganadores.excluidos,
+    });
     setGuardando(null);
+    iniciarColaTentativa(notif);
+  }
+
+  // Cola de UN paso: la asignación preliminar a cada ganador. Si nadie tiene
+  // correo, simplemente refresca (la licitación ya quedó en Esperando Validación).
+  function iniciarColaTentativa(notif: DatosNotificacionesGanadores) {
+    const pasos: PasoCorreo[] = [];
+    if (notif.ganadores.destinatarios.length > 0) {
+      pasos.push({
+        key: "ganadorTentativo",
+        tipo: "NOTIFICACION_GANADOR_TENTATIVO",
+        tituloModal: "Enviar asignación preliminar a ganadores",
+        variables: notif.ganadores.variables,
+        destinatarios: notif.ganadores.destinatarios,
+        variablesPorDestinatario: notif.ganadores.variablesPorDestinatario,
+        aviso: avisoExcluidos(notif.ganadores.excluidos),
+      });
+    }
+    console.log("###COLA_CORREOS### [AsignacionForm] iniciarColaTentativa", {
+      pasos: pasos.map((p) => p.key),
+      total: pasos.length,
+      accion: pasos.length > 0 ? "setColaCorreos" : "router.refresh (cola vacía)",
+    });
+    if (pasos.length > 0) setColaCorreos(pasos);
+    else router.refresh();
   }
 
   async function handleFinalizar() {

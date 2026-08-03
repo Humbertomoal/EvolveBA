@@ -6,6 +6,7 @@ import { prisma } from "@/src/lib/prisma";
 import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
 import { getMaterialesProveedor } from "@/src/lib/proveedorMaterialesData";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { ESTADO_ESPERANDO_VALIDACION } from "@/src/lib/seleccionTypes";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import LicitacionCotizacion, { type ItemDetalle } from "./_components/LicitacionCotizacion";
 import ResumenOfertasView, { type MejorOfertaItem } from "./_components/ResumenOfertasView";
@@ -77,7 +78,13 @@ export default async function DetalleLicitacionPage({
   const itemsFiltrados = filtrarItemsPorMaterialesProveedor(licitacion.items, materialesIds);
 
   // ── Vista de resultados para licitaciones cerradas/finalizadas ──────────────
-  if (licitacion.estado === "Cerrada" || licitacion.estado === "Finalizada") {
+  // Incluye "Esperando Validación": es la pantalla donde el proveedor confirma
+  // o rechaza la asignación preliminar que le llegó por correo.
+  if (
+    licitacion.estado === "Cerrada" ||
+    licitacion.estado === ESTADO_ESPERANDO_VALIDACION ||
+    licitacion.estado === "Finalizada"
+  ) {
     const [misAsignacionesCount, totalAsignacionesCount] = await Promise.all([
       proveedorId
         ? prisma.asignacionMaterial.count({

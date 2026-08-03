@@ -9,6 +9,7 @@ import {
   notaTipoCambio,
   parseTiposCambio,
 } from "./conversionMoneda";
+import { ESTADO_ESPERANDO_VALIDACION } from "./seleccionTypes";
 import type { FiltrosSeleccion, LicitacionSeleccion } from "./seleccionTypes";
 
 const LIMIT = 25;
@@ -35,7 +36,12 @@ function buildWhere(filtros: FiltrosSeleccion, compradorId?: string) {
 
   return {
     eliminado: false,
-    estado: { in: ["Cerrada", "Finalizada", "Cancelada"] },
+    // Incluye "Esperando Validación": si falta, la licitación desaparece del
+    // listado justo después de "Confirmar y notificar ganadores" y el comprador
+    // ya no puede volver a entrar a finalizarla.
+    estado: {
+      in: ["Cerrada", ESTADO_ESPERANDO_VALIDACION, "Finalizada", "Cancelada"],
+    },
     ...(compradorId ? { compradorId } : {}),
     ...(filtros.jerarquia ? { jerarquia: filtros.jerarquia } : {}),
     ...(fechaCerrada ? { fechaCerrada } : {}),

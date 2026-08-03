@@ -5,6 +5,7 @@ import {
   generarTablaMaterialesGanados,
   type ItemMaterialGanado,
 } from "@/src/lib/plantillasCorreo";
+import { formatFechaMexico } from "@/src/lib/dateUtils";
 
 // Variables personalizadas por destinatario (email → { variable: valor }).
 type VarsPorDestinatario = Record<string, Record<string, string>>;
@@ -70,6 +71,8 @@ export async function prepararNotificacionesGanadoresAction(
         cantidadAsignada: true,
         precioUnitario: true,
         moneda: true,
+        // Para {fechaLimiteValidacion} del correo GANADOR_TENTATIVO.
+        fechaLimiteConfirmacion: true,
         proveedor: {
           select: { razonSocial: true, vendedorCorreo: true, contactoAdminCorreo: true },
         },
@@ -116,6 +119,13 @@ export async function prepararNotificacionesGanadoresAction(
       ganadoresMap.set(a.proveedorId, acc);
     }
 
+    // Fecha límite para validar (la misma para todas las asignaciones de la
+    // licitación; se toma la primera que la tenga). Solo la usa el correo
+    // GANADOR_TENTATIVO; en el correo final de ganadores queda vacía y su
+    // {placeholder} simplemente no aparece en esa plantilla.
+    const fechaLimite = asignaciones.find((a) => a.fechaLimiteConfirmacion)
+      ?.fechaLimiteConfirmacion;
+
     const ganadores = construirGrupo(
       [...ganadoresMap.values()].map((g) => ({
         razonSocial: g.razonSocial,
@@ -125,7 +135,8 @@ export async function prepararNotificacionesGanadoresAction(
           tablaMateriales: generarTablaMaterialesGanados(g.materiales),
         },
       })),
-      numeroLicitacion
+      numeroLicitacion,
+      fechaLimite ? { fechaLimiteValidacion: formatFechaMexico(fechaLimite) } : undefined
     );
 
     // ── Grupo NO GANADORES ────────────────────────────────────────────────────
@@ -183,7 +194,9 @@ function construirGrupo(
     correo: string | null;
     vars: Record<string, string>;
   }[],
-  numeroLicitacion: string
+  numeroLicitacion: string,
+  // Variables extra iguales para todo el grupo (ej. fechaLimiteValidacion).
+  varsComunes?: Record<string, string>
 ): GrupoNotificacion {
   const conCorreo = proveedores.filter((p) => p.correo);
   const excluidos = proveedores.length - conCorreo.length;
@@ -198,8 +211,15 @@ function construirGrupo(
     variablesPorDestinatario[correo] = p.vars;
   }
 
+  // `varsComunes` va SOLO aquí (no en variablesPorDestinatario) porque su valor
+  // es idéntico para todos: la plantilla se renderiza una vez con estas y el
+  // reemplazo por destinatario solo toca las variables que sí difieren.
   const referencia = conCorreo[0]?.vars ?? {};
-  const variables: Record<string, string> = { numeroLicitacion, ...referencia };
+  const variables: Record<string, string> = {
+    numeroLicitacion,
+    ...varsComunes,
+    ...referencia,
+  };
 
   return { variables, destinatarios, variablesPorDestinatario, excluidos };
 }

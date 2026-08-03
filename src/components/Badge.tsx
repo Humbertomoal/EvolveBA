@@ -12,6 +12,10 @@ export type BadgeVariant =
   | "cancelada"
   | "programada"
   | "pendiente"
+  // Licitación en "Esperando Validación": ámbar (hay algo pendiente por parte
+  // de terceros) + reloj. No se reusa "pendiente" porque esa es gris y se
+  // confundiría con "Cerrada"/neutral en el listado de Selección.
+  | "esperando-validacion"
   // Order-delivery states (found in OrdenDetalle/OrdenCompradorDetalle) —
   // distinct from the licitación states above, kept as separate variants
   // so their existing color hierarchy (recibida > entregada) is preserved.
@@ -30,6 +34,10 @@ const VARIANTES: Record<BadgeVariant, { className: string; icon?: typeof IconClo
   cancelada: { className: "bg-red-50 text-red-700", icon: IconX },
   programada: { className: "bg-amber-50 text-amber-700", icon: IconCalendar },
   pendiente: { className: "bg-gray-100 text-gray-600", icon: IconClock },
+  "esperando-validacion": {
+    className: "bg-amber-50 text-amber-700",
+    icon: IconClock,
+  },
   "en-transito": { className: "bg-blue-100 text-blue-700", icon: IconTruck },
   entregada: { className: "bg-green-100 text-green-700", icon: IconCheck },
   recibida: { className: "bg-green-200 text-green-800", icon: IconCheck },

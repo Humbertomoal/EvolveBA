@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { crearOrdenesCompraParaLicitacion } from "./ordenesUtils";
 import { registrarCambioEstado, getUsuarioIdActual } from "./estadoLog";
+import { ESTADO_ESPERANDO_VALIDACION } from "./seleccionTypes";
 
 export type FilaAsignacion = {
   licitacionItemId: string;
@@ -22,6 +23,17 @@ function revalidar(basePath: string, licitacionId: string) {
   revalidatePath(`${basePath}/comprador/seleccion-proveedores/${licitacionId}`);
 }
 
+/**
+ * MOMENTO 1 del flujo de cierre: el comprador confirma a quién le asigna cada
+ * material y se lo manda a validar a los proveedores.
+ *
+ * Deja las asignaciones en "Pendiente" con su fecha límite y la licitación en
+ * "Esperando Validación" — NO en "Finalizada": finalizar es el MOMENTO 3
+ * (finalizarLicitacionAction), una vez que los proveedores validaron.
+ *
+ * No manda correos: el correo NOTIFICACION_GANADOR_TENTATIVO lo dispara el
+ * cliente (AsignacionForm) al volver de aquí, con el modal de revisión.
+ */
 export async function confirmarAsignacionesAction(
   licitacionId: string,
   filas: FilaAsignacion[],
@@ -59,7 +71,9 @@ export async function confirmarAsignacionesAction(
     }),
     prisma.licitacion.update({
       where: { id: licitacionId },
-      data: { estado: "Finalizada", fechaFinalizada: new Date() },
+      // fechaFinalizada NO se toca aquí: la licitación aún no está finalizada.
+      // Se sella en finalizarLicitacionAction (MOMENTO 3).
+      data: { estado: ESTADO_ESPERANDO_VALIDACION },
     }),
   ]);
 
@@ -67,11 +81,12 @@ export async function confirmarAsignacionesAction(
   await registrarCambioEstado(
     licitacionId,
     anterior?.estado ?? null,
-    "Finalizada",
+    ESTADO_ESPERANDO_VALIDACION,
     await getUsuarioIdActual()
   );
 
-  // OC no se crea aquí: estatus sigue "Pendiente". Se crea al confirmar/forzar cierre.
+  // OC no se crea aquí: estatus sigue "Pendiente". Se crea cuando cada proveedor
+  // confirma, al dar por validadas las pendientes, o al finalizar.
 
   revalidar(basePath, licitacionId);
 }
@@ -157,6 +172,16 @@ export async function reasignarProveedorAction(
   revalidar(basePath, licitacionId);
 }
 
+/**
+ * "Dar por validadas las pendientes": atajo DENTRO de la etapa de validación
+ * para cuando un proveedor no responde en su plazo. Pasa las asignaciones
+ * Pendiente → Aprobado y crea las OC que falten.
+ *
+ * NO cambia el estado de la licitación (sigue en "Esperando Validación") y NO
+ * manda correos: al dejar todo aprobado aparece el botón "Finalizar licitación",
+ * que es el único que finaliza y el único que dispara los correos finales. Si
+ * esta acción también los mandara, ese camino los enviaría por duplicado.
+ */
 export async function forzarCierreSeleccionAction(
   licitacionId: string,
   basePath: string
@@ -165,6 +190,43 @@ export async function forzarCierreSeleccionAction(
     where: { licitacionId, estatusProveedor: "Pendiente" },
     data: { estatusProveedor: "Aprobado" },
   });
+
+  await crearOrdenesCompraParaLicitacion(licitacionId);
+
+  revalidar(basePath, licitacionId);
+}
+
+/**
+ * MOMENTO 3: cierre definitivo. Sella la licitación como "Finalizada" una vez
+ * que todas las asignaciones quedaron confirmadas o aprobadas.
+ *
+ * Crea las OC faltantes por si acaso (crearOrdenesCompraParaLicitacion es
+ * idempotente: salta los pares licitación+proveedor que ya tienen OC) — lo
+ * normal es que ya existan, creadas conforme cada proveedor fue confirmando.
+ *
+ * No manda correos: la cola de 3 (RESULTADO_INTERNO → GANADORES →
+ * NO_GANADORES) la dispara el cliente (SeguimientoView) al volver de aquí.
+ */
+export async function finalizarLicitacionAction(
+  licitacionId: string,
+  basePath: string
+): Promise<void> {
+  const anterior = await prisma.licitacion.findUnique({
+    where: { id: licitacionId },
+    select: { estado: true },
+  });
+
+  await prisma.licitacion.update({
+    where: { id: licitacionId },
+    data: { estado: "Finalizada", fechaFinalizada: new Date() },
+  });
+
+  await registrarCambioEstado(
+    licitacionId,
+    anterior?.estado ?? null,
+    "Finalizada",
+    await getUsuarioIdActual()
+  );
 
   await crearOrdenesCompraParaLicitacion(licitacionId);
 

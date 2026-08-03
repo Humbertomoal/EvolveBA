@@ -7,6 +7,7 @@ import PanelFiltros from "@/app/_components/PanelFiltros";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import { buscarSeleccionAction } from "@/src/lib/seleccionActions";
 import {
+  ESTADO_ESPERANDO_VALIDACION,
   FILTROS_SELECCION_DEFAULT,
   type FiltrosSeleccion,
   type LicitacionSeleccion,
@@ -57,6 +58,9 @@ function adherenciaBadgeClass(pct: number): string {
 
 const ESTADO_VARIANT: Record<string, BadgeVariant> = {
   Cerrada: "neutral",
+  // Ámbar: hay algo pendiente por parte de los proveedores (validar su
+  // asignación preliminar), a diferencia del gris neutro de "Cerrada".
+  [ESTADO_ESPERANDO_VALIDACION]: "esperando-validacion",
   Finalizada: "finalizada",
   Cancelada: "cancelada",
 };

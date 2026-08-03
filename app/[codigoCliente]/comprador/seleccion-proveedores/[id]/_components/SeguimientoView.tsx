@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  finalizarLicitacionAction,
   forzarCierreSeleccionAction,
   reasignarProveedorAction,
 } from "@/src/lib/asignacionActions";
@@ -288,6 +289,9 @@ export default function SeguimientoView({
   const todosConfirmados = asignaciones.every(
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
   );
+  // Ya finalizada: se ocultan ambos botones de cierre. Sin esto se podría
+  // finalizar (y re-enviar los tres correos) tantas veces como se presione.
+  const yaFinalizada = licitacion.estado === "Finalizada";
 
   const totalesPorMoneda = asignaciones.reduce((acc: any, a: any) => {
     const moneda = a.moneda ?? "MXN";
@@ -317,18 +321,40 @@ export default function SeguimientoView({
   const pctMargen =
     margen != null && importeVentaConsol ? (margen / importeVentaConsol) * 100 : null;
 
+  // Atajo dentro de la etapa de validación: da por validadas las asignaciones
+  // que ningún proveedor respondió. NO manda correos ni finaliza — al quedar
+  // todo aprobado aparece "Finalizar licitación", que es quien hace ambas cosas.
+  // Si aquí también se mandaran, ese camino los enviaría por duplicado.
   async function handleForzarCierre() {
     if (
       !window.confirm(
-        "¿Forzar el cierre? Todas las confirmaciones pendientes quedarán como Aprobadas."
+        "¿Dar por validadas las asignaciones pendientes? Quedarán como Aprobadas sin esperar la respuesta del proveedor."
       )
     )
       return;
     setEjecutando(true);
     await forzarCierreSeleccionAction(licitacion.id, basePath);
-    console.log("###COLA_CORREOS### [SeguimientoView] forzarCierreSeleccionAction OK");
-    // forzarCierreSeleccionAction crea las OC restantes. El router.refresh() se
-    // retrasa hasta VACIAR la cola de correos (ver AsignacionForm.tsx).
+    console.log(
+      "###COLA_CORREOS### [SeguimientoView] forzarCierreSeleccionAction OK (sin correos: los finales salen al finalizar)"
+    );
+    setEjecutando(false);
+    router.refresh();
+  }
+
+  // MOMENTO 3: cierre definitivo. Sella "Finalizada" y ofrece la cola de 3
+  // correos (RESULTADO_INTERNO → GANADORES → NO_GANADORES).
+  async function handleFinalizarLicitacion() {
+    if (
+      !window.confirm(
+        "¿Finalizar la licitación? Se enviarán los resultados internos y las notificaciones a proveedores."
+      )
+    )
+      return;
+    setEjecutando(true);
+    await finalizarLicitacionAction(licitacion.id, basePath);
+    console.log("###COLA_CORREOS### [SeguimientoView] finalizarLicitacionAction OK");
+    // El router.refresh() se retrasa hasta VACIAR la cola: al refrescar, el
+    // server component re-renderiza y el modal desaparecería a la mitad.
     const { resultado, notif } = await prepararCorreos(licitacion.id, "SeguimientoView");
     console.log("###COLA_CORREOS### [SeguimientoView] preparación lista", {
       resultadoDestinatarios: resultado.destinatarios.length,
@@ -442,23 +468,30 @@ export default function SeguimientoView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {todosConfirmados && (
-            <Link
-              href={`${basePath}/comprador/seleccion-proveedores`}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          {todosConfirmados && !yaFinalizada && (
+            <button
+              type="button"
+              onClick={handleFinalizarLicitacion}
+              disabled={ejecutando}
+              className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
-              <IconCheck className="mr-1.5 inline h-4 w-4" />
-              Finalizar licitación
-            </Link>
+              <IconCheck className="h-4 w-4" />
+              {ejecutando ? "Finalizando…" : "Finalizar licitación"}
+            </button>
           )}
-          <button
-            type="button"
-            onClick={handleForzarCierre}
-            disabled={ejecutando}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
-          >
-            Forzar cierre
-          </button>
+          {/* Sin gate de yaFinalizada a propósito: no manda correos ni cambia
+              el estado, así que sigue disponible para destrabar asignaciones
+              pendientes en licitaciones que ya quedaron finalizadas. */}
+          {!todosConfirmados && (
+            <button
+              type="button"
+              onClick={handleForzarCierre}
+              disabled={ejecutando}
+              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Dar por validadas las pendientes
+            </button>
+          )}
           <button
             type="button"
             onClick={() => generarPDF(licitacion, asignaciones)}

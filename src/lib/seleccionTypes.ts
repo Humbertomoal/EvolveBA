@@ -1,5 +1,21 @@
 import type { ResumenAhorroCalculado } from "./licitacionesAhorro";
 
+/**
+ * Estado intermedio entre "Cerrada" y "Finalizada": el comprador ya confirmó
+ * ganadores y les mandó la asignación PRELIMINAR, y se espera a que cada
+ * proveedor valide fechas y cantidad en su portal.
+ *
+ * Vive aquí (módulo puro, sin Prisma) y no en estadoLog.ts a propósito: lo
+ * consumen tanto server components/actions como componentes cliente (el badge
+ * de SeleccionTabla), y estadoLog.ts es server-only porque importa Prisma.
+ *
+ * Al agregarlo o quitarlo hay que revisar TODOS los filtros por estado: el
+ * listado de Selección (aquí y en seleccionActions), el portal del proveedor
+ * (listado y detalle) y el badge. Si falta en alguno, la licitación desaparece
+ * de esa vista a media transición.
+ */
+export const ESTADO_ESPERANDO_VALIDACION = "Esperando Validación";
+
 export type FiltrosSeleccion = {
   jerarquia: string;
   fechaCierreVentana: string;

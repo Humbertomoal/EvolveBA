@@ -68,6 +68,12 @@ export const VARIABLES_POR_TIPO: Record<TipoCorreo, readonly string[]> = {
     "ahorroTotal",
     "tablaGanadores",
   ],
+  NOTIFICACION_GANADOR_TENTATIVO: [
+    "nombreProveedor",
+    "numeroLicitacion",
+    "tablaMateriales",
+    "fechaLimiteValidacion",
+  ],
   NOTIFICACION_GANADORES: ["nombreProveedor", "numeroLicitacion", "tablaMateriales"],
   NOTIFICACION_NO_GANADORES: ["nombreProveedor", "numeroLicitacion"],
   CONFIRMACION_CIERRE: [
