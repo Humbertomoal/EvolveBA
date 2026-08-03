@@ -219,6 +219,48 @@ function avisoExcluidos(n: number): string | undefined {
   } fuera de esta notificación.`;
 }
 
+// Fallbacks si una preparación revienta: el paso correspondiente queda sin
+// destinatarios y simplemente no se ofrece, pero la cola abre igual.
+const RESULTADO_VACIO: DatosResultadoInterno = {
+  variables: {},
+  destinatarios: [],
+  adjuntos: [],
+};
+const NOTIF_VACIO: DatosNotificacionesGanadores = {
+  ganadores: { variables: {}, destinatarios: [], variablesPorDestinatario: {}, excluidos: 0 },
+  noGanadores: { variables: {}, destinatarios: [], variablesPorDestinatario: {}, excluidos: 0 },
+};
+
+// Corre las dos preparaciones en paralelo AISLANDO fallos: con Promise.all una
+// excepción tumbaba ambas y la cola nunca abría. Con allSettled, si una falla la
+// otra sigue viva y el modal se ofrece con lo que sí se pudo preparar.
+async function prepararCorreos(licitacionId: string, origen: string) {
+  const [r, n] = await Promise.allSettled([
+    prepararResultadoInternoAction(licitacionId),
+    prepararNotificacionesGanadoresAction(licitacionId),
+  ]);
+  console.log(`###COLA_CORREOS### [${origen}] preparaciones`, {
+    resultadoInterno: r.status,
+    notificaciones: n.status,
+  });
+  if (r.status === "rejected") {
+    console.error(
+      `###COLA_CORREOS### [${origen}] prepararResultadoInternoAction rechazó`,
+      r.reason
+    );
+  }
+  if (n.status === "rejected") {
+    console.error(
+      `###COLA_CORREOS### [${origen}] prepararNotificacionesGanadoresAction rechazó`,
+      n.reason
+    );
+  }
+  return {
+    resultado: r.status === "fulfilled" ? r.value : RESULTADO_VACIO,
+    notif: n.status === "fulfilled" ? n.value : NOTIF_VACIO,
+  };
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SeguimientoView({
@@ -287,10 +329,7 @@ export default function SeguimientoView({
     console.log("###COLA_CORREOS### [SeguimientoView] forzarCierreSeleccionAction OK");
     // forzarCierreSeleccionAction crea las OC restantes. El router.refresh() se
     // retrasa hasta VACIAR la cola de correos (ver AsignacionForm.tsx).
-    const [resultado, notif] = await Promise.all([
-      prepararResultadoInternoAction(licitacion.id),
-      prepararNotificacionesGanadoresAction(licitacion.id),
-    ]);
+    const { resultado, notif } = await prepararCorreos(licitacion.id, "SeguimientoView");
     console.log("###COLA_CORREOS### [SeguimientoView] preparación lista", {
       resultadoDestinatarios: resultado.destinatarios.length,
       ganadoresDestinatarios: notif.ganadores.destinatarios.length,
