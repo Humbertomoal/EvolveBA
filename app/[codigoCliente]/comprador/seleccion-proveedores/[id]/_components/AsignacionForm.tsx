@@ -3,7 +3,7 @@
 import { IconDownload, IconPencil, IconRefresh, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import {
   confirmarAsignacionesAction,
   finalizarSinEsperarAction,
@@ -371,10 +371,17 @@ export default function AsignacionForm({
   const [toggleCancelar, setToggleCancelar] = useState(false);
   const [textoCancelar, setTextoCancelar] = useState("");
   const [cancelando, setCancelando] = useState(false);
-  // Cola secuencial de correos a ofrecer tras finalizar: RESULTADO_INTERNO →
-  // GANADORES → NO_GANADORES. El modal muestra la cabeza; al cerrar/enviar se
-  // saca y avanza al siguiente; al vaciarse se hace router.refresh().
+  // Cola secuencial de correos. El modal muestra la cabeza; al cerrar/enviar se
+  // saca y avanza al siguiente; al vaciarse se sale por salirTrasCola().
+  // Esta vista abre DOS colas distintas:
+  //   - handleConfirmar → 1 paso (GANADOR_TENTATIVO)
+  //   - handleFinalizar → 3 pasos (RESULTADO_INTERNO → GANADORES → NO_GANADORES)
   const [colaCorreos, setColaCorreos] = useState<PasoCorreo[]>([]);
+  // Marca que la cola abierta viene de FINALIZAR (vía express): al vaciarse hay
+  // que salir a Licitaciones Finalizadas, porque la licitación quedó
+  // "Finalizada" y ya no aparece en Selección. NO se activa en handleConfirmar:
+  // ahí queda en "Esperando Validación" y debe seguir visible en Selección.
+  const redirigirAFinalizadas = useRef(false);
 
   function getOferta(item: ItemParaAsignacion, proveedorId: string): OfertaParaDropdown | undefined {
     return item.ofertas.find((o: any) => o.proveedorId === proveedorId);
@@ -647,10 +654,10 @@ export default function AsignacionForm({
     console.log("###COLA_CORREOS### [AsignacionForm] iniciarColaTentativa", {
       pasos: pasos.map((p) => p.key),
       total: pasos.length,
-      accion: pasos.length > 0 ? "setColaCorreos" : "refrescarTrasCola (cola vacía)",
+      accion: pasos.length > 0 ? "setColaCorreos" : "salirTrasCola (cola vacía)",
     });
     if (pasos.length > 0) setColaCorreos(pasos);
-    else refrescarTrasCola();
+    else salirTrasCola();
   }
 
   async function handleFinalizar() {
@@ -660,6 +667,8 @@ export default function AsignacionForm({
     setGuardando("finalizar");
     await finalizarSinEsperarAction(licitacion.id, buildFilas());
     console.log("###COLA_CORREOS### [AsignacionForm] finalizarSinEsperarAction OK");
+    // Quedó "Finalizada": al cerrarse la cola hay que salir a Finalizadas.
+    redirigirAFinalizadas.current = true;
     // finalizarSinEsperarAction ya creó las OC. El router.refresh() se retrasa
     // hasta VACIAR la cola de correos: si se refresca antes, el server component
     // cambia a SeguimientoView y el flujo de correos desaparece a la mitad.
@@ -715,24 +724,38 @@ export default function AsignacionForm({
     console.log("###COLA_CORREOS### [AsignacionForm] iniciarColaCorreos", {
       pasos: pasos.map((p) => p.key),
       total: pasos.length,
-      accion: pasos.length > 0 ? "setColaCorreos" : "refrescarTrasCola (cola vacía)",
+      accion: pasos.length > 0 ? "setColaCorreos" : "salirTrasCola (cola vacía)",
     });
     if (pasos.length > 0) setColaCorreos(pasos);
-    else refrescarTrasCola();
+    else salirTrasCola();
   }
 
   // Cierra/envía el modal actual y avanza; al vaciar la cola, recién refresca.
   function avanzarCola() {
     const resto = colaCorreos.slice(1);
     setColaCorreos(resto);
-    if (resto.length === 0) refrescarTrasCola();
+    if (resto.length === 0) salirTrasCola();
   }
 
-  // Cierre de la cola: recién AQUÍ se revalida y se remonta. Las actions de
-  // confirmar/finalizar ya no revalidan solas justamente para no desmontar este
-  // componente (y con él la cola) mientras el modal está abierto.
-  function refrescarTrasCola() {
-    console.log("###COLA_CORREOS### [AsignacionForm] cola vacía → revalidar + refresh");
+  /**
+   * Único punto de salida de la cola de correos. Se ejecuta SOLO cuando ya no
+   * queda ningún modal pendiente, nunca antes: navegar o revalidar a media cola
+   * desmonta este componente y la corta (el bug que ya arreglamos). Por eso las
+   * actions de confirmar/finalizar tampoco revalidan solas.
+   *
+   * La revalidación se hace en AMBOS caminos — también al salir a Finalizadas —
+   * para que el listado de Selección quede sin la licitación finalizada cuando
+   * el comprador regrese.
+   */
+  function salirTrasCola() {
+    // Se consume el ref: una cola posterior no debe heredar la redirección.
+    const irAFinalizadas = redirigirAFinalizadas.current;
+    redirigirAFinalizadas.current = false;
+    console.log(
+      `###COLA_CORREOS### [AsignacionForm] cola vacía → revalidar + ${
+        irAFinalizadas ? "push a Licitaciones Finalizadas" : "refresh (sigue en Selección)"
+      }`
+    );
     void revalidarSeleccionAction(licitacion.id, basePath)
       .catch((error: unknown) =>
         console.error(
@@ -740,7 +763,13 @@ export default function AsignacionForm({
           error
         )
       )
-      .finally(() => router.refresh());
+      .finally(() => {
+        if (irAFinalizadas) {
+          router.push(`${basePath}/comprador/licitaciones-finalizadas`);
+        } else {
+          router.refresh();
+        }
+      });
   }
 
   function cerrarModalCancelar() {

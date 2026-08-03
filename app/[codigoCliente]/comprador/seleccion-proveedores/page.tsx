@@ -25,9 +25,9 @@ export default async function SeleccionProveedoresPage({
     prisma.licitacion.findMany({
       where: {
         eliminado: false,
-        estado: {
-          in: ["Cerrada", ESTADO_ESPERANDO_VALIDACION, "Finalizada", "Cancelada"],
-        },
+        // Mismos estados que buildWhere en seleccionActions: solo lo que
+        // todavía tiene trabajo en esta pantalla.
+        estado: { in: ["Cerrada", ESTADO_ESPERANDO_VALIDACION] },
         ...(puedeVerTodo ? {} : { compradorId }),
       },
       select: { jerarquia: true },

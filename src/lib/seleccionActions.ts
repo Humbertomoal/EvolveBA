@@ -36,12 +36,15 @@ function buildWhere(filtros: FiltrosSeleccion, compradorId?: string) {
 
   return {
     eliminado: false,
-    // Incluye "Esperando Validación": si falta, la licitación desaparece del
-    // listado justo después de "Confirmar y notificar ganadores" y el comprador
-    // ya no puede volver a entrar a finalizarla.
-    estado: {
-      in: ["Cerrada", ESTADO_ESPERANDO_VALIDACION, "Finalizada", "Cancelada"],
-    },
+    // Solo los estados con trabajo pendiente en esta pantalla:
+    //   Cerrada              → falta asignar ganadores
+    //   Esperando Validación → falta finalizar (imprescindible: sin esto la
+    //                          licitación desaparece justo después de
+    //                          "Confirmar y notificar ganadores" y ya no se
+    //                          puede volver a entrar a finalizarla)
+    // "Finalizada" y "Cancelada" salen de aquí: ya no hay nada que hacer y
+    // viven en Licitaciones Finalizadas, que tiene su propio filtro.
+    estado: { in: ["Cerrada", ESTADO_ESPERANDO_VALIDACION] },
     ...(compradorId ? { compradorId } : {}),
     ...(filtros.jerarquia ? { jerarquia: filtros.jerarquia } : {}),
     ...(fechaCerrada ? { fechaCerrada } : {}),

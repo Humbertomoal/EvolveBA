@@ -10,7 +10,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   editarAsignacionPendienteAction,
   finalizarLicitacionAction,
@@ -299,6 +299,11 @@ export default function SeguimientoView({
   // Cola secuencial de correos tras forzar cierre: RESULTADO_INTERNO →
   // GANADORES → NO_GANADORES (misma mecánica que AsignacionForm).
   const [colaCorreos, setColaCorreos] = useState<PasoCorreo[]>([]);
+  // Marca que la cola de correos abierta viene de FINALIZAR: al vaciarse hay que
+  // sacar al comprador a Licitaciones Finalizadas, porque la licitación ya no
+  // pertenece a Selección. Es un ref y no un estado porque solo lo lee el
+  // callback de cierre de la cola y no debe provocar re-render.
+  const redirigirAFinalizadas = useRef(false);
 
   const todosConfirmados = asignaciones.every(
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
@@ -367,6 +372,9 @@ export default function SeguimientoView({
     setEjecutando(true);
     await finalizarLicitacionAction(licitacion.id, basePath);
     console.log("###COLA_CORREOS### [SeguimientoView] finalizarLicitacionAction OK");
+    // A partir de aquí la licitación ya no pertenece a Selección: al cerrarse la
+    // cola de correos se sale a Finalizadas en vez de refrescar en el sitio.
+    redirigirAFinalizadas.current = true;
     // El router.refresh() se retrasa hasta VACIAR la cola: al refrescar, el
     // server component re-renderiza y el modal desaparecería a la mitad.
     const { resultado, notif } = await prepararCorreos(licitacion.id, "SeguimientoView");
@@ -421,17 +429,42 @@ export default function SeguimientoView({
     console.log("###COLA_CORREOS### [SeguimientoView] iniciarColaCorreos", {
       pasos: pasos.map((p) => p.key),
       total: pasos.length,
-      accion: pasos.length > 0 ? "setColaCorreos" : "router.refresh (cola vacía)",
+      accion: pasos.length > 0 ? "setColaCorreos" : "salirTrasCola (cola vacía)",
     });
     if (pasos.length > 0) setColaCorreos(pasos);
-    else router.refresh();
+    // Sin destinatarios no hay modal que mostrar, pero la finalización ya
+    // ocurrió: se sale por el mismo camino que si la cola se hubiera vaciado.
+    else salirTrasCola();
   }
 
-  // Cierra/envía el modal actual y avanza; al vaciar la cola, recién refresca.
+  // Cierra/envía el modal actual y avanza; al vaciar la cola, recién sale.
   function avanzarCola() {
     const resto = colaCorreos.slice(1);
     setColaCorreos(resto);
-    if (resto.length === 0) router.refresh();
+    if (resto.length === 0) salirTrasCola();
+  }
+
+  /**
+   * Único punto de salida de la cola de correos. Se ejecuta SOLO cuando ya no
+   * queda ningún modal pendiente (el comprador cerró o envió el último), nunca
+   * antes: navegar a media cola la cortaría igual que lo hacía la revalidación
+   * prematura que ya arreglamos.
+   *
+   * Si la cola venía de finalizar, la licitación ya salió del listado de
+   * Selección, así que se lleva al comprador a Licitaciones Finalizadas en vez
+   * de dejarlo en una URL de Selección que ya no le corresponde.
+   */
+  function salirTrasCola() {
+    if (redirigirAFinalizadas.current) {
+      redirigirAFinalizadas.current = false;
+      console.log(
+        "###COLA_CORREOS### [SeguimientoView] cola vacía → push a Licitaciones Finalizadas"
+      );
+      router.push(`${basePath}/comprador/licitaciones-finalizadas`);
+      return;
+    }
+    console.log("###COLA_CORREOS### [SeguimientoView] cola vacía → refresh");
+    router.refresh();
   }
 
   async function handleReasignar() {
