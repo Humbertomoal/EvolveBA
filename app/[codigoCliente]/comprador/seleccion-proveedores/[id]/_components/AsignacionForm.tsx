@@ -7,6 +7,7 @@ import { Fragment, useState } from "react";
 import {
   confirmarAsignacionesAction,
   finalizarSinEsperarAction,
+  revalidarSeleccionAction,
   type FilaAsignacion,
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
@@ -517,7 +518,7 @@ export default function AsignacionForm({
   // todavía — su correo sale hasta finalizar, en SeguimientoView.
   async function handleConfirmar() {
     setGuardando("confirmar");
-    await confirmarAsignacionesAction(licitacion.id, buildFilas(), tiempoHoras, basePath);
+    await confirmarAsignacionesAction(licitacion.id, buildFilas(), tiempoHoras);
     console.log("###COLA_CORREOS### [AsignacionForm] confirmarAsignacionesAction OK");
     // Igual que en handleFinalizar: el router.refresh() se retrasa hasta vaciar
     // la cola, porque al refrescar la vista cambia a SeguimientoView y el modal
@@ -557,16 +558,16 @@ export default function AsignacionForm({
     console.log("###COLA_CORREOS### [AsignacionForm] iniciarColaTentativa", {
       pasos: pasos.map((p) => p.key),
       total: pasos.length,
-      accion: pasos.length > 0 ? "setColaCorreos" : "router.refresh (cola vacía)",
+      accion: pasos.length > 0 ? "setColaCorreos" : "refrescarTrasCola (cola vacía)",
     });
     if (pasos.length > 0) setColaCorreos(pasos);
-    else router.refresh();
+    else refrescarTrasCola();
   }
 
   async function handleFinalizar() {
     if (!window.confirm("¿Finalizar sin esperar confirmación de proveedores?")) return;
     setGuardando("finalizar");
-    await finalizarSinEsperarAction(licitacion.id, buildFilas(), basePath);
+    await finalizarSinEsperarAction(licitacion.id, buildFilas());
     console.log("###COLA_CORREOS### [AsignacionForm] finalizarSinEsperarAction OK");
     // finalizarSinEsperarAction ya creó las OC. El router.refresh() se retrasa
     // hasta VACIAR la cola de correos: si se refresca antes, el server component
@@ -623,17 +624,32 @@ export default function AsignacionForm({
     console.log("###COLA_CORREOS### [AsignacionForm] iniciarColaCorreos", {
       pasos: pasos.map((p) => p.key),
       total: pasos.length,
-      accion: pasos.length > 0 ? "setColaCorreos" : "router.refresh (cola vacía)",
+      accion: pasos.length > 0 ? "setColaCorreos" : "refrescarTrasCola (cola vacía)",
     });
     if (pasos.length > 0) setColaCorreos(pasos);
-    else router.refresh();
+    else refrescarTrasCola();
   }
 
   // Cierra/envía el modal actual y avanza; al vaciar la cola, recién refresca.
   function avanzarCola() {
     const resto = colaCorreos.slice(1);
     setColaCorreos(resto);
-    if (resto.length === 0) router.refresh();
+    if (resto.length === 0) refrescarTrasCola();
+  }
+
+  // Cierre de la cola: recién AQUÍ se revalida y se remonta. Las actions de
+  // confirmar/finalizar ya no revalidan solas justamente para no desmontar este
+  // componente (y con él la cola) mientras el modal está abierto.
+  function refrescarTrasCola() {
+    console.log("###COLA_CORREOS### [AsignacionForm] cola vacía → revalidar + refresh");
+    void revalidarSeleccionAction(licitacion.id, basePath)
+      .catch((error: unknown) =>
+        console.error(
+          "###COLA_CORREOS### [AsignacionForm] revalidarSeleccionAction falló",
+          error
+        )
+      )
+      .finally(() => router.refresh());
   }
 
   function cerrarModalCancelar() {
