@@ -136,6 +136,15 @@ const INDUSTRIES = ["Manufactura", "Energía", "Retail", "Construcción", "Servi
 
 const VALUE_PROPS = [
   {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1B4D3E" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5" /><path d="M12 17h.01" />
+      </svg>
+    ),
+    title: "Sin Costo de Implementación",
+    desc: "El uso de PO se paga con un % de los ahorros que su tecnología genera en tu operación.",
+  },
+  {
     icon: <IconBolt size={22} stroke="#1B4D3E" />,
     title: "Agilidad de punta a punta",
     desc: "Reduce los tiempos de negociación y de análisis de ofertas de proveedores en tu proceso de compras.",
@@ -260,7 +269,15 @@ const MODULOS = [
     highlight: "Adapta el sistema a tu empresa sin tocar código.",
   },
 ];
-
+const LOGOS_EMPRESAS = [
+  { nombre: "Gerdau", src: "/Logos/gerdau.svg" },
+  { nombre: "Diaco", src: "/Logos/diaco.svg" },
+  { nombre: "Metaldom", src: "/Logos/metaldom.svg" },
+  { nombre: "Cyrgo", src: "/Logos/cyrgo.svg" },
+  { nombre: "Riansa", src: "/Logos/riansa.svg" },
+  { nombre: "Grupo Las Hadas", src: "/Logos/grupo-las-hadas.svg" },
+  { nombre: "IM Solutions", src: "/Logos/im-solutions.svg" },
+];
 const ERP_LOGOS = [
   {
     name: "SAP",
@@ -411,7 +428,7 @@ export default async function Home() {
             style={{ background: "rgba(143,227,166,0.14)", animation: "fadeUp 0.6s ease both" }}
           >
             <span className="h-[7px] w-[7px] rounded-full bg-[#8FE3A6]" style={{ animation: "pulseDot 1.8s ease-in-out infinite" }} />
-            SISTEMA DE AUTOMATIZACIÓN DE COMPRAS "PURCHASE OPTIMIZER"
+             ¡Conoce a PO! Tu Purchase Optimizer (sin comillas)
           </div>
           <h1
             className="mb-[22px] text-[40px] font-extrabold leading-[1.06] tracking-[-0.03em] text-[#FAFAF8] text-pretty md:text-[58px]"
@@ -552,44 +569,62 @@ export default async function Home() {
         ))}
       </section>
 
-      {/* ── TRUST BAR ─────────────────────────────────────────────────────── */}
-      <section className={`mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 border-b border-[#EFEEE8] py-14 md:grid-cols-[1.1fr_1fr] ${SECTION_X}`}>
-        <div>
-          <div className="mb-5 text-[13px] font-bold tracking-[0.03em] text-[#8B968F]">Sectores que Confían en las Compras Automatizadas:</div>
-          <div className="flex flex-wrap gap-x-8 gap-y-4 text-[14px] font-bold text-[#5C665F]">
-            {[
-              { nombre: "Energía", icon: <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" /> },
-              { nombre: "Construcción", icon: <><path d="M2 20h20" /><path d="M4 20V8l8-5 8 5v12" /><rect x="9" y="12" width="6" height="8" /></> },
-              { nombre: "Manufactura", icon: <><path d="M2 20h20V9l-6 4V9l-6 4V4L2 9v11z" /></> },
-              { nombre: "Agroindustria & Acuacultura", icon: <><path d="M11 20A7 7 0 0 1 4 13c3.5 0 7 2 7 7z" /><path d="M11 20a7 7 0 0 1 7-7c0 4-3.5 7-7 7z" /><path d="M11 20v-8" /></> },
-              { nombre: "Retail", icon: <><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></> },
-              { nombre: "Bienes de Consumo", icon: <><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /></> },
-              { nombre: "Hotelería", icon: <><path d="M3 21V7l9-4 9 4v14" /><path d="M9 21v-6h6v6" /><path d="M9 11h.01M15 11h.01" /></> },
-            ].map((x) => (
-              <div key={x.nombre} className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#EFFBF3]">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    {x.icon}
-                  </svg>
-                </span>
-                {x.nombre}
+     {/* ── TRUST BAR ─────────────────────────────────────────────────────── */}
+      <section className={`mx-auto max-w-[1280px] border-b border-[#EFEEE8] py-14 ${SECTION_X}`}>
+        <div className="mb-8 text-center text-[13px] font-bold tracking-[0.03em] text-[#8B968F]">
+          Sectores que Confían en las Compras Automatizadas
+        </div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3 lg:grid-cols-7">
+          {[
+            { nombre: "Energía", icon: <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" /> },
+            { nombre: "Construcción", icon: <><path d="M2 20h20" /><path d="M4 20V8l8-5 8 5v12" /><rect x="9" y="12" width="6" height="8" /></> },
+            { nombre: "Manufactura", icon: <><path d="M2 20h20V9l-6 4V9l-6 4V4L2 9v11z" /></> },
+            { nombre: "Agroindustria & Acuacultura", icon: <><path d="M11 20A7 7 0 0 1 4 13c3.5 0 7 2 7 7z" /><path d="M11 20a7 7 0 0 1 7-7c0 4-3.5 7-7 7z" /><path d="M11 20v-8" /></> },
+            { nombre: "Retail", icon: <><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></> },
+            { nombre: "Bienes de Consumo", icon: <><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /></> },
+            { nombre: "Hotelería", icon: <><path d="M3 21V7l9-4 9 4v14" /><path d="M9 21v-6h6v6" /><path d="M9 11h.01M15 11h.01" /></> },
+          ].map((x) => (
+            <div key={x.nombre} className="flex flex-col items-center gap-3 text-center">
+              <span className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-[#EFFBF3]">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  {x.icon}
+                </svg>
+              </span>
+              <span className="text-[13px] font-bold leading-[1.3] text-[#5C665F]">{x.nombre}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+{/* ── LOGOS MARQUEE ─────────────────────────────────────────────────── */}
+      <section className="border-b border-[#EFEEE8] py-12">
+        <div className="mb-8 text-center text-[13px] font-bold tracking-[0.03em] text-[#8B968F]">
+          Empresas que han confiado en nosotros
+        </div>
+        <div className="marquee-pause relative overflow-hidden">
+          {/* Difuminado en los bordes */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#FAFAF8] to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#FAFAF8] to-transparent" />
+          <div className="flex w-max animate-marquee items-center gap-16">
+            {/* La lista se duplica para que el loop sea continuo */}
+            {[...LOGOS_EMPRESAS, ...LOGOS_EMPRESAS].map((nombre, i) => (
+              <div
+                key={`${nombre}-${i}`}
+                className="flex h-12 flex-shrink-0 items-center justify-center px-4 text-[22px] font-extrabold tracking-tight text-[#B7BCB3] grayscale transition-colors"
+              >
+                {nombre}
               </div>
             ))}
           </div>
-        </div>
-        {/* TODO: reemplazar con imagen real (foto del equipo de compras) */}
-        <div className="h-[150px]">
-          <ImagePlaceholder label="Imagen pendiente · equipo de compras" />
         </div>
       </section>
 
       {/* ── VALUE PROPS ───────────────────────────────────────────────────── */}
       <section className={`mx-auto max-w-[1280px] py-16 md:py-[100px] ${SECTION_X}`}>
         <div className="mx-auto mb-16 max-w-[640px] text-center">
-          <div className={`${EYEBROW} mb-3.5`}>POR QUÉ PO</div>
-          <h2 className="text-[30px] font-extrabold tracking-[-0.02em] text-[#173F35] text-pretty md:text-[40px]">Agilidad, integración y control, en un solo lugar</h2>
+          <div className={`${EYEBROW} mb-3.5`}>¿Porque integrar a PO en tu Cadena de Suministro?</div>
+          <h2 className="text-[30px] font-extrabold tracking-[-0.02em] text-[#173F35] text-pretty md:text-[40px]">Sin Costo real para Tu operación, Eficiencia y Control.</h2>
         </div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {VALUE_PROPS.map((v) => (
             <div
               key={v.title}
@@ -610,10 +645,10 @@ export default async function Home() {
           <ImagePlaceholder label="Imagen pendiente · ilustración de compras y proveedor cerrando una licitación" className="rounded-[20px]" />
         </div>
         <div>
-          <div className={`${EYEBROW} mb-3.5`}>MENOS OPERACIÓN MANUAL, MÁS DECISIONES</div>
+          <div className={`${EYEBROW} mb-3.5`}> Menos operacion manual, Automatización y Reducción de Costos</div>
           <h2 className="mb-5 text-[28px] font-extrabold tracking-[-0.02em] text-[#173F35] text-pretty md:text-[36px]">Tu equipo de compras deja de perseguir correos y hojas de cálculo</h2>
           <p className="mb-7 text-[16px] leading-[1.65] text-[#5C665F]">
-            Cada solicitud, cotización y aprobación queda registrada y visible para compras y proveedores al mismo tiempo, con alertas automáticas en cada cambio de estatus.
+            Creación de licitaciones automaticas, Negociación de Precios Automatica y Analisis de Ofertas Automatico.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-[14px] border border-[#EFEEE8] bg-white p-5">
