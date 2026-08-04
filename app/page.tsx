@@ -130,7 +130,7 @@ const INDUSTRY_REPORTS = [
   { label: "Tiempo promedio de licitación", value: "6.2 días", pct: "62%" },
   { label: "Proveedores calificados activos", value: "84%", pct: "84%" },
   { label: "Ahorro vs. presupuesto", value: "17%", pct: "45%" },
-  { label: "Cumplimiento normativo", value: "98%", pct: "98%" },
+  { label: "Adherencia de Precios", value: "98%", pct: "98%" },
 ];
 const INDUSTRIES = ["Manufactura", "Energía", "Retail", "Construcción", "Servicios"];
 
@@ -185,7 +185,7 @@ const FLUJO_STEPS = [
     desc: "Proveedores cotizan en tiempo real, consigues reducir tus costos gracias a la tecnología.",
   },
   { icon: <IconSend size={22} />, title: "Lanzamiento", desc: "Se publica la licitación a proveedores calificados." },
-  { icon: <IconClock size={22} />, title: "En proceso", desc: "Proveedores cotizan y comparan en tiempo real." },
+  { icon: <IconClock size={22} />, title: "En proceso", desc: "Proveedores cotizan en tiempo real, consigues reducir tus costos gracias a la tecnología." },
   { icon: <IconCheck size={22} />, title: "Selección", desc: "Comparativa y adjudicación con trazabilidad total." },
   { icon: <IconTruck size={22} />, title: "Orden de compra", desc: "Se genera y sincroniza con tu ERP." },
 ];
@@ -214,7 +214,7 @@ const MODULOS = [
   {
     icon: <IconSend size={19} />,
     title: "Lanzamiento de Licitaciones",
-    desc: "Formulario completo con materiales, precios objetivo, fechas y proveedores. Licitación abierta o cotización manual.",
+    desc: "Registro completo con materiales, precios objetivo, fechas y proveedores. Licitación abierta o cotización manual.",
     highlight: "De días a minutos: el sistema notifica a proveedores automáticamente.",
     destacado: true,
     nota: "Tecnología que reduce hasta el 20% de los costos de tus compras.",
@@ -330,9 +330,9 @@ const ERP_LOGOS = [
 ];
 
 const ERP_BULLETS = [
-  "Conectores nativos para los ERP más usados en la industria.",
-  "Sincronización bidireccional de proveedores, catálogo y órdenes de compra.",
-  "Implementación guiada, sin interrumpir tu operación actual.",
+  "Conectores nativos para los ERPs más usados.",
+  "Sincronización bidireccional de datos.",
+  "Implementación guiada sin interrumpir tu operación.",
 ];
 
 // ── Estilos compartidos ────────────────────────────────────────────────────────
@@ -724,8 +724,8 @@ export default async function Home() {
         />
         <div className="relative mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-16">
           <div>
-            <div className="mb-3.5 text-[13px] font-bold tracking-[0.04em] text-[#8FE3A6]">INTEGRACIÓN CON TU ERP(Para las empresas que usen ERP)</div>
-            <h2 className="mb-5 text-[30px] font-extrabold tracking-[-0.02em] text-[#FAFAF8] text-pretty md:text-[38px]">Se conecta con el sistema que ya usas, sin migraciones</h2>
+            <div className="mb-3.5 text-[13px] font-bold tracking-[0.04em] text-[#8FE3A6]">INTEGRACIÓN CON TU ERP (Para las empresas que usen ERP)</div>
+            <h2 className="mb-5 text-[30px] font-extrabold tracking-[-0.02em] text-[#FAFAF8] text-pretty md:text-[38px]">PO se integra con Tu ERP para automatizar tu operación, consultado automaticamente Solicitudes de Pedido, Catalogo de Compras, Catalogo de Proveedores, etc</h2>
             <p className="mb-7 text-[16px] leading-[1.65] text-[#C7D6CE]">
               El optimizador de compras se integra vía API con SAP, Oracle, Microsoft Dynamics y sistemas a medida. Sincroniza catálogo, proveedores y órdenes de compra en ambas direcciones, sin doble captura.
             </p>
@@ -804,27 +804,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── TESTIMONIAL ───────────────────────────────────────────────────── */}
-      <section className={`bg-[#F1F0E9] py-[88px] ${SECTION_X}`}>
-        <div className="mx-auto max-w-[820px] text-center">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="#8FE3A6" className="mx-auto mb-5">
-            <path d="M9.5 7C6.5 8 4 10.8 4 14.5 4 17 5.8 19 8.3 19c2 0 3.5-1.6 3.5-3.5 0-1.8-1.3-3.2-3-3.4.4-1.8 2-3.2 4-3.7L9.5 7zm10 0c-3 1-5.5 3.8-5.5 7.5 0 2.5 1.8 4.5 4.3 4.5 2 0 3.5-1.6 3.5-3.5 0-1.8-1.3-3.2-3-3.4.4-1.8 2-3.2 4-3.7L19.5 7z" />
-          </svg>
-          <div className="mb-7 text-[22px] font-semibold leading-[1.5] text-[#173F35] text-pretty md:text-[26px]">
-            Pasamos de gestionar licitaciones por correo y hojas de cálculo a tener todo el proceso de compras en un solo flujo. Redujimos a la mitad el tiempo de selección de proveedores.
-          </div>
-          <div className="flex items-center justify-center gap-3">
-            {/* TODO: reemplazar con imagen real (avatar del testimonial) */}
-            <div className="h-11 w-11 flex-shrink-0">
-              <ImagePlaceholder label="" circle />
-            </div>
-            <div className="text-left">
-              <div className="text-[14.5px] font-bold text-[#173F35]">Directora de Compras</div>
-              <div className="text-[13px] text-[#6B756E]">Grupo industrial, sector construcción</div>
-            </div>
-          </div>
-        </div>
-      </section>
+    
 
       {/* ── CTA ───────────────────────────────────────────────────────────── */}
       <section
