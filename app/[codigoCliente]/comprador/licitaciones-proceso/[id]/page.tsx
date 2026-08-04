@@ -4,7 +4,10 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
-import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
+import {
+  fichasDeProveedor,
+  filtrarItemsPorMaterialesProveedor,
+} from "@/src/lib/proveedorMateriales";
 import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
 import {
   calcularAnalisisPorItem,
@@ -52,7 +55,17 @@ export default async function DetalleLicitacionProcesoPage({
     where: { id },
     include: {
       items: {
-        include: { producto: { select: { nombre: true, unidadMedida: true } } },
+        include: {
+          producto: {
+            select: {
+              nombre: true,
+              unidadMedida: true,
+              // Fichas técnicas: se adjuntan al correo de invitación/reenvío,
+              // filtradas por los materiales que cada proveedor puede cotizar.
+              archivosEspecificaciones: true,
+            },
+          },
+        },
         orderBy: { createdAt: "asc" },
       },
       proveedoresInvitados: {
@@ -358,8 +371,17 @@ export default async function DetalleLicitacionProcesoPage({
   // ve el proveedor en su portal), para personalizar tablaMateriales por
   // destinatario en el correo de invitación/reenvío.
   const mapaMaterialesProveedores = await getMapaProveedorMateriales();
+
+  // productoId → JSON crudo de sus fichas técnicas, para fichasDeProveedor.
+  const fichasPorProducto: Record<string, string | null | undefined> = {};
+  for (const item of licitacion.items as any[]) {
+    if (item.productoId in fichasPorProducto) continue;
+    fichasPorProducto[item.productoId] = item.producto.archivosEspecificaciones;
+  }
+
   const itemsPorProveedor: Record<string, DatosInvitacionLicitacion["items"]> = {};
   const nombrePorDestinatario: Record<string, string> = {};
+  const fichasPorDestinatario: Record<string, string[]> = {};
   for (const lp of licitacion.proveedoresInvitados) {
     const correo = (lp as any).proveedor.contactoAdminCorreo?.trim();
     if (!correo) continue;
@@ -367,6 +389,13 @@ export default async function DetalleLicitacionProcesoPage({
     const itemsFiltrados = filtrarItemsPorMaterialesProveedor(itemsConProductoId, materialesIds);
     itemsPorProveedor[correo] = itemsFiltrados.map(({ productoId: _productoId, ...resto }) => resto);
     nombrePorDestinatario[correo] = (lp as any).proveedor.razonSocial;
+    // Mismo filtro por catálogo que la tabla de materiales, para que los
+    // adjuntos y la tabla del correo hablen de los mismos materiales.
+    fichasPorDestinatario[correo] = fichasDeProveedor(
+      itemsConProductoId,
+      materialesIds,
+      fichasPorProducto
+    );
   }
 
   const datosInvitacion: DatosInvitacionLicitacion = {
@@ -377,6 +406,7 @@ export default async function DetalleLicitacionProcesoPage({
     items: itemsConProductoId.map(({ productoId: _productoId, ...resto }) => resto),
     itemsPorProveedor,
     nombrePorDestinatario,
+    fichasPorDestinatario,
     destinatarios: [...new Set(correosProveedoresInvitados)],
     excluidos: licitacion.proveedoresInvitados.length - correosProveedoresInvitados.length,
     nombreComprador: usuarioActual?.nombre ?? "",

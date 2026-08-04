@@ -28,9 +28,16 @@ import { getConfigEmpresa } from "@/src/config/empresa";
 import { MONEDAS } from "@/src/lib/monedas";
 import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { formatFechaMexico, parsearFechaMexico } from "@/src/lib/dateUtils";
-import { generarTablaMateriales, type ItemTablaMaterial } from "@/src/lib/plantillasCorreo";
-import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
-import { prepararAdjuntosCorreoAction } from "@/src/lib/adjuntosCorreoActions";
+import {
+  generarEnlacesFichas,
+  generarTablaMateriales,
+  type ItemTablaMaterial,
+} from "@/src/lib/plantillasCorreo";
+import {
+  fichasDeProveedor,
+  filtrarItemsPorMaterialesProveedor,
+} from "@/src/lib/proveedorMateriales";
+import { prepararAdjuntosInvitacionAction } from "@/src/lib/adjuntosCorreoActions";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 import type { UsuarioActual } from "@/src/lib/usuarioActual";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
@@ -341,6 +348,14 @@ export default function LicitacionForm({
   const [destinoTrasCorreo, setDestinoTrasCorreo] = useState<string | null>(null);
   const [adjuntosInvitacion, setAdjuntosInvitacion] = useState<AdjuntoCorreo[]>([]);
   const [adjuntosOmitidos, setAdjuntosOmitidos] = useState(false);
+  // Fichas técnicas por proveedor: las que cupieron van como adjunto propio de
+  // ese destinatario; las que no, como enlaces de descarga en {enlacesFichas}.
+  const [fichasPorDestinatario, setFichasPorDestinatario] = useState<
+    Record<string, AdjuntoCorreo[]>
+  >({});
+  const [enlacesFichasPorDestinatario, setEnlacesFichasPorDestinatario] = useState<
+    Record<string, string[]>
+  >({});
   // Fecha anterior tal como la devolvió el Server Action (ISO real, leída de
   // la BD antes del update) — no el valor cacheado de `inicial`.
   const [fechaAnteriorCambio, setFechaAnteriorCambio] = useState<string | null>(null);
@@ -648,15 +663,55 @@ Asistente de Inteligencia Artificial`;
       mapa[correo] = {
         tablaMateriales: generarTablaMateriales(itemsProveedor),
         cantidadMateriales: String(itemsProveedor.length),
+        // Fichas que no cupieron como adjunto para ESTE proveedor. Vacío si
+        // todas se adjuntaron → la línea de la plantilla se colapsa.
+        enlacesFichas: generarEnlacesFichas(enlacesFichasPorDestinatario[correo] ?? []),
       };
     }
     return mapa;
   }
 
+  /** productoId → JSON crudo de sus fichas técnicas (archivosEspecificaciones). */
+  function fichasPorProducto(): Record<string, string | null | undefined> {
+    const mapa: Record<string, string | null | undefined> = {};
+    for (const item of items) {
+      if (!item.productoId || item.productoId in mapa) continue;
+      const producto = productos.find((p: any) => p.id === item.productoId);
+      mapa[item.productoId] = (
+        producto as { archivosEspecificaciones?: string | null } | undefined
+      )?.archivosEspecificaciones;
+    }
+    return mapa;
+  }
+
   async function abrirCorreoInvitacion(destino: string) {
-    const { adjuntos, omitidoPorTamano } = await prepararAdjuntosCorreoAction(archivosAdjuntos);
-    setAdjuntosInvitacion(adjuntos);
-    setAdjuntosOmitidos(omitidoPorTamano);
+    // Fichas de SOLO los materiales que cada proveedor puede cotizar, ya
+    // deduplicadas y en orden de aparición (ese orden manda al recortar).
+    const mapaFichas = fichasPorProducto();
+    const itemsValidos = items.filter((i) => i.productoId);
+    const urlsPorDestinatario: Record<string, string[]> = {};
+    for (const { proveedorId, correo } of proveedoresConCorreo()) {
+      urlsPorDestinatario[correo] = fichasDeProveedor(
+        itemsValidos,
+        proveedorMateriales[proveedorId] ?? [],
+        mapaFichas
+      );
+    }
+
+    const {
+      adjuntosComunes,
+      adjuntosPorDestinatario,
+      enlacesPorDestinatario,
+      documentosOmitidos,
+    } = await prepararAdjuntosInvitacionAction({
+      documentosLicitacion: archivosAdjuntos,
+      fichasPorDestinatario: urlsPorDestinatario,
+    });
+
+    setAdjuntosInvitacion(adjuntosComunes);
+    setFichasPorDestinatario(adjuntosPorDestinatario);
+    setEnlacesFichasPorDestinatario(enlacesPorDestinatario);
+    setAdjuntosOmitidos(documentosOmitidos.length > 0);
     setDestinoTrasCorreo(destino);
     setCorreoPendiente("INVITACION_LICITACION");
   }
@@ -1052,6 +1107,13 @@ Asistente de Inteligencia Artificial`;
     fechaFin: fmtFechaHoraCorreo(fechaFinLicitacion),
     cantidadMateriales: String(itemsInvitacionPreview.length),
     tablaMateriales: generarTablaMateriales(itemsInvitacionPreview),
+    // Vista previa: enlaces del destinatario de referencia. Al enviar, cada
+    // uno recibe los suyos vía variablesInvitacionPorDestinatario.
+    enlacesFichas: generarEnlacesFichas(
+      primerProveedorInvitado
+        ? (enlacesFichasPorDestinatario[primerProveedorInvitado.correo] ?? [])
+        : []
+    ),
     instruccionesLicitacion:
       instrucciones +
       (adjuntosOmitidos
@@ -2282,6 +2344,7 @@ Asistente de Inteligencia Artificial`;
           variables={variablesInvitacion}
           destinatarios={destinatariosCorreo}
           adjuntos={adjuntosInvitacion}
+          adjuntosPorDestinatario={fichasPorDestinatario}
           aviso={avisoExcluidos}
           variablesPorDestinatario={variablesInvitacionPorDestinatario()}
           notaPersonalizacion={notaPersonalizacionInvitacion}

@@ -22,8 +22,11 @@ import {
 import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import ModalCorreo from "@/src/components/ModalCorreo";
-import { prepararAdjuntosCorreoAction } from "@/src/lib/adjuntosCorreoActions";
-import { generarTablaMateriales } from "@/src/lib/plantillasCorreo";
+import { prepararAdjuntosInvitacionAction } from "@/src/lib/adjuntosCorreoActions";
+import {
+  generarEnlacesFichas,
+  generarTablaMateriales,
+} from "@/src/lib/plantillasCorreo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
@@ -119,6 +122,12 @@ export type DatosInvitacionLicitacion = {
   >;
   /** Razón social del proveedor, por correo — para la nota de vista previa personalizada. */
   nombrePorDestinatario: Record<string, string>;
+  /**
+   * URLs de fichas técnicas por correo: solo las de los materiales que ese
+   * proveedor puede cotizar, deduplicadas y en orden de aparición. Se resuelven
+   * en el server component (necesitan Producto.archivosEspecificaciones).
+   */
+  fichasPorDestinatario: Record<string, string[]>;
   destinatarios: string[];
   excluidos: number;
   nombreComprador: string;
@@ -144,7 +153,8 @@ function formatPeso(n: number): string {
 
 /** Variables {tablaMateriales, cantidadMateriales} personalizadas por destinatario. */
 function variablesInvitacionPorDestinatario(
-  datos: DatosInvitacionLicitacion
+  datos: DatosInvitacionLicitacion,
+  enlacesPorDestinatario: Record<string, string[]> = {}
 ): Record<string, Record<string, string>> {
   const mapa: Record<string, Record<string, string>> = {};
   for (const correo of datos.destinatarios) {
@@ -152,6 +162,9 @@ function variablesInvitacionPorDestinatario(
     mapa[correo] = {
       tablaMateriales: generarTablaMateriales(itemsProveedor),
       cantidadMateriales: String(itemsProveedor.length),
+      // Fichas que no cupieron como adjunto para ESTE proveedor; vacío si
+      // todas se adjuntaron → la línea de la plantilla se colapsa.
+      enlacesFichas: generarEnlacesFichas(enlacesPorDestinatario[correo] ?? []),
     };
   }
   return mapa;
@@ -295,16 +308,32 @@ export default function DetalleLicitacion({
   const [preparandoReenvio, setPreparandoReenvio] = useState(false);
   const [modalReenvio, setModalReenvio] = useState<{
     adjuntos: AdjuntoCorreo[];
+    adjuntosPorDestinatario: Record<string, AdjuntoCorreo[]>;
+    enlacesPorDestinatario: Record<string, string[]>;
     omitidoPorTamano: boolean;
   } | null>(null);
 
+  // Mismo comportamiento que el envío inicial en LicitacionForm: documentos de
+  // la licitación para todos + fichas técnicas de los materiales que cada
+  // proveedor puede cotizar, y enlaces para lo que no cupo.
   async function handleAbrirReenvioInvitacion() {
     setPreparandoReenvio(true);
-    const { adjuntos, omitidoPorTamano } = await prepararAdjuntosCorreoAction(
-      datosInvitacion.archivosAdjuntos
-    );
+    const {
+      adjuntosComunes,
+      adjuntosPorDestinatario,
+      enlacesPorDestinatario,
+      documentosOmitidos,
+    } = await prepararAdjuntosInvitacionAction({
+      documentosLicitacion: datosInvitacion.archivosAdjuntos,
+      fichasPorDestinatario: datosInvitacion.fichasPorDestinatario,
+    });
     setPreparandoReenvio(false);
-    setModalReenvio({ adjuntos, omitidoPorTamano });
+    setModalReenvio({
+      adjuntos: adjuntosComunes,
+      adjuntosPorDestinatario,
+      enlacesPorDestinatario,
+      omitidoPorTamano: documentosOmitidos.length > 0,
+    });
   }
 
   const cotizaron = participantes.filter((p: any) => p.cotizó).length;
@@ -1050,6 +1079,11 @@ export default function DetalleLicitacion({
               datosInvitacion.itemsPorProveedor[datosInvitacion.destinatarios[0]] ??
                 datosInvitacion.items
             ),
+            // Vista previa: enlaces del destinatario de referencia. Al enviar,
+            // cada uno recibe los suyos vía variablesPorDestinatario.
+            enlacesFichas: generarEnlacesFichas(
+              modalReenvio.enlacesPorDestinatario[datosInvitacion.destinatarios[0]] ?? []
+            ),
             instruccionesLicitacion:
               datosInvitacion.instrucciones +
               (modalReenvio.omitidoPorTamano
@@ -1061,12 +1095,16 @@ export default function DetalleLicitacion({
           }}
           destinatarios={datosInvitacion.destinatarios}
           adjuntos={modalReenvio.adjuntos}
+          adjuntosPorDestinatario={modalReenvio.adjuntosPorDestinatario}
           aviso={
             datosInvitacion.excluidos > 0
               ? `${datosInvitacion.excluidos} proveedor${datosInvitacion.excluidos === 1 ? "" : "es"} sin correo de contacto ${datosInvitacion.excluidos === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
               : undefined
           }
-          variablesPorDestinatario={variablesInvitacionPorDestinatario(datosInvitacion)}
+          variablesPorDestinatario={variablesInvitacionPorDestinatario(
+            datosInvitacion,
+            modalReenvio.enlacesPorDestinatario
+          )}
           notaPersonalizacion={
             datosInvitacion.destinatarios[0]
               ? `Vista previa para ${

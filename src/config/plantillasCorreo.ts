@@ -98,7 +98,7 @@ Fecha de cierre: {fechaFin}
 
 Materiales a licitar (los que corresponden a tu catálogo):
 {tablaMateriales}
-
+{enlacesFichas}
 {instruccionesLicitacion}
 
 Cualquier duda o aclaración, comuníquese con el comprador asignado a esta licitación a través del chat disponible en el portal.

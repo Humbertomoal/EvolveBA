@@ -18,6 +18,43 @@ import {
 import { renderizarFirma, type TipoCorreo } from "@/src/lib/plantillasCorreo";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
+/**
+ * Un adjunto en el preview, con botón para quitarlo/restaurarlo. No se elimina
+ * de la lista al quitarlo: se tacha, para que el comprador vea qué descartó y
+ * pueda deshacerlo sin reabrir el modal.
+ */
+function FilaAdjunto({
+  nombre,
+  quitado,
+  onAlternar,
+}: {
+  nombre: string;
+  quitado: boolean;
+  onAlternar: () => void;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 text-sm">
+      <IconPaperclip className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+      <span
+        className={`flex-1 truncate ${
+          quitado ? "text-zinc-400 line-through" : "text-zinc-600"
+        }`}
+        title={nombre}
+      >
+        {nombre}
+      </span>
+      <button
+        type="button"
+        onClick={onAlternar}
+        className="shrink-0 rounded px-1 text-xs text-zinc-400 hover:text-zinc-700"
+        title={quitado ? "Volver a incluir" : "Quitar de este envío"}
+      >
+        {quitado ? "Incluir" : <IconX className="h-3.5 w-3.5" />}
+      </button>
+    </span>
+  );
+}
+
 export default function ModalCorreo({
   abierto,
   onCerrar,
@@ -28,6 +65,7 @@ export default function ModalCorreo({
   adjuntos,
   onEnviado,
   aviso,
+  adjuntosPorDestinatario,
   variablesPorDestinatario,
   notaPersonalizacion,
   tituloModal,
@@ -39,7 +77,14 @@ export default function ModalCorreo({
   variables?: Record<string, string>;
   destinatarios: string[];
   codigoCliente: string;
+  /** Adjuntos que recibe TODO destinatario (p.ej. documentos de la licitación). */
   adjuntos?: AdjuntoCorreo[];
+  /**
+   * Adjuntos propios de cada destinatario (email → archivos), p.ej. las fichas
+   * técnicas de los materiales que ESE proveedor puede cotizar. Se suman a
+   * `adjuntos` al enviar; cada quien recibe solo los suyos.
+   */
+  adjuntosPorDestinatario?: Record<string, AdjuntoCorreo[]>;
   onEnviado?: () => void;
   /** Aviso adicional resaltado arriba del contenido (p.ej. advertencias sobre datos que no se pudieron recuperar). */
   aviso?: string;
@@ -64,9 +109,19 @@ export default function ModalCorreo({
   const [cuerpo, setCuerpo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Adjuntos que el comprador quitó antes de enviar, por clave de archivo.
+  // Quitar es POR ARCHIVO: si una ficha la comparten varios proveedores, se
+  // quita para todos (evita una matriz archivo × proveedor en el modal).
+  const [quitados, setQuitados] = useState<Set<string>>(new Set());
+  const [fichasVisibles, setFichasVisibles] = useState(false);
 
   useEffect(() => {
     if (!abierto) return;
+
+    // Cada apertura arranca con todos los adjuntos incluidos: lo que se quitó
+    // en un envío anterior no debe arrastrarse al siguiente.
+    setQuitados(new Set());
+    setFichasVisibles(false);
 
     // Modo libre (sin tipo): no hay plantilla que previsualizar — arranca
     // con asunto vacío y el cuerpo listo con la firma estándar al final.
@@ -112,6 +167,34 @@ export default function ModalCorreo({
     setCuerpo(cuerpoOriginal);
   }
 
+  // Llave estable de un adjunto: la URL de origen si existe (dos productos
+  // pueden tener fichas con el mismo nombre de archivo), si no el nombre.
+  function claveAdjunto(a: AdjuntoCorreo): string {
+    return a.url ?? a.nombre;
+  }
+
+  function alternarQuitado(clave: string) {
+    setQuitados((prev) => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(clave)) siguiente.delete(clave);
+      else siguiente.add(clave);
+      return siguiente;
+    });
+  }
+
+  const comunesVigentes = (adjuntos ?? []).filter(
+    (a) => !quitados.has(claveAdjunto(a))
+  );
+  // Destinatarios que tienen fichas propias, para el bloque agrupado.
+  const gruposFichas = Object.entries(adjuntosPorDestinatario ?? {}).filter(
+    ([, archivos]) => archivos.length > 0
+  );
+  const totalFichas = gruposFichas.reduce((n, [, archivos]) => n + archivos.length, 0);
+  const fichasQuitadas = gruposFichas.reduce(
+    (n, [, archivos]) => n + archivos.filter((a) => quitados.has(claveAdjunto(a))).length,
+    0
+  );
+
   async function handleEnviar() {
     if (destinatarios.length === 0) {
       toast.error("No hay destinatarios para este correo");
@@ -122,18 +205,23 @@ export default function ModalCorreo({
     setError(null);
 
     const resultados = await Promise.all(
-      destinatarios.map((para) =>
-        enviarCorreoAction({
+      destinatarios.map((para) => {
+        // Comunes + los propios de este destinatario, menos los que el
+        // comprador quitó en el preview.
+        const propios = (adjuntosPorDestinatario?.[para] ?? []).filter(
+          (a) => !quitados.has(claveAdjunto(a))
+        );
+        return enviarCorreoAction({
           tipo,
           para,
           asunto,
           cuerpo,
           codigoCliente,
-          adjuntos,
+          adjuntos: [...comunesVigentes, ...propios],
           variablesBase: variablesPorDestinatario ? variables : undefined,
           variablesPorDestinatario,
-        })
-      )
+        });
+      })
     );
 
     setEnviando(false);
@@ -259,23 +347,64 @@ export default function ModalCorreo({
                 />
               </div>
 
-              {/* Adjuntos */}
+              {/* Adjuntos comunes: van a todos los destinatarios */}
               {adjuntos && adjuntos.length > 0 && (
                 <div>
                   <label className="block text-xs font-medium text-zinc-500">
-                    Adjuntos
+                    {gruposFichas.length > 0 ? "Adjuntos para todos" : "Adjuntos"}
                   </label>
                   <div className="mt-1 flex flex-col gap-1">
                     {adjuntos.map((a) => (
-                      <span
-                        key={a.nombre}
-                        className="flex items-center gap-1.5 text-sm text-zinc-600"
-                      >
-                        <IconPaperclip className="h-3.5 w-3.5 text-zinc-400" />
-                        {a.nombre}
-                      </span>
+                      <FilaAdjunto
+                        key={claveAdjunto(a)}
+                        nombre={a.nombre}
+                        quitado={quitados.has(claveAdjunto(a))}
+                        onAlternar={() => alternarQuitado(claveAdjunto(a))}
+                      />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Fichas técnicas: personalizadas por proveedor */}
+              {gruposFichas.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setFichasVisibles((v) => !v)}
+                    className="flex w-full items-center justify-between text-left"
+                  >
+                    <label className="block cursor-pointer text-xs font-medium text-zinc-500">
+                      Fichas técnicas ({totalFichas - fichasQuitadas} de {totalFichas}
+                      {totalFichas === 1 ? " archivo" : " archivos"}, por proveedor)
+                    </label>
+                    <span className="text-xs text-zinc-400">
+                      {fichasVisibles ? "Ocultar" : "Ver"}
+                    </span>
+                  </button>
+                  {fichasVisibles && (
+                    <div className="mt-1.5 flex flex-col gap-2">
+                      {gruposFichas.map(([correo, archivos]) => (
+                        <div key={correo}>
+                          <p className="text-[11px] text-zinc-400">{correo}</p>
+                          <div className="mt-0.5 flex flex-col gap-1">
+                            {archivos.map((a) => (
+                              <FilaAdjunto
+                                key={`${correo}-${claveAdjunto(a)}`}
+                                nombre={a.nombre}
+                                quitado={quitados.has(claveAdjunto(a))}
+                                onAlternar={() => alternarQuitado(claveAdjunto(a))}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      <p className="text-[11px] text-zinc-400">
+                        Cada proveedor recibe solo las fichas de los materiales que
+                        puede cotizar. Quitar un archivo lo quita para todos.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

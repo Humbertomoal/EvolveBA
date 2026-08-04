@@ -59,6 +59,13 @@ export type AdjuntoCorreo = {
   nombre: string;
   contenidoBase64: string;
   contentType: string;
+  /**
+   * URL de origen cuando el adjunto viene de Storage. Identifica el archivo de
+   * forma estable para poder quitarlo en ModalCorreo (dos productos pueden
+   * tener fichas con el mismo `nombre`, así que el nombre no sirve de llave).
+   * Ausente en adjuntos generados al vuelo, como el Excel de RESULTADO_INTERNO.
+   */
+  url?: string;
 };
 
 export type ResultadoEnvioCorreo = { exito: true } | { exito: false; error: string };

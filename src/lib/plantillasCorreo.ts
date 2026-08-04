@@ -45,6 +45,9 @@ export const VARIABLES_POR_TIPO: Record<TipoCorreo, readonly string[]> = {
     "fechaFin",
     "cantidadMateriales",
     "tablaMateriales",
+    // Fichas técnicas que no cupieron como adjunto; vacío si todas se
+    // adjuntaron (y entonces la línea de la plantilla se colapsa).
+    "enlacesFichas",
     "instruccionesLicitacion",
     "nombreComprador",
     "telefonoComprador",
@@ -161,6 +164,26 @@ export function generarTablaMateriales(items: ItemTablaMaterial[]): string {
         `- ${item.producto}: ${item.cantidad.toLocaleString("es-MX")} ${item.unidad} · Fecha requerida: ${formatFechaMexico(item.fechaRequerida)}`
     )
     .join("\n");
+}
+
+/**
+ * Bloque {enlacesFichas} de la invitación: las fichas técnicas que NO cupieron
+ * como adjunto, ofrecidas como enlaces de descarga (las URLs de Storage son
+ * públicas). Devuelve "" cuando todas se adjuntaron, para que la línea de la
+ * plantilla se colapse y el correo no muestre un encabezado vacío.
+ */
+export function generarEnlacesFichas(urls: string[]): string {
+  if (urls.length === 0) return "";
+  const lineas = urls.map((url) => {
+    let nombre = url;
+    try {
+      nombre = decodeURIComponent(new URL(url).pathname.split("/").pop() ?? url);
+    } catch {
+      // URL malformada: se muestra tal cual.
+    }
+    return `- ${nombre}: ${url}`;
+  });
+  return `\nFichas técnicas de los materiales (descarga directa):\n${lineas.join("\n")}\n`;
 }
 
 export type ItemTablaGanador = {
