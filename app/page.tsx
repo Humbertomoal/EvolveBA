@@ -606,12 +606,16 @@ export default async function Home() {
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#FAFAF8] to-transparent" />
           <div className="flex w-max animate-marquee items-center gap-16">
             {/* La lista se duplica para que el loop sea continuo */}
-            {[...LOGOS_EMPRESAS, ...LOGOS_EMPRESAS].map((nombre, i) => (
+            {[...LOGOS_EMPRESAS, ...LOGOS_EMPRESAS].map((logo, i) => (
               <div
-                key={`${nombre}-${i}`}
-                className="flex h-12 flex-shrink-0 items-center justify-center px-4 text-[22px] font-extrabold tracking-tight text-[#B7BCB3] grayscale transition-colors"
+                key={`${logo.nombre}-${i}`}
+                className="flex h-16 flex-shrink-0 items-center justify-center px-4"
               >
-                {nombre}
+                <img
+                  src={logo.src}
+                  alt={logo.nombre}
+                  className="max-h-12 w-auto object-contain opacity-60 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0"
+                />
               </div>
             ))}
           </div>
@@ -642,7 +646,11 @@ export default async function Home() {
       <section className={`mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 pb-16 pt-5 md:grid-cols-2 md:gap-16 md:pb-[100px] ${SECTION_X}`}>
         {/* TODO: reemplazar con imagen real (ilustración de transformación) */}
         <div className="h-[300px] md:h-[380px]">
-          <ImagePlaceholder label="Imagen pendiente · ilustración de compras y proveedor cerrando una licitación" className="rounded-[20px]" />
+          <img
+                src="/img/transformacion.jpg"
+                alt="Compras y proveedor cerrando una licitación"
+                className="h-full w-full rounded-[20px] object-cover"
+              />
         </div>
         <div>
           <div className={`${EYEBROW} mb-3.5`}> Menos operacion manual, Automatización y Reducción de Costos</div>
@@ -650,16 +658,7 @@ export default async function Home() {
           <p className="mb-7 text-[16px] leading-[1.65] text-[#5C665F]">
             Creación de licitaciones automaticas, Negociación de Precios Automatica y Analisis de Ofertas Automatico.
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-[14px] border border-[#EFEEE8] bg-white p-5">
-              <div className="mb-1 text-[24px] font-extrabold text-[#173F35]">3 días</div>
-              <div className="text-[13px] font-semibold text-[#6B756E]">promedio de respuesta de proveedores</div>
-            </div>
-            <div className="rounded-[14px] border border-[#EFEEE8] bg-white p-5">
-              <div className="mb-1 text-[24px] font-extrabold text-[#173F35]">0</div>
-              <div className="text-[13px] font-semibold text-[#6B756E]">correos perdidos en el proceso</div>
-            </div>
-          </div>
+
         </div>
       </section>
 
