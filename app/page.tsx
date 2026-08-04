@@ -459,44 +459,17 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Mock del producto (dashboard) */}
+      {/* Mock del producto (dashboard) */}
         <div className="relative mx-auto max-w-[1180px] px-0 pb-24 md:px-5">
           <div
             className="relative overflow-hidden rounded-[20px] border border-[rgba(250,250,248,0.14)] bg-[#FAFAF8]"
             style={{ boxShadow: "0 50px 100px rgba(0,0,0,0.4)", animation: "fadeUp 0.8s ease 0.2s both" }}
           >
-            <div className="flex">
-              {/* Sidebar — se oculta en móvil */}
-              <div className="hidden w-[220px] flex-shrink-0 flex-col gap-1.5 bg-[#173F35] px-3.5 py-5 md:flex">
-                <div className="mb-[18px] flex items-center gap-2 px-2">
-                  <Logo box={26} bar={13} thick={2} radius={7} barColor="#173F35" boxColor="#FAFAF8" />
-                  <div className="text-[13px] font-extrabold text-[#FAFAF8]">Evolve BA</div>
-                </div>
-                {SIDEBAR_ITEMS.map((item) => (
-                  <div key={item.label} className="flex items-center gap-2 rounded-lg px-3 py-[9px] text-[12.5px] font-semibold text-[#DCE7E0]" style={{ background: item.active }}>
-                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-[2px] bg-[#8FE3A6]" style={{ opacity: item.dot }} />
-                    {item.label}
-                  </div>
-                ))}
-              </div>
-              {/* Panel */}
-              <div className="flex-1 bg-[#FCFCFA] px-6 py-6 sm:px-[30px]">
-                <div className="mb-[18px] text-[20px] font-extrabold text-[#173F35]">Panel de Comprador</div>
-                <div className="mb-5 grid grid-cols-3 gap-3.5">
-                  {HERO_STATS.map((s) => (
-                    <div key={s.label} className="rounded-[12px] border border-[#E7E5DF] p-4">
-                      <div className="mb-2 text-[11px] font-bold tracking-[0.03em] text-[#8B968F]">{s.label}</div>
-                      <div className="text-[22px] font-extrabold text-[#173F35] sm:text-[26px]">{s.value}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex h-[120px] items-end gap-2.5 rounded-[12px] border border-[#E7E5DF] p-[18px]">
-                  {BAR_HEIGHTS.map((h, i) => (
-                    <div key={i} className="flex-1 rounded-t-[4px] bg-[#8FE3A6]" style={{ height: h }} />
-                  ))}
-                </div>
-              </div>
-            </div>
+            <img
+              src="/img/mockup-tablero.png"
+              alt="Tablero de indicadores de PO"
+              className="w-full"
+            />
           </div>
 
           {/* badges flotantes sobre el mock — solo desktop */}
