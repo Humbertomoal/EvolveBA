@@ -14,6 +14,10 @@ import Link from "next/link";
 import { Fragment, useState } from "react";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import { calcularVariacionesGrupo } from "@/src/lib/variacionRonda";
+import {
+  formatMontoConEquivalencia,
+  type TiposCambio,
+} from "@/src/lib/conversionMoneda";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +25,9 @@ export type MejorOfertaItem = {
   licitacionItemId: string;
   productoNombre: string;
   unidadMedida: string;
+  // Moneda del material (LicitacionItem.moneda). El proveedor cotiza EN esa
+  // moneda: OfertaItem.moneda no se usa (columna muerta, ver schema.prisma).
+  moneda: string;
   cantidadSolicitada: number;
   mejorPrecio: number | null;
   cantidadOfertada: number | null;
@@ -36,9 +43,9 @@ export type MejorOfertaItem = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatPeso(n: number) {
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-}
+// Nota: no hay un formatPeso local a propósito. Cada importe se muestra en la
+// moneda de SU material con la equivalencia consolidada, vía
+// formatMontoConEquivalencia — antes todo se pintaba como MXN a la fuerza.
 
 function formatFecha(iso: string | null) {
   if (!iso) return "—";
@@ -57,7 +64,13 @@ export default function ResumenOfertasView({
   resumen,
   basePath,
 }: {
-  licitacion: { numero: string; jerarquia: string | null };
+  licitacion: {
+    numero: string;
+    jerarquia: string | null;
+    // Congelados en la licitación: con estos se calculan las equivalencias.
+    tiposCambio: TiposCambio;
+    monedaConsolidacion: string;
+  };
   subEstado: "en_espera" | "no_seleccionado";
   resumen: MejorOfertaItem[];
   basePath: string;
@@ -71,6 +84,7 @@ export default function ResumenOfertasView({
   const historialFlat: Array<{
     licitacionItemId: string;
     productoNombre: string;
+    moneda: string;
     esFirstRow: boolean;
     ronda: number;
     precioUnitario: number;
@@ -86,6 +100,7 @@ export default function ResumenOfertasView({
       historialFlat.push({
         licitacionItemId: item.licitacionItemId,
         productoNombre: item.productoNombre,
+        moneda: item.moneda,
         esFirstRow: idx === 0,
         ronda: oferta.ronda,
         precioUnitario: oferta.precioUnitario,
@@ -196,7 +211,12 @@ export default function ResumenOfertasView({
                           {item.cantidadOfertada}
                         </td>
                         <td className={`${CELL} text-right font-semibold text-zinc-900`}>
-                          {formatPeso(item.mejorPrecio)}
+                          {formatMontoConEquivalencia(
+                            item.mejorPrecio,
+                            item.moneda,
+                            licitacion.tiposCambio,
+                            licitacion.monedaConsolidacion
+                          )}
                         </td>
                         <td className={`${CELL} text-center`}>
                           <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
@@ -278,7 +298,12 @@ export default function ResumenOfertasView({
                         </span>
                       </td>
                       <td className={`${CELL} text-right font-medium text-zinc-800`}>
-                        {formatPeso(row.precioUnitario)}
+                        {formatMontoConEquivalencia(
+                          row.precioUnitario,
+                          row.moneda,
+                          licitacion.tiposCambio,
+                          licitacion.monedaConsolidacion
+                        )}
                       </td>
                       <td className={`${CELL} text-right text-zinc-600`}>
                         {row.cantidadDisponible}

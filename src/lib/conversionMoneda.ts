@@ -146,11 +146,17 @@ export function notaTipoCambio(
 }
 
 /**
- * Presentación combinada "USD 1,200 (MXN 20,640)" para una línea individual
- * cuando ayuda mostrar ambos. Si la moneda de la línea ya es la de destino,
- * devuelve solo un importe.
+ * Presentación combinada de una línea: su importe en la moneda ORIGINAL más la
+ * equivalencia en la de consolidación, p. ej.
+ *   "$1,500.00 USD (≈ $26,160.00 MXN)"
+ * Si la línea ya está en la moneda de destino no duplica: devuelve un solo
+ * importe. Pensada para las vistas del PROVEEDOR, que necesitan saber en qué
+ * moneda se les paga y cuánto equivale con el TC congelado de la licitación.
+ *
+ * El "≈" es deliberado: la equivalencia es informativa: el importe que manda es
+ * el de la moneda original de la línea, que es la que va en la orden de compra.
  */
-export function formatMontoConMXN(
+export function formatMontoConEquivalencia(
   monto: number,
   moneda: string,
   tiposCambio: TiposCambio | null | undefined,
@@ -161,5 +167,5 @@ export function formatMontoConMXN(
     return formatImporte(monto, destino);
   }
   const convertido = convertirAMoneda(monto, moneda, destino, tiposCambio);
-  return `${formatImporte(monto, moneda)} (${formatImporte(convertido, destino)})`;
+  return `${formatImporte(monto, moneda)} (≈ ${formatImporte(convertido, destino)})`;
 }

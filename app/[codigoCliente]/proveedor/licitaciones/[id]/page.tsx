@@ -7,6 +7,7 @@ import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriale
 import { getMaterialesProveedor } from "@/src/lib/proveedorMaterialesData";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
 import { ESTADO_ESPERANDO_VALIDACION } from "@/src/lib/seleccionTypes";
+import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import LicitacionCotizacion, { type ItemDetalle } from "./_components/LicitacionCotizacion";
 import ResumenOfertasView, { type MejorOfertaItem } from "./_components/ResumenOfertasView";
@@ -146,6 +147,9 @@ export default async function DetalleLicitacionPage({
         licitacionItemId: item.id,
         productoNombre: item.producto.nombre,
         unidadMedida: item.producto.unidadMedida,
+        // Disponible sin tocar la query: los items se traen con `include`, que
+        // incluye todos los escalares de LicitacionItem (moneda entre ellos).
+        moneda: item.moneda ?? "MXN",
         cantidadSolicitada: item.cantidadSolicitada,
         mejorPrecio: mejor?.precioUnitario ?? null,
         cantidadOfertada: mejor?.cantidadDisponible ?? null,
@@ -158,7 +162,13 @@ export default async function DetalleLicitacionPage({
 
     return (
       <ResumenOfertasView
-        licitacion={{ numero: licitacion.numero, jerarquia: licitacion.jerarquia }}
+        licitacion={{
+          numero: licitacion.numero,
+          jerarquia: licitacion.jerarquia,
+          // TC congelados de la licitación, nunca los actuales.
+          tiposCambio: parseTiposCambio(licitacion.tiposCambio),
+          monedaConsolidacion: licitacion.monedaConsolidacion ?? "MXN",
+        }}
         subEstado={subEstado}
         resumen={resumen}
         basePath={basePath}

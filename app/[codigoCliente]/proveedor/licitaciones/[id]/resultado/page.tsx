@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { parseTiposCambio, type TiposCambio } from "@/src/lib/conversionMoneda";
 import ResultadoView from "./_components/ResultadoView";
 
 export type AsignacionProveedor = {
@@ -10,6 +11,11 @@ export type AsignacionProveedor = {
   unidadMedida: string;
   cantidadAsignada: number;
   precioUnitario: number;
+  // Moneda CONGELADA de la asignación (copiada de LicitacionItem.moneda al
+  // asignar). Es la que va en la orden de compra, y por tanto en la que se le
+  // paga al proveedor. NO se lee de OfertaItem.moneda: esa columna está muerta
+  // (ver la nota en schema.prisma).
+  moneda: string;
   ronda: number;
   orden: number;
   fechaObjetivo: string | null;
@@ -25,6 +31,11 @@ export type LicitacionResultado = {
   numero: string;
   jerarquia: string | null;
   tipoLicitacion: string | null;
+  // Tipos de cambio CONGELADOS al cerrar la licitación y moneda en la que se
+  // consolidan los totales. Con estos se calcula la equivalencia que ve el
+  // proveedor — nunca con tipos de cambio actuales.
+  tiposCambio: TiposCambio;
+  monedaConsolidacion: string;
 };
 
 export default async function ResultadoPage({
@@ -61,6 +72,8 @@ export default async function ResultadoPage({
         jerarquia: true,
         tipoLicitacion: true,
         modoLicitacion: true,
+        tiposCambio: true,
+        monedaConsolidacion: true,
       },
     }),
     prisma.asignacionMaterial.findMany({
@@ -94,6 +107,7 @@ export default async function ResultadoPage({
     unidadMedida: a.licitacionItem.producto.unidadMedida,
     cantidadAsignada: a.cantidadAsignada,
     precioUnitario: a.precioUnitario,
+    moneda: a.moneda,
     ronda: a.ronda,
     orden: a.orden,
     fechaObjetivo: a.fechaObjetivo?.toISOString() ?? null,
@@ -109,6 +123,8 @@ export default async function ResultadoPage({
     numero: licitacion.numero,
     jerarquia: licitacion.jerarquia,
     tipoLicitacion: licitacion.tipoLicitacion,
+    tiposCambio: parseTiposCambio(licitacion.tiposCambio),
+    monedaConsolidacion: licitacion.monedaConsolidacion ?? "MXN",
   };
 
   return (

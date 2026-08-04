@@ -2,6 +2,13 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR, getClienteByCodigo } from "@/src/lib/ge
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { prisma } from "@/src/lib/prisma";
 import { notFound } from "next/navigation";
+import {
+  convertirAMoneda,
+  formatMontoConEquivalencia,
+  notaTipoCambio,
+  parseTiposCambio,
+} from "@/src/lib/conversionMoneda";
+import { formatImporte } from "@/src/lib/monedas";
 import PrintTrigger from "./_components/PrintTrigger";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,9 +23,10 @@ function formatFecha(d: Date | string | null | undefined): string {
   });
 }
 
-function formatMoneda(n: number): string {
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-}
+// Sin formatMoneda local: cada importe se muestra en la moneda CONTRACTUAL de
+// su línea (OrdenCompraLinea.moneda) con la equivalencia consolidada, vía
+// formatMontoConEquivalencia. Antes todo se imprimía como MXN a la fuerza — en
+// el documento con el que se le paga al proveedor.
 
 export default async function ImprimirOrdenPage({
   params,
@@ -33,17 +41,50 @@ export default async function ImprimirOrdenPage({
   const orden: any = await db.ordenCompra.findUnique({
     where: { id },
     include: {
-      licitacion: { select: { numero: true, jerarquia: true } },
+      licitacion: {
+        // tiposCambio + monedaConsolidacion: sin ellos no se puede expresar la
+        // equivalencia ni consolidar el total de una OC multi-moneda.
+        select: {
+          numero: true,
+          jerarquia: true,
+          tiposCambio: true,
+          monedaConsolidacion: true,
+        },
+      },
       proveedor: { select: { razonSocial: true } },
+      // Sin `select`: trae todos los escalares de OrdenCompraLinea, `moneda`
+      // incluida (la congelada que viene de AsignacionMaterial.moneda).
       lineas: { orderBy: { createdAt: "asc" } },
     },
   });
 
   if (!orden) notFound();
 
-  const total: number = (orden.lineas as { subtotal: number }[]).reduce(
-    (s, l) => s + l.subtotal,
+  const tiposCambio = parseTiposCambio(orden.licitacion.tiposCambio);
+  const monedaConsolidacion: string = orden.licitacion.monedaConsolidacion ?? "MXN";
+  const lineas = orden.lineas as { subtotal: number; moneda: string | null }[];
+
+  // Total CONVERTIDO línea por línea antes de sumar: una OC puede mezclar
+  // monedas y sumarlas en crudo daba una cifra sin significado.
+  const total: number = lineas.reduce(
+    (s, l) =>
+      s + convertirAMoneda(l.subtotal, l.moneda ?? "MXN", monedaConsolidacion, tiposCambio),
     0
+  );
+
+  // Subtotales por moneda: solo informativos y solo si la OC mezcla monedas.
+  const totalesPorMoneda = lineas.reduce<Record<string, number>>((acc, l) => {
+    const moneda = l.moneda ?? "MXN";
+    acc[moneda] = (acc[moneda] ?? 0) + l.subtotal;
+    return acc;
+  }, {});
+  const hayVariasMonedas = Object.keys(totalesPorMoneda).length > 1;
+
+  // Nota del TC congelado; null si toda la OC ya está en la moneda consolidada.
+  const notaTC = notaTipoCambio(
+    lineas.map((l) => l.moneda),
+    tiposCambio,
+    monedaConsolidacion
   );
   const hoy = new Date().toLocaleDateString("es-MX", {
     day: "2-digit",
@@ -178,20 +219,57 @@ export default async function ImprimirOrdenPage({
                 <td>{l.productoNombre}</td>
                 <td className="text-right">{(l.cantidad as number).toLocaleString("es-MX")}</td>
                 <td>{l.unidadMedida}</td>
-                <td className="text-right">{formatMoneda(l.precioUnitario as number)}</td>
+                <td className="text-right">
+                  {formatMontoConEquivalencia(
+                    l.precioUnitario as number,
+                    (l.moneda as string | null) ?? "MXN",
+                    tiposCambio,
+                    monedaConsolidacion
+                  )}
+                </td>
                 <td>{formatFecha(l.fechaEntregaObjetivo as Date | null)}</td>
                 <td>{formatFecha(l.fechaEstimadaProveedor as Date | null)}</td>
-                <td className="text-right">{formatMoneda(l.subtotal as number)}</td>
+                <td className="text-right">
+                  {formatMontoConEquivalencia(
+                    l.subtotal as number,
+                    (l.moneda as string | null) ?? "MXN",
+                    tiposCambio,
+                    monedaConsolidacion
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
+            {/* Subtotales por moneda: solo si la OC mezcla monedas. Dejan claro
+                cuánto se debe en cada una antes de consolidar. */}
+            {hayVariasMonedas &&
+              Object.entries(totalesPorMoneda).map(([moneda, subtotal]) => (
+                <tr key={moneda}>
+                  <td colSpan={6} className="text-right" style={{ fontWeight: 500 }}>
+                    Subtotal {moneda}
+                  </td>
+                  <td className="text-right" style={{ fontWeight: 500 }}>
+                    {formatImporte(subtotal, moneda)}
+                  </td>
+                </tr>
+              ))}
             <tr>
-              <td colSpan={6} className="text-right">Total general</td>
-              <td className="text-right">{formatMoneda(total)}</td>
+              <td colSpan={6} className="text-right">
+                Total general{hayVariasMonedas ? ` (en ${monedaConsolidacion})` : ""}
+              </td>
+              <td className="text-right">{formatImporte(total, monedaConsolidacion)}</td>
             </tr>
           </tfoot>
         </table>
+
+        {/* Tipo de cambio congelado con el que se calcularon las equivalencias:
+            en un documento contractual tiene que quedar asentado cuál se usó. */}
+        {notaTC && (
+          <p style={{ marginTop: "10px", fontSize: "11px", color: "#71717a" }}>
+            {notaTC} · Tipo de cambio congelado al cierre de la licitación.
+          </p>
+        )}
 
         <div className="footer">Generado por {empresa.nombreComercial} · {hoy}</div>
       </div>

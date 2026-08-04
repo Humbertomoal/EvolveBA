@@ -17,6 +17,13 @@ import {
   rechazarAsignacionProveedorAction,
 } from "@/src/lib/proveedorAsignacionActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import {
+  convertirAMoneda,
+  formatMontoConEquivalencia,
+  notaTipoCambio,
+  type TiposCambio,
+} from "@/src/lib/conversionMoneda";
+import { formatImporte } from "@/src/lib/monedas";
 import type { AsignacionProveedor, LicitacionResultado } from "../page";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -30,8 +37,25 @@ function formatFecha(iso: string | null): string {
   });
 }
 
-function formatPeso(n: number): string {
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+// Total de una lista de asignaciones, CONVERTIDO a la moneda de consolidación
+// con el TC congelado: cada línea puede venir en distinta moneda, así que no se
+// pueden sumar en crudo.
+function totalConsolidado(
+  asignaciones: AsignacionProveedor[],
+  tiposCambio: TiposCambio,
+  monedaConsolidacion: string
+): number {
+  return asignaciones.reduce(
+    (suma, a) =>
+      suma +
+      convertirAMoneda(
+        a.cantidadAsignada * a.precioUnitario,
+        a.moneda,
+        monedaConsolidacion,
+        tiposCambio
+      ),
+    0
+  );
 }
 
 // La fecha estimada puede venir prellenada con la fecha objetivo (ya no es
@@ -104,9 +128,12 @@ function generarPDF(
   const confirmadas = asignaciones.filter(
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
   );
-  const total = confirmadas.reduce(
-    (sum: any, a: any) => sum + a.cantidadAsignada * a.precioUnitario,
-    0
+  const { tiposCambio, monedaConsolidacion } = licitacion;
+  const total = totalConsolidado(confirmadas, tiposCambio, monedaConsolidacion);
+  const notaTC = notaTipoCambio(
+    confirmadas.map((a) => a.moneda),
+    tiposCambio,
+    monedaConsolidacion
   );
 
   const filas = confirmadas
@@ -116,10 +143,10 @@ function generarPDF(
         <td>${a.productoNombre}</td>
         <td style="text-align:right">${a.cantidadAsignada}</td>
         <td>${a.unidadMedida}</td>
-        <td style="text-align:right">${formatPeso(a.precioUnitario)}</td>
+        <td style="text-align:right">${formatMontoConEquivalencia(a.precioUnitario, a.moneda, tiposCambio, monedaConsolidacion)}</td>
         <td>${formatFecha(a.fechaObjetivo)}</td>
         <td>${a.fechaEstimadaProveedor ? formatFecha(a.fechaEstimadaProveedor) : "Sí cumple"}</td>
-        <td style="text-align:right">${formatPeso(a.cantidadAsignada * a.precioUnitario)}</td>
+        <td style="text-align:right">${formatMontoConEquivalencia(a.cantidadAsignada * a.precioUnitario, a.moneda, tiposCambio, monedaConsolidacion)}</td>
       </tr>`
     )
     .join("");
@@ -148,7 +175,8 @@ function generarPDF(
       </thead>
       <tbody>${filas}</tbody>
     </table>
-    <div class="total">Total confirmado: ${formatPeso(total)}</div>
+    <div class="total">Total confirmado: ${formatImporte(total, monedaConsolidacion)}</div>
+    ${notaTC ? `<div class="sub" style="margin-top:8px">${notaTC}</div>` : ""}
     </body></html>`;
 
   const win = window.open("", "_blank");
@@ -179,6 +207,13 @@ export default function ResultadoView({
   const [procesando, setProcesando] = useState(false);
 
   const ahora = Date.now();
+  // Nota discreta del TC congelado usado; null si todo viene en la moneda de
+  // consolidación (entonces no hay equivalencias que explicar).
+  const notaTCVista = notaTipoCambio(
+    asignaciones.map((a) => a.moneda),
+    licitacion.tiposCambio,
+    licitacion.monedaConsolidacion
+  );
   const pendientes = asignaciones.filter((a) => a.estatusProveedor === "Pendiente");
   const hayConfirmados = asignaciones.some(
     (a) => a.estatusProveedor === "Confirmado" || a.estatusProveedor === "Aprobado"
@@ -327,10 +362,20 @@ export default function ResultadoView({
                   <td className="px-4 py-3 text-right text-zinc-700">{a.cantidadAsignada}</td>
                   <td className="px-4 py-3 text-zinc-500">{a.unidadMedida}</td>
                   <td className="px-4 py-3 text-right text-zinc-700">
-                    {formatPeso(a.precioUnitario)}
+                    {formatMontoConEquivalencia(
+                      a.precioUnitario,
+                      a.moneda,
+                      licitacion.tiposCambio,
+                      licitacion.monedaConsolidacion
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-zinc-800">
-                    {formatPeso(a.cantidadAsignada * a.precioUnitario)}
+                    {formatMontoConEquivalencia(
+                      a.cantidadAsignada * a.precioUnitario,
+                      a.moneda,
+                      licitacion.tiposCambio,
+                      licitacion.monedaConsolidacion
+                    )}
                   </td>
                   <td className="px-4 py-3 text-zinc-600">{formatFecha(a.fechaObjetivo)}</td>
                   <td className="px-4 py-3 text-zinc-600">
@@ -389,16 +434,27 @@ export default function ResultadoView({
               <td colSpan={4} className="px-4 py-3 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wide">
                 Total
               </td>
+              {/* Cada línea se convierte a la moneda de consolidación ANTES de
+                  sumar: antes se sumaban monedas distintas en crudo. */}
               <td className="px-4 py-3 text-right font-semibold text-zinc-900">
-                {formatPeso(
-                  asignaciones.reduce(
-                    (sum: any, a: any) => sum + a.cantidadAsignada * a.precioUnitario,
-                    0
-                  )
+                {formatImporte(
+                  totalConsolidado(
+                    asignaciones,
+                    licitacion.tiposCambio,
+                    licitacion.monedaConsolidacion
+                  ),
+                  licitacion.monedaConsolidacion
                 )}
               </td>
               <td colSpan={4} />
             </tr>
+            {notaTCVista && (
+              <tr className="bg-zinc-50">
+                <td colSpan={9} className="px-4 pb-2 text-right text-[11px] text-zinc-400">
+                  {notaTCVista}
+                </td>
+              </tr>
+            )}
           </tfoot>
         </table>
         </div>
