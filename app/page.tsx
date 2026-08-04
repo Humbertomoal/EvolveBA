@@ -417,13 +417,13 @@ export default async function Home() {
             className="mb-[22px] text-[40px] font-extrabold leading-[1.06] tracking-[-0.03em] text-[#FAFAF8] text-pretty md:text-[58px]"
             style={{ animation: "fadeUp 0.7s ease 0.05s both" }}
           >
-            Automatiza las negociaciones de tus compras y ahorra hasta el 20% promedio de tus costos o más.
+            Automatiza todas tus negociaciones y ahorra el 20% o más de tus Costos.
           </h1>
           <p
             className="mx-auto mb-9 max-w-[560px] text-[17px] font-medium leading-[1.55] text-[#C7D6CE] md:text-[19px]"
             style={{ animation: "fadeUp 0.7s ease 0.1s both" }}
           >
-            Automatiza parcial o totalmente tu proceso de compras y reduce los costos de tus principales con tecnología desarrollada por Evolve BA.
+            Automatiza parcial o totalmente tu proceso de compras y reduce tus principales Costos con tecnología desarrollada por Evolve BA.
           </p>
           <p
             className="mx-auto mb-9 max-w-[520px] text-[14px] font-medium italic leading-[1.5] text-[#9FB3A8]"
@@ -511,35 +511,35 @@ export default async function Home() {
       </section>
 
       {/* ── STATS STRIP ───────────────────────────────────────────────────── */}
-      <section className={`mx-auto grid max-w-[1100px] grid-cols-1 gap-6 border-b border-[#EFEEE8] py-10 sm:grid-cols-3 ${SECTION_X}`}>
+      <section className={`mx-auto grid max-w-[1100px] grid-cols-1 gap-6 border-b border-[#EFEEE8] py-10 sm:grid-cols-2 lg:grid-cols-4 ${SECTION_X}`}>
         {[
           {
             icon: (
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2v8h8" /><path d="M20.5 15a8.5 8.5 0 1 1-6-8.1" /></svg>
             ),
             value: "70%",
-            label: "de reducción en tiempo de compras",
+            label: "de Reducción en el tiempo de compras",
           },
           {
             icon: (
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
             ),
-            value: "100%",
-            label: "trazabilidad del proceso",
+            value: "hasta 30%",
+            label: "de Ahorro en Costos",
           },
           {
             icon: (
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
             ),
             value: "1 sola",
-            label: "plataforma para compras y proveedores",
+            label: "Platarforma Centralizada",
           },
           {
             icon: (
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" /></svg>
             ),
-            value: "100%",
-            label: "de las métricas de tu proceso de compras, de punta a punta",
+            value: "100% de trasabilidad",
+            label: "Indicadores del Proceso de Punta a Punta",
           },
         ].map((s) => (
           <div key={s.label} className="flex items-center justify-center gap-4">
@@ -555,10 +555,25 @@ export default async function Home() {
       {/* ── TRUST BAR ─────────────────────────────────────────────────────── */}
       <section className={`mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 border-b border-[#EFEEE8] py-14 md:grid-cols-[1.1fr_1fr] ${SECTION_X}`}>
         <div>
-          <div className="mb-5 text-[13px] font-bold tracking-[0.03em] text-[#8B968F]">CONFÍAN EN PURCHASE OTIMIZER EQUIPOS DE COMPRAS EN:</div>
-          <div className="flex flex-wrap gap-x-11 gap-y-4 text-[14px] font-bold text-[#B7BCB3]">
-            {["MANUFACTURA", "ENERGÍA", "RETAIL", "CONSTRUCCIÓN", "SERVICIOS"].map((x) => (
-              <div key={x}>{x}</div>
+          <div className="mb-5 text-[13px] font-bold tracking-[0.03em] text-[#8B968F]">Sectores que Confían en las Compras Automatizadas:</div>
+          <div className="flex flex-wrap gap-x-8 gap-y-4 text-[14px] font-bold text-[#5C665F]">
+            {[
+              { nombre: "Energía", icon: <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" /> },
+              { nombre: "Construcción", icon: <><path d="M2 20h20" /><path d="M4 20V8l8-5 8 5v12" /><rect x="9" y="12" width="6" height="8" /></> },
+              { nombre: "Manufactura", icon: <><path d="M2 20h20V9l-6 4V9l-6 4V4L2 9v11z" /></> },
+              { nombre: "Agroindustria & Acuacultura", icon: <><path d="M11 20A7 7 0 0 1 4 13c3.5 0 7 2 7 7z" /><path d="M11 20a7 7 0 0 1 7-7c0 4-3.5 7-7 7z" /><path d="M11 20v-8" /></> },
+              { nombre: "Retail", icon: <><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></> },
+              { nombre: "Bienes de Consumo", icon: <><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /></> },
+              { nombre: "Hotelería", icon: <><path d="M3 21V7l9-4 9 4v14" /><path d="M9 21v-6h6v6" /><path d="M9 11h.01M15 11h.01" /></> },
+            ].map((x) => (
+              <div key={x.nombre} className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#EFFBF3]">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#173F35" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    {x.icon}
+                  </svg>
+                </span>
+                {x.nombre}
+              </div>
             ))}
           </div>
         </div>
