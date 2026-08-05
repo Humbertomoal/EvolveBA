@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/src/auth";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 
-const PUBLIC_PATHS = ["/login", "/cambiar-password"];
+// "/portal" es la landing neutral a la que apuntan los correos a proveedores
+// ({urlPortal}). Debe ser pública: quien llega desde el correo aún no tiene
+// sesión, y sin esto el proxy lo mandaría a /login antes de ver la landing.
+const PUBLIC_PATHS = ["/login", "/cambiar-password", "/portal"];
 const SECCIONES_SIN_CLIENTE = ["/comprador", "/proveedor", "/inicio"];
 
 export default auth((req) => {

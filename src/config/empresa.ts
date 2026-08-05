@@ -21,7 +21,7 @@ export const configEmpresa: Record<string, ConfigEmpresa> = {
     tituloAsistente: "Asistente de Inteligencia Artificial",
     telefonoContacto: "9982884736",
     correoContacto: "",
-    urlPortal: "https://evolve-ba.vercel.app",
+    urlPortal: "https://evolve-ba.vercel.app/portal",
     logoUrl: "",
     colorPrimario: "#004439",
     firmaCorreo: "",
