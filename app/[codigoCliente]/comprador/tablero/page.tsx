@@ -13,11 +13,16 @@ import {
   MONEDA_BASE,
 } from "@/src/lib/conversionMoneda";
 import {
+  claveMes,
+  etiquetaMes,
   filtrosDesdeSearchParams,
   itemPasaFiltro,
   resolverRangoFechas,
 } from "@/src/lib/tableroFiltros";
+import { promediarEtapas } from "@/src/lib/tableroEtapas";
 import {
+  esLicitacionEjecutada,
+  getEtapasTablero,
   getLicitacionesTablero,
   getOpcionesFiltros,
   getOrdenesTablero,
@@ -78,10 +83,11 @@ export default async function TableroIndicadoresPage({
 
   // Todas las consultas pasan por tableroQueries.ts — un solo `where` canónico
   // para licitaciones y órdenes, así ambos KPIs describen el mismo universo.
-  const [opciones, licitaciones, ordenes] = await Promise.all([
+  const [opciones, licitaciones, ordenes, etapasRaw] = await Promise.all([
     getOpcionesFiltros(filtros, sesion),
     getLicitacionesTablero(filtros, sesion),
     getOrdenesTablero(filtros, sesion),
+    getEtapasTablero(filtros, sesion),
   ]);
 
   // ── Cálculo unificado de ahorro / adherencia / precios ─────────────────────
@@ -91,11 +97,18 @@ export default async function TableroIndicadoresPage({
   // licitación. Una sola pasada alimenta el KPI de ahorro, el de adherencia,
   // la gráfica de precio inicial vs final y la de ahorro por material.
   let licitacionesTotales = 0;
-  let ahorroTotal = 0; // Σ ahorro (MXN), mismo signo que el detalle
   let objetivoAcumMXN = 0; // numerador de la adherencia global
   let mejorAcumMXN = 0; // denominador de la adherencia global
   const precioChart: TableroData["precioChart"] = [];
   const avisoTiposCambio: string[] = [];
+
+  // ── Grupo 1: solo licitaciones EJECUTADAS ──────────────────────────────────
+  // El universo es más estrecho que el de los indicadores de arriba: aquí solo
+  // entran las licitaciones cuya puja ya terminó y cuyos precios no se mueven.
+  let licitacionesEjecutadas = 0;
+  let valorPrimeraRonda = 0; // MXN, a precios de la primera ronda CON puja
+  let valorMejoresPrecios = 0; // MXN, al mejor precio de todas las rondas
+  const ahorroPorMes = new Map<string, number>();
 
   type MaterialAcc = {
     productoId: string;
@@ -166,15 +179,40 @@ export default async function TableroIndicadoresPage({
       MONEDA_BASE
     );
 
-    // KPI ahorro (MXN) y adherencia global (Σobjetivo / Σmejor).
-    ahorroTotal += resumen.ahorroTotal;
+    // Adherencia global (Σobjetivo / Σmejor).
     if (resumen.hayOfertas && resumen.mejorPrecioActualTotal > 0) {
       objetivoAcumMXN += resumen.presupuestoObjetivoTotal;
       mejorAcumMXN += resumen.mejorPrecioActualTotal;
     }
 
+    // ── Universo del AHORRO: licitaciones ejecutadas con ofertas ────────────
+    // Una sola condición para la tarjeta, la gráfica mensual, la de precio
+    // inicial vs final y la de ahorro por material. Vive en una constante y no
+    // repetida en cada bloque a propósito: son cuatro vistas del mismo número y
+    // si las condiciones se escriben por separado terminan divergiendo.
+    // Ojo: NO aplica a adherencia ni a on-time, que miden otra cosa y tienen su
+    // propio universo (todas las licitaciones filtradas / órdenes medibles).
+    const entraAlAhorro = esLicitacionEjecutada(lic.estado) && resumen.hayOfertas;
+
+    // ── Indicadores 1-3 del Grupo 1 ─────────────────────────────────────────
+    // Salen del mismo `resumen` que ya se calculó: primeraRondaTotal es el
+    // valor a precios de la primera ronda CON puja (no necesariamente la ronda
+    // 1) y mejorPrecioActualTotal el del mejor precio de todas las rondas,
+    // ambos ya consolidados a MXN con el TC congelado de la licitación.
+    if (entraAlAhorro) {
+      licitacionesEjecutadas++;
+      valorPrimeraRonda += resumen.primeraRondaTotal;
+      valorMejoresPrecios += resumen.mejorPrecioActualTotal;
+
+      // El ahorro se materializa cuando se congela el precio, o sea al cerrar.
+      const fechaCorte =
+        lic.fechaCerrada ?? lic.fechaFinalizada ?? lic.fechaCreacion;
+      const mes = claveMes(fechaCorte);
+      ahorroPorMes.set(mes, (ahorroPorMes.get(mes) ?? 0) + resumen.ahorroTotal);
+    }
+
     // Gráfica: precio primera ronda vs mejor precio (MXN) por licitación.
-    if (resumen.hayOfertas && resumen.primeraRondaTotal > 0) {
+    if (entraAlAhorro && resumen.primeraRondaTotal > 0) {
       precioChart.push({
         numero: lic.numero,
         jerarquia: lic.jerarquia ?? null,
@@ -191,7 +229,11 @@ export default async function TableroIndicadoresPage({
     // analisis[i] ↔ items[i] se rompe en silencio en cuanto uno de los dos
     // arrays se filtra, que es exactamente lo que hace el nivel 2 de arriba.
     const itemPorId = new Map(items.map((it) => [it.id, it]));
-    for (const a of analisis) {
+    // Mismo universo que la tarjeta: si la licitación no entra al ahorro, no
+    // aporta materiales. (No se puede usar `continue` aquí: el bloque de
+    // adherencia por criticidad va después y sí recorre todas.)
+    const materialesDelAhorro = entraAlAhorro ? analisis : [];
+    for (const a of materialesDelAhorro) {
       if (a.ahorroTotal == null) continue; // material sin puja → fuera del ahorro
       const it = itemPorId.get(a.licitacionItemId);
       if (!it) continue;
@@ -238,6 +280,27 @@ export default async function TableroIndicadoresPage({
     mejorAcumMXN > 0
       ? Math.round((objetivoAcumMXN / mejorAcumMXN) * 1000) / 10
       : null;
+
+  // Se resta el total de totales (en vez de sumar los ahorros por licitación)
+  // para que la resta de las tres tarjetas cierre exacta en pantalla: sumar
+  // Σ(aᵢ−bᵢ) puede desviarse de Σaᵢ−Σbᵢ en los últimos bits del flotante.
+  const ahorroTotal = valorPrimeraRonda - valorMejoresPrecios;
+
+  const ahorroMensual: TableroData["ahorroMensual"] = Array.from(
+    ahorroPorMes.entries()
+  )
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([mes, ahorro]) => ({ mes, etiqueta: etiquetaMes(mes), ahorro }));
+
+  // Tiempo por etapa: el algoritmo (suma por licitación antes de promediar,
+  // huecos descartados, último estado sin cerrar) vive en tableroEtapas.ts.
+  const resumenEtapas = promediarEtapas(etapasRaw.logsPorLicitacion);
+  const tiempoEtapas: TableroData["tiempoEtapas"] = {
+    etapas: resumenEtapas.etapas,
+    licitacionesUtilizables: resumenEtapas.licitacionesUtilizables,
+    licitacionesTotales: etapasRaw.licitacionesTotales,
+    intervalosDescartados: resumenEtapas.intervalosDescartados,
+  };
 
   const ahorroMaterial: TableroData["ahorroMaterial"] = Array.from(matMap.values())
     .filter((m) => m.ahorroSumMXN > 0)
@@ -308,7 +371,17 @@ export default async function TableroIndicadoresPage({
 
   // ── Compose and render ────────────────────────────────────────────────────
   const data: TableroData = {
-    kpis: { licitacionesTotales, ahorroTotal, adherenciaPrecios, onTimeDelivery },
+    kpis: {
+      licitacionesTotales,
+      licitacionesEjecutadas,
+      valorPrimeraRonda,
+      valorMejoresPrecios,
+      ahorroTotal,
+      adherenciaPrecios,
+      onTimeDelivery,
+    },
+    ahorroMensual,
+    tiempoEtapas,
     precioChart,
     ahorroMaterial,
     onTimeProveedor,

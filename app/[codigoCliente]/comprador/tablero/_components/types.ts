@@ -13,9 +13,30 @@ export type FiltrosActivos = FiltrosTablero;
 export type TableroData = {
   kpis: {
     licitacionesTotales: number;
+    /** Licitaciones ejecutadas (Cerrada · Esperando Validación · Finalizada). */
+    licitacionesEjecutadas: number;
+    // ── Grupo 1: los tres cuadran por construcción ──────────────────────────
+    // ahorroTotal = valorPrimeraRonda − valorMejoresPrecios, sobre el mismo
+    // universo (ejecutadas) y consolidado a MXN. Se restan los totales en vez
+    // de sumar los ahorros por licitación para que la resta de las tarjetas
+    // cierre exacta en pantalla.
+    valorPrimeraRonda: number;
+    valorMejoresPrecios: number;
     ahorroTotal: number;
     adherenciaPrecios: number | null;
     onTimeDelivery: number | null;
+  };
+  /** Ahorro por mes de cierre (fechaCerrada ?? fechaFinalizada ?? fechaCreacion). */
+  ahorroMensual: {
+    mes: string; // "2026-03", ordenable
+    etiqueta: string; // "mar 2026"
+    ahorro: number;
+  }[];
+  tiempoEtapas: {
+    etapas: { etapa: string; promedioHoras: number; licitaciones: number }[];
+    licitacionesUtilizables: number;
+    licitacionesTotales: number;
+    intervalosDescartados: number;
   };
   precioChart: {
     numero: string;

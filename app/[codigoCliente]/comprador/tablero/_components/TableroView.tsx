@@ -8,16 +8,20 @@ import {
   IconChevronUp,
   IconCoin,
   IconFileInvoice,
+  IconTrendingDown,
   IconTruck,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { filtrosAQueryString, SIN_FAMILIA } from "@/src/lib/tableroFiltros";
 import type { FiltrosActivos, TableroData } from "./types";
+import { formatDuracionHoras } from "@/src/lib/tableroEtapas";
 import GraficaAdherencia from "./GraficaAdherencia";
 import GraficaAhorro from "./GraficaAhorro";
+import GraficaAhorroMensual from "./GraficaAhorroMensual";
 import GraficaOnTime from "./GraficaOnTime";
 import GraficaPrecios from "./GraficaPrecios";
+import GraficaTiempoEtapas from "./GraficaTiempoEtapas";
 
 function fmt(n: number) {
   return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -29,7 +33,13 @@ function fmtShort(n: number) {
   return `$${fmt(n)}`;
 }
 
-type SectionKey = "precios" | "ahorro" | "ontime" | "adherencia";
+type SectionKey =
+  | "precios"
+  | "ahorro"
+  | "ontime"
+  | "adherencia"
+  | "ahorroMensual"
+  | "etapas";
 
 const selectClass =
   "rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -71,7 +81,15 @@ export default function TableroView({
     });
   }
 
-  const { kpis, precioChart, ahorroMaterial, onTimeProveedor, adherenciaJerarquia } = data;
+  const {
+    kpis,
+    precioChart,
+    ahorroMaterial,
+    onTimeProveedor,
+    adherenciaJerarquia,
+    ahorroMensual,
+    tiempoEtapas,
+  } = data;
 
   // La lista de productos se acota a la familia elegida para que el
   // desplegable no ofrezca combinaciones que dejarían el tablero vacío.
@@ -211,20 +229,47 @@ export default function TableroView({
         </div>
       )}
 
-      {/* ── KPIs ──────────────────────────────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ── KPIs de valor (licitaciones ejecutadas) ───────────────────────────
+          Las tres cuadran por construcción: ahorro = primera ronda − mejores
+          precios, sobre el mismo universo y consolidado a MXN. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <KpiCard
+          label="Valor total de compras — primera ronda"
+          value={fmtShort(kpis.valorPrimeraRonda)}
+          icon={<IconCoin className="h-5 w-5" />}
+          color="blue"
+          sublabel={`$${fmt(kpis.valorPrimeraRonda)} MXN · ${kpis.licitacionesEjecutadas} ejecutada${
+            kpis.licitacionesEjecutadas === 1 ? "" : "s"
+          }`}
+        />
+        <KpiCard
+          label="Valor total de compras — mejores precios"
+          value={fmtShort(kpis.valorMejoresPrecios)}
+          icon={<IconCoin className="h-5 w-5" />}
+          color="teal"
+          sublabel={`$${fmt(kpis.valorMejoresPrecios)} MXN`}
+        />
+        <KpiCard
+          label="Ahorro total"
+          value={fmtShort(kpis.ahorroTotal)}
+          icon={<IconTrendingDown className="h-5 w-5" />}
+          color="green"
+          sublabel={
+            kpis.valorPrimeraRonda > 0
+              ? `${Math.round((kpis.ahorroTotal / kpis.valorPrimeraRonda) * 1000) / 10}% sobre primera ronda`
+              : "Sin ofertas en el periodo"
+          }
+        />
+      </div>
+
+      {/* ── KPIs operativos ───────────────────────────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard
           label="Licitaciones totales"
           value={String(kpis.licitacionesTotales)}
           icon={<IconFileInvoice className="h-5 w-5" />}
           color="blue"
-        />
-        <KpiCard
-          label="Ahorro total generado"
-          value={fmtShort(kpis.ahorroTotal)}
-          icon={<IconCoin className="h-5 w-5" />}
-          color="green"
-          sublabel={kpis.ahorroTotal > 0 ? `$${fmt(kpis.ahorroTotal)} MXN` : "Sin asignaciones"}
+          sublabel={`${kpis.licitacionesEjecutadas} ya ejecutadas`}
         />
         <KpiCard
           label="Adherencia de precios"
@@ -243,6 +288,89 @@ export default function TableroView({
           sublabel="Sobre OC entregadas con fecha objetivo"
         />
       </div>
+
+      {/* ── Ahorro por mes ────────────────────────────────────────────────────── */}
+      <ChartSection
+        title="Ahorro por mes"
+        subtitle="Licitaciones ejecutadas, agrupadas por mes de cierre"
+        hasData={ahorroMensual.length > 0}
+        isOpen={openTables.has("ahorroMensual")}
+        onToggle={() => toggleTable("ahorroMensual")}
+      >
+        <GraficaAhorroMensual data={ahorroMensual} />
+        {openTables.has("ahorroMensual") && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="pb-2 pr-4">Mes</th>
+                  <th className="pb-2 text-right">Ahorro</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {ahorroMensual.map((row) => (
+                  <tr key={row.mes} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className="py-2 pr-4 font-medium">{row.etiqueta}</td>
+                    <td className="py-2 text-right font-medium text-green-600">
+                      ${fmt(row.ahorro)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ChartSection>
+
+      {/* ── Tiempo promedio por etapa ─────────────────────────────────────────── */}
+      <ChartSection
+        title="Tiempo promedio por etapa"
+        subtitle={`${tiempoEtapas.licitacionesUtilizables} de ${tiempoEtapas.licitacionesTotales} licitaciones con bitácora utilizable`}
+        hasData={tiempoEtapas.etapas.length > 0}
+        isOpen={openTables.has("etapas")}
+        onToggle={() => toggleTable("etapas")}
+      >
+        <GraficaTiempoEtapas data={tiempoEtapas.etapas} />
+        {/* Cobertura visible: un promedio sacado de 3 de 40 licitaciones se lee
+            como si fuera de las 40 si no se dice lo contrario. */}
+        <p className="mt-3 text-xs text-zinc-400">
+          Calculado sobre {tiempoEtapas.licitacionesUtilizables} de{" "}
+          {tiempoEtapas.licitacionesTotales} licitaciones ejecutadas — el resto no
+          tiene bitácora de estados suficiente.
+          {tiempoEtapas.intervalosDescartados > 0 && (
+            <>
+              {" "}
+              Se descartaron {tiempoEtapas.intervalosDescartados} intervalo
+              {tiempoEtapas.intervalosDescartados === 1 ? "" : "s"} por
+              transiciones faltantes en el registro.
+            </>
+          )}
+        </p>
+        {openTables.has("etapas") && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="pb-2 pr-4">Etapa</th>
+                  <th className="pb-2 pr-4 text-right">Tiempo promedio</th>
+                  <th className="pb-2 text-right">Licitaciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {tiempoEtapas.etapas.map((row) => (
+                  <tr key={row.etapa} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className="py-2 pr-4 font-medium">{row.etapa}</td>
+                    <td className="py-2 pr-4 text-right">
+                      {formatDuracionHoras(row.promedioHoras)}
+                    </td>
+                    <td className="py-2 text-right text-zinc-500">{row.licitaciones}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ChartSection>
 
       {/* ── Gráfica 1: Precio inicial vs final ───────────────────────────────── */}
       <ChartSection
@@ -443,12 +571,14 @@ function KpiCard({
 
 function ChartSection({
   title,
+  subtitle,
   hasData,
   isOpen,
   onToggle,
   children,
 }: {
   title: string;
+  subtitle?: string;
   hasData: boolean;
   isOpen: boolean;
   onToggle: () => void;
@@ -457,7 +587,10 @@ function ChartSection({
   return (
     <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs text-zinc-400">{subtitle}</p>}
+        </div>
         {hasData && (
           <button
             type="button"

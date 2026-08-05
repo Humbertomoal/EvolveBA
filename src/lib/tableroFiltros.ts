@@ -82,6 +82,35 @@ export function resolverRangoFechas(filtros: FiltrosTablero): {
   return { startDate, endDate };
 }
 
+// ── Agrupación mensual ───────────────────────────────────────────────────────
+//
+// Se resuelve en zona horaria de México (misma convención que dateUtils.ts): en
+// UTC, una licitación cerrada el 1 de marzo a las 00:30 pertenece a marzo, pero
+// en hora local de México son las 18:30 del 28 de febrero — y el usuario la
+// espera en febrero.
+
+const FORMATO_MES = new Intl.DateTimeFormat("es-MX", {
+  timeZone: "America/Mexico_City",
+  year: "numeric",
+  month: "2-digit",
+});
+
+/** Clave ordenable del mes de una fecha, p. ej. "2026-03". */
+export function claveMes(fecha: Date): string {
+  const partes = FORMATO_MES.formatToParts(fecha);
+  const anio = partes.find((p) => p.type === "year")?.value ?? "0000";
+  const mes = partes.find((p) => p.type === "month")?.value ?? "00";
+  return `${anio}-${mes}`;
+}
+
+/** Etiqueta legible de una clave de mes, p. ej. "2026-03" → "mar 2026". */
+export function etiquetaMes(clave: string): string {
+  const [anio, mes] = clave.split("-");
+  const fecha = new Date(Number(anio), Number(mes) - 1, 1);
+  if (Number.isNaN(fecha.getTime())) return clave;
+  return fecha.toLocaleDateString("es-MX", { month: "short", year: "numeric" });
+}
+
 // ── Nivel 2: filtro por material ─────────────────────────────────────────────
 
 /**

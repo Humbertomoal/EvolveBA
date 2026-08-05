@@ -15,6 +15,8 @@
 
 import type { Prisma } from ".prisma/client/default";
 import { prisma } from "./prisma";
+import { ESTADO_ESPERANDO_VALIDACION } from "./seleccionTypes";
+import type { TransicionLog } from "./tableroEtapas";
 import {
   SIN_FAMILIA,
   resolverRangoFechas,
@@ -162,6 +164,59 @@ export async function getOrdenesTablero(
     where: construirWhereOrden(filtros, sesion),
     select: ORDEN_TABLERO_SELECT,
   });
+}
+
+// ── Universo de licitaciones "ejecutadas" ────────────────────────────────────
+//
+// La puja terminó y los precios ya no se mueven. Quedan fuera Borrador,
+// Programada, En Proceso y Esperando Decisión (precios aún vivos) y Cancelada
+// (no hubo ejecución, y su ciclo interrumpido distorsionaría los promedios de
+// tiempo por etapa).
+export const ESTADOS_EJECUTADAS: string[] = [
+  "Cerrada",
+  ESTADO_ESPERANDO_VALIDACION,
+  "Finalizada",
+];
+
+export function esLicitacionEjecutada(estado: string): boolean {
+  return ESTADOS_EJECUTADAS.includes(estado);
+}
+
+export type EtapasTablero = {
+  logsPorLicitacion: TransicionLog[][];
+  /** Licitaciones del universo, tengan o no bitácora utilizable. */
+  licitacionesTotales: number;
+};
+
+/**
+ * Bitácoras de estado de las licitaciones ejecutadas.
+ *
+ * Va en query APARTE y no en LICITACION_TABLERO_INCLUDE a propósito: cargar
+ * estadoLogs para todas las licitaciones infla el payload cuando solo las
+ * ejecutadas los necesitan (el resto ni siquiera se grafica).
+ */
+export async function getEtapasTablero(
+  filtros: FiltrosTablero,
+  sesion: SesionTablero
+): Promise<EtapasTablero> {
+  const rows = await prisma.licitacion.findMany({
+    where: {
+      ...construirWhereLicitacion(filtros, sesion),
+      estado: { in: ESTADOS_EJECUTADAS },
+    },
+    select: {
+      id: true,
+      estadoLogs: {
+        select: { estadoAnterior: true, estadoNuevo: true, at: true },
+        orderBy: { at: "asc" },
+      },
+    },
+  });
+
+  return {
+    logsPorLicitacion: rows.map((r) => r.estadoLogs),
+    licitacionesTotales: rows.length,
+  };
 }
 
 // ── Opciones de los desplegables ─────────────────────────────────────────────
