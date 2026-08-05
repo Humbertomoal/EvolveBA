@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { filtrosAQueryString, SIN_FAMILIA } from "@/src/lib/tableroFiltros";
 import type { FiltrosActivos, TableroData } from "./types";
 import GraficaAdherencia from "./GraficaAdherencia";
 import GraficaAhorro from "./GraficaAhorro";
@@ -30,6 +31,9 @@ function fmtShort(n: number) {
 
 type SectionKey = "precios" | "ahorro" | "ontime" | "adherencia";
 
+const selectClass =
+  "rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
+
 export default function TableroView({
   data,
   filtros,
@@ -43,21 +47,18 @@ export default function TableroView({
   const [isPending, startTransition] = useTransition();
   const [openTables, setOpenTables] = useState<Set<SectionKey>>(new Set());
 
-  function updateFilter(key: string, value: string) {
-    const raw: Record<string, string> = {
-      period: filtros.period,
-      proveedor: filtros.proveedorId,
-      jerarquia: filtros.jerarquia,
-      dateFrom: filtros.dateFrom,
-      dateTo: filtros.dateTo,
-      [key]: value,
-    };
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(raw)) {
-      if (v) params.set(k, v);
-    }
+  // El mapeo campo → parámetro de URL vive en tableroFiltros.ts, compartido con
+  // el server. Antes esta lista estaba hardcodeada aquí y había que acordarse
+  // de tocar los dos lados al agregar un filtro.
+  function updateFilter(key: keyof FiltrosActivos, value: string) {
+    const next: FiltrosActivos = { ...filtros, [key]: value };
+    // Cambiar de familia invalida el producto elegido: uno de otra familia
+    // dejaría el tablero vacío sin que se vea por qué.
+    if (key === "familia") next.productoId = "";
     startTransition(() => {
-      router.replace(`${basePath}/comprador/tablero?${params.toString()}`);
+      router.replace(
+        `${basePath}/comprador/tablero?${filtrosAQueryString(next)}`
+      );
     });
   }
 
@@ -71,6 +72,16 @@ export default function TableroView({
   }
 
   const { kpis, precioChart, ahorroMaterial, onTimeProveedor, adherenciaJerarquia } = data;
+
+  // La lista de productos se acota a la familia elegida para que el
+  // desplegable no ofrezca combinaciones que dejarían el tablero vacío.
+  const productosVisibles = filtros.familia
+    ? data.productosOpciones.filter((p) =>
+        filtros.familia === SIN_FAMILIA
+          ? p.familia === null
+          : p.familia === filtros.familia
+      )
+    : data.productosOpciones;
 
   return (
     <div className={`space-y-6 transition-opacity ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
@@ -112,24 +123,61 @@ export default function TableroView({
         )}
 
         <select
+          aria-label="Proveedor"
           value={filtros.proveedorId}
-          onChange={(e) => updateFilter("proveedor", e.target.value)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+          onChange={(e) => updateFilter("proveedorId", e.target.value)}
+          className={selectClass}
         >
           <option value="">Todos los proveedores</option>
-          {data.proveedoresOpciones.map((p: any)=> (
-            <option key={p.id} value={p.id}>{p.nombre}</option>
+          {data.proveedoresOpciones.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.inactivo ? `${p.nombre} (inactivo)` : p.nombre}
+            </option>
+          ))}
+        </select>
+
+        {/* Criticidad — el campo del modelo se llama `jerarquia` y toma
+            Crítica/Alta/Media/Baja. Antes decía "Todas las categorías", que
+            hacía pensar que filtraba por categoría de producto; la categoría
+            real de producto es el filtro de Familia que sigue. */}
+        <select
+          aria-label="Criticidad"
+          value={filtros.jerarquia}
+          onChange={(e) => updateFilter("jerarquia", e.target.value)}
+          className={selectClass}
+        >
+          <option value="">Toda la criticidad</option>
+          {data.jerarquiasOpciones.map((j) => (
+            <option key={j} value={j}>{j}</option>
           ))}
         </select>
 
         <select
-          value={filtros.jerarquia}
-          onChange={(e) => updateFilter("jerarquia", e.target.value)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+          aria-label="Familia"
+          value={filtros.familia}
+          onChange={(e) => updateFilter("familia", e.target.value)}
+          className={selectClass}
         >
-          <option value="">Todas las categorías</option>
-          {data.jerarquiasOpciones.map((j) => (
-            <option key={j} value={j}>{j}</option>
+          <option value="">Todas las familias</option>
+          {data.familiasOpciones.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+          {data.hayProductosSinFamilia && (
+            <option value={SIN_FAMILIA}>Sin familia</option>
+          )}
+        </select>
+
+        <select
+          aria-label="Producto"
+          value={filtros.productoId}
+          onChange={(e) => updateFilter("productoId", e.target.value)}
+          className={selectClass}
+        >
+          <option value="">Todos los productos</option>
+          {productosVisibles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.codigo} — {p.nombre}
+            </option>
           ))}
         </select>
 
@@ -137,6 +185,31 @@ export default function TableroView({
           <span className="text-xs text-zinc-400">Actualizando…</span>
         )}
       </div>
+
+      {/* ── Aviso de tipos de cambio faltantes ────────────────────────────────
+          Sin TC capturado, conversionMoneda cae a tasa 1 y los importes en
+          moneda extranjera se suman como si fueran MXN: el total mostrado
+          queda POR DEBAJO del real, y en silencio. */}
+      {data.avisoTiposCambio.length > 0 && (
+        <div className="flex items-start gap-2.5 rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            <span className="font-medium">
+              {data.avisoTiposCambio.length}{" "}
+              {data.avisoTiposCambio.length === 1 ? "licitación" : "licitaciones"} sin
+              tipo de cambio capturado.
+            </span>{" "}
+            Sus importes en moneda extranjera se están sumando como MXN, así que
+            los totales están sub-reportados. Captura las tasas en cada
+            licitación para corregirlo:{" "}
+            <span className="font-mono text-xs">
+              {data.avisoTiposCambio.slice(0, 8).join(", ")}
+              {data.avisoTiposCambio.length > 8 &&
+                ` y ${data.avisoTiposCambio.length - 8} más`}
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* ── KPIs ──────────────────────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,7 +240,7 @@ export default function TableroView({
           color={
             kpis.onTimeDelivery === null || kpis.onTimeDelivery >= 90 ? "green" : "amber"
           }
-          sublabel="Órdenes entregadas a tiempo"
+          sublabel="Sobre OC entregadas con fecha objetivo"
         />
       </div>
 
@@ -223,7 +296,7 @@ export default function TableroView({
               <thead>
                 <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                   <th className="pb-2 pr-4">Material</th>
-                  <th className="pb-2 pr-4">Categoría</th>
+                  <th className="pb-2 pr-4">Familia</th>
                   <th className="pb-2 pr-4 text-right">Cantidad total</th>
                   <th className="pb-2 pr-4 text-right">P. primera ronda prom.</th>
                   <th className="pb-2 pr-4 text-right">P. mejor prom.</th>
@@ -232,8 +305,13 @@ export default function TableroView({
               </thead>
               <tbody className="divide-y divide-zinc-50">
                 {ahorroMaterial.map((row) => (
-                  <tr key={row.productoNombre} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
-                    <td className="py-2 pr-4 font-medium">{row.productoNombre}</td>
+                  <tr key={row.productoId} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className="py-2 pr-4 font-medium">
+                      {row.productoNombre}
+                      <span className="ml-1.5 font-normal text-xs text-zinc-400">
+                        {row.productoCodigo}
+                      </span>
+                    </td>
                     <td className="py-2 pr-4 text-zinc-500">{row.familia ?? "—"}</td>
                     <td className="py-2 pr-4 text-right">{row.cantidadTotal.toLocaleString("es-MX")}</td>
                     <td className="py-2 pr-4 text-right">${fmt(row.precioPrimeraRondaPromedio)}</td>
@@ -262,7 +340,7 @@ export default function TableroView({
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
                     <th className="pb-2 pr-3">Proveedor</th>
-                    <th className="pb-2 pr-3 text-right">Total OC</th>
+                    <th className="pb-2 pr-3 text-right">OC medibles</th>
                     <th className="pb-2 pr-3 text-right">A tiempo</th>
                     <th className="pb-2 pr-3 text-right">Tardías</th>
                     <th className="pb-2 text-right">% On-time</th>
@@ -287,7 +365,7 @@ export default function TableroView({
         </ChartSection>
 
         <ChartSection
-          title="Adherencia de precios por categoría"
+          title="Adherencia de precios por criticidad"
           hasData={adherenciaJerarquia.length > 0}
           isOpen={openTables.has("adherencia")}
           onToggle={() => toggleTable("adherencia")}
@@ -298,7 +376,7 @@ export default function TableroView({
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
-                    <th className="pb-2 pr-3">Categoría</th>
+                    <th className="pb-2 pr-3">Criticidad</th>
                     <th className="pb-2 pr-3 text-right">Licitaciones</th>
                     <th className="pb-2 pr-3 text-right">Dentro obj.</th>
                     <th className="pb-2 pr-3 text-right">Fuera obj.</th>
