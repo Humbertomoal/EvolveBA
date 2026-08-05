@@ -182,7 +182,7 @@ const FLUJO_STEPS = [
       </svg>
     ),
     title: "Alta de proveedor",
-    desc: "Proveedores cotizan en tiempo real, consigues reducir tus costos gracias a la tecnología.",
+    desc: "Centraliza a todos tus proveedores en un solo lugar, Se acabaron las hojas de Excel dispersas.",
   },
   { icon: <IconSend size={22} />, title: "Lanzamiento", desc: "Se publica la licitación a proveedores calificados." },
   { icon: <IconClock size={22} />, title: "En proceso", desc: "Proveedores cotizan en tiempo real, consigues reducir tus costos gracias a la tecnología." },
@@ -214,7 +214,7 @@ const MODULOS = [
   {
     icon: <IconSend size={19} />,
     title: "Lanzamiento de Licitaciones",
-    desc: "Registro completo con materiales, precios objetivo, fechas y proveedores. Licitación abierta o cotización manual.",
+    desc: "Registro completo de materiales, precios objetivo, fechas y proveedores. Licitación abierta o cotización manual.",
     highlight: "De días a minutos: el sistema notifica a proveedores automáticamente.",
     destacado: true,
     nota: "Tecnología que reduce hasta el 20% de los costos de tus compras.",
@@ -428,7 +428,7 @@ export default async function Home() {
             style={{ background: "rgba(143,227,166,0.14)", animation: "fadeUp 0.6s ease both" }}
           >
             <span className="h-[7px] w-[7px] rounded-full bg-[#8FE3A6]" style={{ animation: "pulseDot 1.8s ease-in-out infinite" }} />
-             ¡Conoce a PO! Tu Purchase Optimizer (sin comillas)
+             ¡Conoce a PO! Tu Purchase Optimizer
           </div>
           <h1
             className="mb-[22px] text-[40px] font-extrabold leading-[1.06] tracking-[-0.03em] text-[#FAFAF8] text-pretty md:text-[58px]"
