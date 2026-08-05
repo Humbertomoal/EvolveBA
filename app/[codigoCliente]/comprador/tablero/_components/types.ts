@@ -26,6 +26,41 @@ export type TableroData = {
     adherenciaPrecios: number | null;
     onTimeDelivery: number | null;
   };
+  /**
+   * Grupo 2 — foto del pipeline al día de hoy. NO depende del filtro de
+   * periodo (sí de familia/producto/proveedor): si el periodo aplicara, las
+   * licitaciones más atoradas quedarían fuera, que son justo las que interesan.
+   */
+  pipeline: {
+    /** Las 6 categorías son DISJUNTAS y suman el total de licitaciones. */
+    categorias: {
+      clave: string;
+      label: string;
+      cantidad: number;
+      tiempoPromedioHoras: number | null;
+    }[];
+    /** Subconjunto de "Terminadas" (no suma aparte): Finalizada con OC Pendiente. */
+    sinOcEnviada: { cantidad: number; tiempoPromedioHoras: number | null };
+    cantidadPorMes: {
+      mes: string;
+      etiqueta: string;
+      porCategoria: Record<string, number>;
+    }[];
+    tiempoPorMes: {
+      mes: string;
+      etiqueta: string;
+      porCategoria: Record<string, number | null>;
+    }[];
+    sinOcPorMes: {
+      mes: string;
+      etiqueta: string;
+      cantidad: number;
+      tiempoPromedioHoras: number | null;
+    }[];
+    /** Cobertura: entradas al estado tomadas de la bitácora vs. aproximadas. */
+    entradasExactas: number;
+    entradasTotales: number;
+  };
   /** Ahorro por mes de cierre (fechaCerrada ?? fechaFinalizada ?? fechaCreacion). */
   ahorroMensual: {
     mes: string; // "2026-03", ordenable

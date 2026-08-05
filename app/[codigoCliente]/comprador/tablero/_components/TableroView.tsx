@@ -20,8 +20,13 @@ import GraficaAdherencia from "./GraficaAdherencia";
 import GraficaAhorro from "./GraficaAhorro";
 import GraficaAhorroMensual from "./GraficaAhorroMensual";
 import GraficaOnTime from "./GraficaOnTime";
+import GraficaPipelineCantidad from "./GraficaPipelineCantidad";
+import GraficaPipelineTiempo from "./GraficaPipelineTiempo";
 import GraficaPrecios from "./GraficaPrecios";
+import GraficaSinOc from "./GraficaSinOc";
 import GraficaTiempoEtapas from "./GraficaTiempoEtapas";
+import { COLOR_CATEGORIA } from "./pipelineSeries";
+import type { CategoriaLicitacion } from "@/src/lib/tableroCategorias";
 
 function fmt(n: number) {
   return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,7 +44,10 @@ type SectionKey =
   | "ontime"
   | "adherencia"
   | "ahorroMensual"
-  | "etapas";
+  | "etapas"
+  | "pipelineCantidad"
+  | "pipelineTiempo"
+  | "sinOc";
 
 const selectClass =
   "rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -89,6 +97,7 @@ export default function TableroView({
     adherenciaJerarquia,
     ahorroMensual,
     tiempoEtapas,
+    pipeline,
   } = data;
 
   // La lista de productos se acota a la familia elegida para que el
@@ -288,6 +297,184 @@ export default function TableroView({
           sublabel="Sobre OC entregadas con fecha objetivo"
         />
       </div>
+
+      {/* ── Grupo 2: pipeline (estado actual) ─────────────────────────────────
+          Este bloque NO respeta el filtro de periodo, a diferencia de todo lo
+          demás en la pantalla. Se dice explícitamente en el encabezado porque
+          si no, dos secciones con universos distintos se leen como un error. */}
+      <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-5">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-zinc-900">
+            Pipeline de licitaciones
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-400">
+            Estado actual al día de hoy — no depende del filtro de periodo
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {pipeline.categorias.map((cat) => (
+            <PipelineTile
+              key={cat.clave}
+              label={cat.label}
+              cantidad={cat.cantidad}
+              tiempoHoras={cat.tiempoPromedioHoras}
+              color={COLOR_CATEGORIA[cat.clave as CategoriaLicitacion]}
+              nota={
+                cat.clave === "terminadas" || cat.clave === "cancelada"
+                  ? "ciclo completo"
+                  : "en el estado"
+              }
+              atenuado={cat.clave === "cancelada"}
+            />
+          ))}
+        </div>
+
+        {/* Subconjunto de Terminadas, no una categoría más: va aparte para que
+            nadie lo sume a los tiles de arriba. */}
+        <div className="mt-3 rounded-[10px] border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-amber-800">
+                Cerradas sin OC enviada
+              </p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-amber-900">
+                {pipeline.sinOcEnviada.cantidad}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                {pipeline.sinOcEnviada.tiempoPromedioHoras !== null
+                  ? `${formatDuracionHoras(pipeline.sinOcEnviada.tiempoPromedioHoras)} atoradas en promedio`
+                  : "Sin órdenes pendientes"}
+              </p>
+            </div>
+            <IconAlertCircle className="h-5 w-5 shrink-0 text-amber-500" />
+          </div>
+          <p className="mt-2 text-xs text-amber-700/80">
+            Licitaciones finalizadas con orden de compra creada pero aún en
+            &ldquo;Pendiente&rdquo;. Ya están contadas dentro de Terminadas.
+          </p>
+        </div>
+
+        <p className="mt-3 text-xs text-zinc-400">
+          Antigüedad calculada con la bitácora de estados en{" "}
+          {pipeline.entradasExactas} de {pipeline.entradasTotales} licitaciones;
+          el resto usa una fecha aproximada.
+        </p>
+      </div>
+
+      {/* ── Pipeline: cantidad por mes ────────────────────────────────────────── */}
+      <ChartSection
+        title="Licitaciones por mes de entrada al estado actual"
+        subtitle="Distribución de antigüedad — cuántas de las que hoy están en cada etapa entraron cada mes"
+        hasData={pipeline.cantidadPorMes.length > 0}
+        isOpen={openTables.has("pipelineCantidad")}
+        onToggle={() => toggleTable("pipelineCantidad")}
+      >
+        <GraficaPipelineCantidad data={pipeline.cantidadPorMes} />
+        {openTables.has("pipelineCantidad") && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="pb-2 pr-3">Mes</th>
+                  {pipeline.categorias.map((c) => (
+                    <th key={c.clave} className="pb-2 pr-3 text-right">{c.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {pipeline.cantidadPorMes.map((row) => (
+                  <tr key={row.mes} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className="py-1.5 pr-3 font-medium">{row.etiqueta}</td>
+                    {pipeline.categorias.map((c) => (
+                      <td key={c.clave} className="py-1.5 pr-3 text-right">
+                        {row.porCategoria[c.clave] ?? 0}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ChartSection>
+
+      {/* ── Pipeline: tiempo por mes ──────────────────────────────────────────── */}
+      <ChartSection
+        title="Tiempo promedio por mes y categoría"
+        subtitle="Terminadas y Canceladas miden ciclo completo; el resto, antigüedad en el estado"
+        hasData={pipeline.tiempoPorMes.length > 0}
+        isOpen={openTables.has("pipelineTiempo")}
+        onToggle={() => toggleTable("pipelineTiempo")}
+      >
+        <GraficaPipelineTiempo data={pipeline.tiempoPorMes} />
+        {openTables.has("pipelineTiempo") && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="pb-2 pr-3">Mes</th>
+                  {pipeline.categorias.map((c) => (
+                    <th key={c.clave} className="pb-2 pr-3 text-right">{c.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {pipeline.tiempoPorMes.map((row) => (
+                  <tr key={row.mes} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className="py-1.5 pr-3 font-medium">{row.etiqueta}</td>
+                    {pipeline.categorias.map((c) => {
+                      const v = row.porCategoria[c.clave];
+                      return (
+                        <td key={c.clave} className="py-1.5 pr-3 text-right">
+                          {v != null ? formatDuracionHoras(v) : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ChartSection>
+
+      {/* ── Cerradas sin OC enviada, por mes ──────────────────────────────────── */}
+      <ChartSection
+        title="Cerradas sin OC enviada, por mes"
+        subtitle="Agrupadas por la fecha de la orden pendiente más antigua de cada licitación"
+        hasData={pipeline.sinOcPorMes.length > 0}
+        isOpen={openTables.has("sinOc")}
+        onToggle={() => toggleTable("sinOc")}
+      >
+        <GraficaSinOc data={pipeline.sinOcPorMes} />
+        {openTables.has("sinOc") && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="pb-2 pr-3">Mes</th>
+                  <th className="pb-2 pr-3 text-right">Licitaciones</th>
+                  <th className="pb-2 text-right">Tiempo atorada</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {pipeline.sinOcPorMes.map((row) => (
+                  <tr key={row.mes} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                    <td className="py-1.5 pr-3 font-medium">{row.etiqueta}</td>
+                    <td className="py-1.5 pr-3 text-right">{row.cantidad}</td>
+                    <td className="py-1.5 text-right">
+                      {row.tiempoPromedioHoras != null
+                        ? formatDuracionHoras(row.tiempoPromedioHoras)
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ChartSection>
 
       {/* ── Ahorro por mes ────────────────────────────────────────────────────── */}
       <ChartSection
@@ -565,6 +752,52 @@ function KpiCard({
         </div>
         <div className={`shrink-0 rounded-lg p-2 ${styles.bg} ${styles.icon}`}>{icon}</div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Tile del pipeline: cantidad y tiempo promedio juntos. Van en una sola pieza
+ * y no en dos tarjetas porque son la misma historia — "cuántas hay aquí y
+ * cuánto llevan"; separarlas duplicaba el ruido sin agregar información.
+ */
+function PipelineTile({
+  label,
+  cantidad,
+  tiempoHoras,
+  color,
+  nota,
+  atenuado,
+}: {
+  label: string;
+  cantidad: number;
+  tiempoHoras: number | null;
+  color: string;
+  nota: string;
+  atenuado?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-[10px] border border-[#ede8e8] bg-white p-4 ${
+        atenuado ? "opacity-70" : ""
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+          aria-hidden
+        />
+        <p className="truncate text-xs font-medium text-zinc-500">{label}</p>
+      </div>
+      <p className="mt-1.5 text-2xl font-bold tracking-tight text-zinc-900">
+        {cantidad}
+      </p>
+      <p className="mt-0.5 text-xs text-zinc-400">
+        {tiempoHoras !== null
+          ? `${formatDuracionHoras(tiempoHoras)} ${nota}`
+          : "Sin dato de tiempo"}
+      </p>
     </div>
   );
 }

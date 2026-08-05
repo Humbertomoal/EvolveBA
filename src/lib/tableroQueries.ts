@@ -66,7 +66,8 @@ function whereItems(filtros: FiltrosTablero): Prisma.LicitacionItemWhereInput {
  */
 export function construirWhereLicitacion(
   filtros: FiltrosTablero,
-  sesion: SesionTablero
+  sesion: SesionTablero,
+  opciones?: { ignorarPeriodo?: boolean }
 ): Prisma.LicitacionWhereInput {
   const { startDate, endDate } = resolverRangoFechas(filtros);
   const rango = { gte: startDate, lte: endDate };
@@ -76,11 +77,21 @@ export function construirWhereLicitacion(
     ...(sesion.puedeVerTodo ? {} : { compradorId: sesion.compradorId }),
     // Regla 2: entra si CUALQUIERA de las tres fechas cae en el rango. Una
     // licitación creada en enero y cerrada en marzo cuenta al filtrar marzo.
-    OR: [
-      { fechaCreacion: rango },
-      { fechaCerrada: rango },
-      { fechaFinalizada: rango },
-    ],
+    //
+    // ignorarPeriodo lo usa el pipeline del Grupo 2, que es una foto del estado
+    // ACTUAL: filtrar por periodo ahí escondería las licitaciones más atoradas
+    // (un borrador de hace 6 meses no tiene cierre ni finalización, así que
+    // ninguna de las tres fechas caería en la ventana) — justo las que el
+    // indicador existe para encontrar.
+    ...(opciones?.ignorarPeriodo
+      ? {}
+      : {
+          OR: [
+            { fechaCreacion: rango },
+            { fechaCerrada: rango },
+            { fechaFinalizada: rango },
+          ],
+        }),
     ...(filtros.jerarquia ? { jerarquia: filtros.jerarquia } : {}),
     ...(filtros.proveedorId
       ? { proveedoresInvitados: { some: { proveedorId: filtros.proveedorId } } }
@@ -217,6 +228,53 @@ export async function getEtapasTablero(
     logsPorLicitacion: rows.map((r) => r.estadoLogs),
     licitacionesTotales: rows.length,
   };
+}
+
+// ── Pipeline (Grupo 2): foto del estado actual ───────────────────────────────
+//
+// Select propio y NO el include principal: el pipeline necesita cosas que los
+// demás indicadores no (el último estadoLog, las órdenes con su estado) y no
+// necesita nada de lo que sí cargan ellos (items, ofertas). Meterlo todo en un
+// solo include cargaría de más en ambas direcciones.
+//
+// Tampoco necesita el filtrado de nivel 2: aquí se CUENTAN licitaciones, no se
+// suman importes por material, y el `items: { some: … }` del where ya garantiza
+// que solo entren las que tienen material que califica.
+export const LICITACION_PIPELINE_SELECT = {
+  id: true,
+  numero: true,
+  estado: true,
+  esperandoDecision: true,
+  fechaCreacion: true,
+  fechaInicioLicitacion: true,
+  fechaEsperandoDecision: true,
+  fechaCerrada: true,
+  fechaFinalizada: true,
+  fechaCancelada: true,
+  // Último registro = cuándo entró al estado en el que está hoy.
+  estadoLogs: {
+    select: { estadoNuevo: true, at: true },
+    orderBy: { at: "desc" },
+    take: 1,
+  },
+  // Para "Cerradas sin OC enviada": OC creada y aún sin poner en tránsito.
+  ordenes: {
+    select: { estado: true, fechaPendiente: true, fechaCreacion: true },
+  },
+} satisfies Prisma.LicitacionSelect;
+
+export type LicitacionPipeline = Prisma.LicitacionGetPayload<{
+  select: typeof LICITACION_PIPELINE_SELECT;
+}>;
+
+export async function getLicitacionesPipeline(
+  filtros: FiltrosTablero,
+  sesion: SesionTablero
+): Promise<LicitacionPipeline[]> {
+  return prisma.licitacion.findMany({
+    where: construirWhereLicitacion(filtros, sesion, { ignorarPeriodo: true }),
+    select: LICITACION_PIPELINE_SELECT,
+  });
 }
 
 // ── Opciones de los desplegables ─────────────────────────────────────────────

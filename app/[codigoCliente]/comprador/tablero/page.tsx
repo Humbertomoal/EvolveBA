@@ -21,8 +21,18 @@ import {
 } from "@/src/lib/tableroFiltros";
 import { promediarEtapas } from "@/src/lib/tableroEtapas";
 import {
+  CATEGORIAS_PIPELINE,
+  ESTADO_OC_PENDIENTE,
+  LABEL_CATEGORIA,
+  clasificarLicitacion,
+  duracionMsCategoria,
+  entradaAlEstadoActual,
+  type CategoriaLicitacion,
+} from "@/src/lib/tableroCategorias";
+import {
   esLicitacionEjecutada,
   getEtapasTablero,
+  getLicitacionesPipeline,
   getLicitacionesTablero,
   getOpcionesFiltros,
   getOrdenesTablero,
@@ -83,12 +93,14 @@ export default async function TableroIndicadoresPage({
 
   // Todas las consultas pasan por tableroQueries.ts — un solo `where` canónico
   // para licitaciones y órdenes, así ambos KPIs describen el mismo universo.
-  const [opciones, licitaciones, ordenes, etapasRaw] = await Promise.all([
-    getOpcionesFiltros(filtros, sesion),
-    getLicitacionesTablero(filtros, sesion),
-    getOrdenesTablero(filtros, sesion),
-    getEtapasTablero(filtros, sesion),
-  ]);
+  const [opciones, licitaciones, ordenes, etapasRaw, pipelineRaw] =
+    await Promise.all([
+      getOpcionesFiltros(filtros, sesion),
+      getLicitacionesTablero(filtros, sesion),
+      getOrdenesTablero(filtros, sesion),
+      getEtapasTablero(filtros, sesion),
+      getLicitacionesPipeline(filtros, sesion),
+    ]);
 
   // ── Cálculo unificado de ahorro / adherencia / precios ─────────────────────
   // Mismas fórmulas que el detalle de licitación (licitacionesAhorro.ts:
@@ -369,6 +381,133 @@ export default async function TableroIndicadoresPage({
     }))
     .sort((a, b) => b.porcentaje - a.porcentaje);
 
+  // ── Grupo 2: pipeline (foto del estado ACTUAL) ────────────────────────────
+  // Universo distinto al de arriba: getLicitacionesPipeline ignora el filtro de
+  // periodo a propósito (ver comentario en construirWhereLicitacion).
+  const ahora = new Date();
+
+  type AccCategoria = { cantidad: number; sumaMs: number; conDuracion: number };
+  const nuevaAcc = (): AccCategoria => ({ cantidad: 0, sumaMs: 0, conDuracion: 0 });
+
+  const porCategoria = new Map<CategoriaLicitacion, AccCategoria>();
+  // mes → categoría → acumulado
+  const mesCategoria = new Map<string, Map<CategoriaLicitacion, AccCategoria>>();
+  let entradasExactas = 0;
+  let entradasTotales = 0;
+
+  // "Cerradas sin OC enviada": Finalizada con al menos una OC en "Pendiente".
+  // Es un SUBCONJUNTO de Terminadas, no una categoría más — por eso se acumula
+  // aparte y no entra en la suma de los tiles.
+  const sinOc = nuevaAcc();
+  const sinOcMes = new Map<string, AccCategoria>();
+
+  for (const lic of pipelineRaw) {
+    const categoria = clasificarLicitacion(lic);
+    if (!categoria) continue; // estado desconocido → fuera, y se nota al no cuadrar
+
+    const ultimoLog = lic.estadoLogs[0]?.at ?? null;
+    const entrada = entradaAlEstadoActual(lic, ultimoLog);
+    entradasTotales++;
+    if (entrada.exacta) entradasExactas++;
+
+    const ms = duracionMsCategoria(categoria, lic, entrada.fecha, ahora);
+
+    const acc = porCategoria.get(categoria) ?? nuevaAcc();
+    acc.cantidad++;
+    if (ms != null) {
+      acc.sumaMs += ms;
+      acc.conDuracion++;
+    }
+    porCategoria.set(categoria, acc);
+
+    // Bucket mensual: para las categorías en curso, el mes de ENTRADA al estado
+    // (queda una distribución de antigüedad); para las terminales, su desenlace
+    // ya es la fecha de entrada, así que la misma clave sirve.
+    const mes = claveMes(entrada.fecha);
+    const delMes = mesCategoria.get(mes) ?? new Map<CategoriaLicitacion, AccCategoria>();
+    const accMes = delMes.get(categoria) ?? nuevaAcc();
+    accMes.cantidad++;
+    if (ms != null) {
+      accMes.sumaMs += ms;
+      accMes.conDuracion++;
+    }
+    delMes.set(categoria, accMes);
+    mesCategoria.set(mes, delMes);
+
+    if (categoria === "terminadas") {
+      const pendientes = lic.ordenes.filter((o) => o.estado === ESTADO_OC_PENDIENTE);
+      if (pendientes.length > 0) {
+        // La OC pendiente MÁS ANTIGUA marca cuánto lleva atorado el envío.
+        const desde = pendientes
+          .map((o) => o.fechaPendiente ?? o.fechaCreacion)
+          .reduce((a, b) => (a.getTime() <= b.getTime() ? a : b));
+        const msAtorada = ahora.getTime() - desde.getTime();
+
+        sinOc.cantidad++;
+        if (msAtorada >= 0) {
+          sinOc.sumaMs += msAtorada;
+          sinOc.conDuracion++;
+        }
+
+        const mesOc = claveMes(desde);
+        const accOc = sinOcMes.get(mesOc) ?? nuevaAcc();
+        accOc.cantidad++;
+        if (msAtorada >= 0) {
+          accOc.sumaMs += msAtorada;
+          accOc.conDuracion++;
+        }
+        sinOcMes.set(mesOc, accOc);
+      }
+    }
+  }
+
+  const MS_POR_HORA = 3_600_000;
+  const promedioHoras = (acc: AccCategoria | undefined): number | null =>
+    acc && acc.conDuracion > 0
+      ? Math.round((acc.sumaMs / acc.conDuracion / MS_POR_HORA) * 10) / 10
+      : null;
+
+  const mesesPipeline = [...mesCategoria.keys()].sort((a, b) => a.localeCompare(b));
+
+  const pipeline: TableroData["pipeline"] = {
+    categorias: CATEGORIAS_PIPELINE.map((clave) => ({
+      clave,
+      label: LABEL_CATEGORIA[clave],
+      cantidad: porCategoria.get(clave)?.cantidad ?? 0,
+      tiempoPromedioHoras: promedioHoras(porCategoria.get(clave)),
+    })),
+    sinOcEnviada: {
+      cantidad: sinOc.cantidad,
+      tiempoPromedioHoras: promedioHoras(sinOc),
+    },
+    cantidadPorMes: mesesPipeline.map((mes) => {
+      const delMes = mesCategoria.get(mes);
+      const porCat: Record<string, number> = {};
+      for (const clave of CATEGORIAS_PIPELINE) {
+        porCat[clave] = delMes?.get(clave)?.cantidad ?? 0;
+      }
+      return { mes, etiqueta: etiquetaMes(mes), porCategoria: porCat };
+    }),
+    tiempoPorMes: mesesPipeline.map((mes) => {
+      const delMes = mesCategoria.get(mes);
+      const porCat: Record<string, number | null> = {};
+      for (const clave of CATEGORIAS_PIPELINE) {
+        porCat[clave] = promedioHoras(delMes?.get(clave));
+      }
+      return { mes, etiqueta: etiquetaMes(mes), porCategoria: porCat };
+    }),
+    sinOcPorMes: [...sinOcMes.keys()]
+      .sort((a, b) => a.localeCompare(b))
+      .map((mes) => ({
+        mes,
+        etiqueta: etiquetaMes(mes),
+        cantidad: sinOcMes.get(mes)?.cantidad ?? 0,
+        tiempoPromedioHoras: promedioHoras(sinOcMes.get(mes)),
+      })),
+    entradasExactas,
+    entradasTotales,
+  };
+
   // ── Compose and render ────────────────────────────────────────────────────
   const data: TableroData = {
     kpis: {
@@ -380,6 +519,7 @@ export default async function TableroIndicadoresPage({
       adherenciaPrecios,
       onTimeDelivery,
     },
+    pipeline,
     ahorroMensual,
     tiempoEtapas,
     precioChart,
