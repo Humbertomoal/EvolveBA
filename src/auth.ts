@@ -138,53 +138,95 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       console.log("###AUTH_DEBUG### signIn() INICIADO", {
         provider: account?.provider,
       });
-      if (account?.provider !== "microsoft-entra-id") return true;
 
-      const email = (
-        profile?.email ??
-        (profile as any)?.preferred_username ??
-        (profile as any)?.upn ??
-        user.email ??
-        ""
-      )
-        .toLowerCase()
-        .trim();
+      // Id del Usuario LOCAL cuyo login acaba de tener éxito, para sellar
+      // ultimoAcceso al final sin importar el provider. Ojo: en el flujo de
+      // Microsoft NO sirve user.id — profile() lo llena con profile.sub (el
+      // identificador de Entra ID), no con el cuid de nuestra tabla Usuario.
+      // Por eso cada rama lo resuelve por su cuenta.
+      let usuarioId: string | null = null;
 
-      console.log("=== SIGNIN MICROSOFT ===", {
-        "profile.email": profile?.email,
-        "profile.preferred_username": (profile as any)?.preferred_username,
-        "profile.upn": (profile as any)?.upn,
-        "user.email": user.email,
-        emailResuelto: email,
-      });
+      if (account?.provider === "microsoft-entra-id") {
+        const email = (
+          profile?.email ??
+          (profile as any)?.preferred_username ??
+          (profile as any)?.upn ??
+          user.email ??
+          ""
+        )
+          .toLowerCase()
+          .trim();
 
-      if (!email) {
-        console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
-        return "/login?error=CuentaNoRegistrada";
+        console.log("=== SIGNIN MICROSOFT ===", {
+          "profile.email": profile?.email,
+          "profile.preferred_username": (profile as any)?.preferred_username,
+          "profile.upn": (profile as any)?.upn,
+          "user.email": user.email,
+          emailResuelto: email,
+        });
+
+        if (!email) {
+          console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
+          return "/login?error=CuentaNoRegistrada";
+        }
+
+        const usuario = await prisma.usuario.findUnique({ where: { email } });
+        console.log("Usuario encontrado en BD:", !!usuario, usuario?.email);
+        if (!usuario) {
+          console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
+          return "/login?error=CuentaNoRegistrada";
+        }
+        if (!usuario.activo) {
+          console.log("signIn (microsoft) retorna:", "/login?error=CuentaInactiva");
+          return "/login?error=CuentaInactiva";
+        }
+
+        // Vinculación: guarda el microsoftId (oid u sub del token) si aún no lo tiene.
+        const microsoftId =
+          (profile as any)?.oid ?? (profile as any)?.sub ?? account.providerAccountId ?? null;
+
+        // Misma condición de siempre, solo invertida: antes el update corría
+        // incondicionalmente porque también cargaba ultimoAcceso (que ahora
+        // vive abajo, compartido). Sin eso, cuando no hay nada que vincular
+        // el `data` quedaría vacío, así que se evita el viaje a la BD.
+        if (!usuario.microsoftId && microsoftId) {
+          await prisma.usuario.update({
+            where: { id: usuario.id },
+            data: { microsoftId },
+          });
+        }
+
+        usuarioId = usuario.id;
+      } else {
+        // Credentials: authorize() ya validó bcrypt y devolvió el Usuario,
+        // así que user.id ES el cuid local.
+        usuarioId = user?.id ?? null;
       }
 
-      const usuario = await prisma.usuario.findUnique({ where: { email } });
-      console.log("Usuario encontrado en BD:", !!usuario, usuario?.email);
-      if (!usuario) {
-        console.log("signIn (microsoft) retorna:", "/login?error=CuentaNoRegistrada");
-        return "/login?error=CuentaNoRegistrada";
+      // Sella el último acceso para CUALQUIER provider. Antes esto vivía
+      // dentro del bloque de Microsoft, detrás del `return true` temprano, así
+      // que los logins por correo/contraseña —los de todos los proveedores—
+      // nunca lo escribían y la columna "Último acceso" de Administración de
+      // Proveedores se quedaba permanentemente en "Nunca ha ingresado".
+      // En try/catch a propósito: es un dato cosmético y no puede tumbar el
+      // acceso si la escritura falla.
+      if (usuarioId) {
+        try {
+          await prisma.usuario.update({
+            where: { id: usuarioId },
+            data: { ultimoAcceso: new Date() },
+          });
+          console.log("###AUTH_DEBUG### ultimoAcceso actualizado", {
+            usuarioId,
+            provider: account?.provider,
+          });
+        } catch (error) {
+          console.error(
+            "###AUTH_DEBUG### ultimoAcceso ERROR (login continúa igual)",
+            error
+          );
+        }
       }
-      if (!usuario.activo) {
-        console.log("signIn (microsoft) retorna:", "/login?error=CuentaInactiva");
-        return "/login?error=CuentaInactiva";
-      }
-
-      // Vinculación: guarda el microsoftId (oid u sub del token) si aún no lo tiene.
-      const microsoftId =
-        (profile as any)?.oid ?? (profile as any)?.sub ?? account.providerAccountId ?? null;
-
-      await prisma.usuario.update({
-        where: { id: usuario.id },
-        data: {
-          ...(usuario.microsoftId || !microsoftId ? {} : { microsoftId }),
-          ultimoAcceso: new Date(),
-        },
-      });
 
       // IMPORTANTE: en Auth.js, retornar un STRING desde signIn no significa
       // "permite el login y ve a esta ruta" — significa "deniega el login
