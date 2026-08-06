@@ -32,6 +32,36 @@ export type ResultadoGuardarLicitacion = {
   fechaCambio: boolean;
 };
 
+/**
+ * Resultado de guardar. Los fallos ESPERADOS se devuelven, no se lanzan: Next
+ * enmascara en producción el mensaje de los errores lanzados dentro de una
+ * Server Action (la guía oficial de mutating-data recomienda devolverlos en el
+ * estado), así que un `throw` dejaría al comprador con un error genérico en vez
+ * del motivo real.
+ */
+export type ResultadoGuardar =
+  | ({ ok: true } & ResultadoGuardarLicitacion)
+  | { ok: false; error: string };
+
+const MENSAJE_NUMERO_DUPLICADO =
+  "El número de licitación ya existe. Refresca la página e intenta de nuevo con el número que se sugiera.";
+
+/**
+ * ¿Es una violación de unicidad de Prisma (P2002) sobre el campo `numero`?
+ *
+ * Ocurre cuando dos compradores abren el formulario a la vez: ambos reciben la
+ * misma sugerencia y el segundo en guardar choca contra la constraint @unique.
+ * Se inspecciona sin importar tipos de Prisma para no arrastrar su runtime.
+ */
+function esNumeroDuplicado(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const e = error as { code?: unknown; meta?: { target?: unknown } };
+  if (e.code !== "P2002") return false;
+  const target = e.meta?.target;
+  if (Array.isArray(target)) return target.some((t) => String(t).includes("numero"));
+  return target === undefined || String(target).includes("numero");
+}
+
 export type LicitacionInput = {
   numero: string;
   jerarquia: string | null;
@@ -89,7 +119,7 @@ function validarFechas(datos: LicitacionInput) {
 export async function crearLicitacionAction(
   basePath: string,
   datos: LicitacionInput
-): Promise<ResultadoGuardarLicitacion> {
+): Promise<ResultadoGuardar> {
   validarFechas(datos);
 
   const cookieStore = await cookies();
@@ -110,7 +140,9 @@ export async function crearLicitacionAction(
     ...(datos.tiposCambio ?? {}),
   });
 
-  const licitacion = await prisma.licitacion.create({
+  let licitacion;
+  try {
+    licitacion = await prisma.licitacion.create({
     data: {
       numero: datos.numero,
       jerarquia: datos.jerarquia,
@@ -137,7 +169,13 @@ export async function crearLicitacionAction(
       clienteId: "default",
       ...(esManualEnProceso ? { rondaActual: 1, inicioRondaActual: new Date(), fechaInicioLicitacion: new Date() } : {}),
     },
-  });
+    });
+  } catch (error) {
+    if (esNumeroDuplicado(error)) {
+      return { ok: false, error: MENSAJE_NUMERO_DUPLICADO };
+    }
+    throw error;
+  }
 
   // Primera entrada de la bitácora: creación (estadoAnterior null).
   await registrarCambioEstado(
@@ -184,6 +222,7 @@ export async function crearLicitacionAction(
 
   // Nueva creación: nunca hubo notificación previa ni fecha anterior.
   return {
+    ok: true,
     destino,
     estadoPrevio: "Borrador",
     fechaAnteriorISO: null,
@@ -195,7 +234,7 @@ export async function actualizarLicitacionAction(
   id: string,
   basePath: string,
   datos: LicitacionInput
-): Promise<ResultadoGuardarLicitacion> {
+): Promise<ResultadoGuardar> {
   validarFechas(datos);
 
   // Captura el estado y la fecha ANTES del update — la fuente de verdad es
@@ -225,7 +264,8 @@ export async function actualizarLicitacionAction(
     yaNotificada
   );
 
-  await prisma.licitacion.update({
+  try {
+    await prisma.licitacion.update({
     where: { id },
     data: {
       numero: datos.numero,
@@ -259,7 +299,13 @@ export async function actualizarLicitacionAction(
       ...(!esFutura && datos.estado === "En Proceso" ? { fechaInicioLicitacion: new Date() } : {}),
       ...(!esFutura && datos.estado === "Cerrada" ? { fechaCerrada: new Date() } : {}),
     },
-  });
+    });
+  } catch (error) {
+    if (esNumeroDuplicado(error)) {
+      return { ok: false, error: MENSAJE_NUMERO_DUPLICADO };
+    }
+    throw error;
+  }
 
   await prisma.licitacionItem.deleteMany({ where: { licitacionId: id } });
   const itemsValidos = datos.items.filter((item) => item.productoId !== "");
@@ -317,6 +363,7 @@ export async function actualizarLicitacionAction(
   }
 
   return {
+    ok: true,
     destino,
     estadoPrevio,
     fechaAnteriorISO: anterior?.fechaEjecucion?.toISOString() ?? null,

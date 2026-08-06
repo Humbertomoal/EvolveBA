@@ -764,11 +764,24 @@ Asistente de Inteligencia Artificial`;
         estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "edicion"
       );
       try {
-        resultado = await actualizarLicitacionAction(
+        const r = await actualizarLicitacionAction(
           inicial!.id,
           basePath,
           buildDatos(estado ?? inicial!.estado)
         );
+        // Fallo esperado (p. ej. número duplicado): viene DEVUELTO, no lanzado,
+        // porque Next enmascara el mensaje de los errores lanzados en producción.
+        if (!r.ok) {
+          setGuardando(null);
+          setBannerError(r.error);
+          toast.error("No se pudo guardar la licitación.");
+          setTimeout(
+            () => bannerServerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+            50
+          );
+          return;
+        }
+        resultado = r;
         toast.success("Licitación guardada correctamente");
       } catch (err) {
         setGuardando(null);
@@ -786,7 +799,18 @@ Asistente de Inteligencia Artificial`;
         estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "proceso"
       );
       try {
-        resultado = await crearLicitacionAction(basePath, buildDatos(estado!));
+        const r = await crearLicitacionAction(basePath, buildDatos(estado!));
+        if (!r.ok) {
+          setGuardando(null);
+          setBannerError(r.error);
+          toast.error("No se pudo guardar la licitación.");
+          setTimeout(
+            () => bannerServerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+            50
+          );
+          return;
+        }
+        resultado = r;
         toast.success("Licitación guardada correctamente");
       } catch (err) {
         setGuardando(null);
@@ -865,6 +889,16 @@ Asistente de Inteligencia Artificial`;
         basePath,
         buildDatos("En Proceso")
       );
+      if (!resultado.ok) {
+        setGuardando(null);
+        setBannerError(resultado.error);
+        toast.error("No se pudo guardar la licitación.");
+        setTimeout(
+          () => bannerServerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          50
+        );
+        return;
+      }
       router.push(resultado.destino);
     } catch (err) {
       setGuardando(null);

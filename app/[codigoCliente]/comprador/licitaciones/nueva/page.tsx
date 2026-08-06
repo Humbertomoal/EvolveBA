@@ -5,6 +5,7 @@ import { getProductos } from "@/src/lib/productos";
 import { getProveedores } from "@/src/lib/proveedores";
 import { getCatalogosActivos, getTiposCambioActuales } from "@/src/lib/getCatalogos";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
+import { calcularSiguienteNumero } from "@/src/lib/numeroLicitacion";
 import LicitacionForm from "./_components/LicitacionForm";
 
 export default async function NuevaLicitacionPage({
@@ -16,15 +17,17 @@ export default async function NuevaLicitacionPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [productos, proveedores, proveedorMateriales, ultima, jerarquias, tiposLicitacion, monedas, tiposCambioSettings, usuarioActual] =
+  const [productos, proveedores, proveedorMateriales, numerosExistentes, jerarquias, tiposLicitacion, monedas, tiposCambioSettings, usuarioActual] =
     await Promise.all([
       getProductos(),
       getProveedores(),
       getMapaProveedorMateriales(),
-      prisma.licitacion.findFirst({
-        orderBy: { numero: "desc" },
-        select: { numero: true },
-      }),
+      // Se traen TODOS los números y el siguiente se calcula en memoria. No se
+      // puede usar orderBy: { numero: "desc" } + parseInt: `numero` es String,
+      // así que ese orden es LEXICOGRÁFICO y cualquier número no numérico gana
+      // ("DMY-0048" > "0005" porque "D" > "0"), su parseInt da NaN y la
+      // sugerencia caía al fallback de base vacía → "0001", un número ya usado.
+      prisma.licitacion.findMany({ select: { numero: true } }),
       getCatalogosActivos("JERARQUIA"),
       getCatalogosActivos("TIPO_LICITACION"),
       getCatalogosActivos("MONEDA"),
@@ -32,8 +35,7 @@ export default async function NuevaLicitacionPage({
       getUsuarioActual(),
     ]);
 
-  const n = parseInt(ultima?.numero ?? "0", 10);
-  const siguienteNumero = String(isNaN(n) ? 1 : n + 1).padStart(4, "0");
+  const siguienteNumero = calcularSiguienteNumero(numerosExistentes.map((l) => l.numero));
   const catalogos = { jerarquias, tiposLicitacion, monedas };
 
   return (
