@@ -132,6 +132,7 @@ export default async function ResultadoPage({
       asignaciones={asignaciones}
       proveedorNombre={proveedor.razonSocial}
       basePath={basePath}
+      codigoCliente={codigoCliente}
     />
   );
 }

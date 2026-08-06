@@ -9,7 +9,11 @@ export type TipoCorreo =
   | "NOTIFICACION_GANADOR_TENTATIVO"
   | "NOTIFICACION_GANADORES"
   | "NOTIFICACION_NO_GANADORES"
-  | "CONFIRMACION_CIERRE";
+  | "CONFIRMACION_CIERRE"
+  // Aviso INTERNO (al comprador y al Gerente de Compras) de que un proveedor
+  // terminó de responder su asignación. Se manda siempre, acepte todo o haya
+  // rechazos: el comprador necesita saber que ya puede reasignar.
+  | "RESPUESTA_PROVEEDOR";
 
 export interface PlantillaCorreo {
   asunto: string;
@@ -130,6 +134,28 @@ Cualquier duda o necesidad de apoyo para que puedas participar y hacer tu mejor 
 Sin más por el momento, agradezco tu tiempo y atención.
 
 ¡Mucha suerte en la licitación!
+
+Atentamente,
+{nombreAsistente}
+{tituloAsistente} - {nombreEmpresa}
+{firmaCorreo}`,
+    activo: true,
+  },
+  RESPUESTA_PROVEEDOR: {
+    asunto:
+      "Licitación {numeroLicitacion} - {nombreProveedor} confirmó su respuesta ({totalAceptados} aceptados, {totalRechazados} rechazados)",
+    cuerpo: `Hola {nombreComprador}.
+
+El proveedor {nombreProveedor} terminó de responder su asignación de la licitación {numeroLicitacion}.
+
+MATERIALES ACEPTADOS ({totalAceptados}):
+{tablaAceptados}
+
+MATERIALES RECHAZADOS ({totalRechazados}):
+{tablaRechazados}
+
+Puedes revisar el detalle y reasignar los materiales rechazados desde Seguimiento:
+{enlaceSeguimiento}
 
 Atentamente,
 {nombreAsistente}

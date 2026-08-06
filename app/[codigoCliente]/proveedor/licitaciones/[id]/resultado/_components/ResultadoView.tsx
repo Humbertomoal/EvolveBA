@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   confirmarAsignacionProveedorAction,
+  confirmarRespuestaFinalAction,
   rechazarAsignacionProveedorAction,
 } from "@/src/lib/proveedorAsignacionActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
@@ -193,11 +194,13 @@ export default function ResultadoView({
   asignaciones,
   proveedorNombre,
   basePath,
+  codigoCliente,
 }: {
   licitacion: LicitacionResultado;
   asignaciones: AsignacionProveedor[];
   proveedorNombre: string;
   basePath: string;
+  codigoCliente: string;
 }) {
   const router = useRouter();
   usePageTitle(licitacion.numero);
@@ -205,6 +208,15 @@ export default function ResultadoView({
   const [rechazando, setRechazando] = useState<{ id: string; nombre: string } | null>(null);
   const [motivo, setMotivo] = useState("");
   const [procesando, setProcesando] = useState(false);
+  // Confirmación de respuesta final. Es REVERSIBLE: al corregir cualquier
+  // material se vuelve a habilitar para que el comprador reciba un resumen
+  // actualizado en vez de quedarse con el anterior.
+  const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
+  const [respuestaEnviada, setRespuestaEnviada] = useState(false);
+  const [avisoRespuesta, setAvisoRespuesta] = useState<{
+    tipo: "ok" | "error";
+    texto: string;
+  } | null>(null);
 
   const ahora = Date.now();
   // Nota discreta del TC congelado usado; null si todo viene en la moneda de
@@ -234,9 +246,39 @@ export default function ResultadoView({
     setConfirmando(asignacionId);
     try {
       await confirmarAsignacionProveedorAction(asignacionId, licitacion.id, basePath);
+      // Cambió una respuesta: el resumen anterior quedó obsoleto.
+      setRespuestaEnviada(false);
+      setAvisoRespuesta(null);
       router.refresh();
     } finally {
       setConfirmando(null);
+    }
+  }
+
+  async function handleConfirmarRespuestaFinal() {
+    setEnviandoRespuesta(true);
+    setAvisoRespuesta(null);
+    try {
+      const r = await confirmarRespuestaFinalAction(
+        licitacion.id,
+        basePath,
+        codigoCliente
+      );
+      if (!r.ok) {
+        setAvisoRespuesta({ tipo: "error", texto: r.mensaje });
+        return;
+      }
+      setRespuestaEnviada(true);
+      setAvisoRespuesta({
+        tipo: "ok",
+        texto:
+          r.correosEnviados > 0
+            ? "Se avisó al equipo de compras con el resumen de tu respuesta."
+            : "Tu respuesta quedó confirmada. El aviso por correo no pudo enviarse; el equipo de compras la verá en el sistema.",
+      });
+      router.refresh();
+    } finally {
+      setEnviandoRespuesta(false);
     }
   }
 
@@ -252,6 +294,8 @@ export default function ResultadoView({
       );
       setRechazando(null);
       setMotivo("");
+      setRespuestaEnviada(false);
+      setAvisoRespuesta(null);
       router.refresh();
     } finally {
       setProcesando(false);
@@ -326,6 +370,57 @@ export default function ResultadoView({
           <IconDownload className="h-4 w-4" />
           Descargar PDF
         </button>
+      </div>
+
+      {/* ── Confirmar respuesta final ──────────────────────────────────────────
+          Solo se habilita cuando NO quedan materiales Pendientes. El botón es
+          UI: la action recuenta contra la BD, porque es invocable directamente
+          y una confirmación a medias mandaría un resumen incompleto. */}
+      <div className="rounded-[10px] border border-[#ede8e8] bg-white p-5 shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-zinc-900">
+              Confirmar respuesta final
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              {todasResueltas
+                ? "Avisa al equipo de compras con el resumen de los materiales que aceptaste y rechazaste."
+                : `Responde todos tus materiales para poder confirmar. Te ${
+                    pendientes.length === 1 ? "queda 1" : `quedan ${pendientes.length}`
+                  } sin responder.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!todasResueltas || enviandoRespuesta || respuestaEnviada}
+            onClick={handleConfirmarRespuestaFinal}
+            className="inline-flex shrink-0 items-center gap-2 rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <IconCircleCheck className="h-4 w-4" />
+            {enviandoRespuesta
+              ? "Enviando…"
+              : respuestaEnviada
+                ? "Respuesta confirmada"
+                : "Confirmar respuesta final"}
+          </button>
+        </div>
+
+        {avisoRespuesta && (
+          <p
+            className={`mt-3 text-xs ${
+              avisoRespuesta.tipo === "ok" ? "text-emerald-700" : "text-red-600"
+            }`}
+            role="status"
+          >
+            {avisoRespuesta.texto}
+          </p>
+        )}
+        {respuestaEnviada && (
+          <p className="mt-2 text-xs text-zinc-400">
+            Si corriges algún material, podrás volver a confirmar y se enviará un
+            resumen actualizado.
+          </p>
+        )}
       </div>
 
       {/* Tabla de materiales */}

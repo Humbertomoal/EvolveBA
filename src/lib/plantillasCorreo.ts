@@ -38,6 +38,16 @@ export const VARIABLES_COMUNES = [
  */
 export const VARIABLES_POR_TIPO: Record<TipoCorreo, readonly string[]> = {
   ALTA_PROVEEDOR: ["nombreContacto", "usuarioAcceso", "passwordTemporal"],
+  RESPUESTA_PROVEEDOR: [
+    "nombreComprador",
+    "nombreProveedor",
+    "numeroLicitacion",
+    "tablaAceptados",
+    "tablaRechazados",
+    "totalAceptados",
+    "totalRechazados",
+    "enlaceSeguimiento",
+  ],
   RECORDATORIO_PRODUCTOS: ["nombreContacto", "usuarioAcceso", "passwordTemporal"],
   INVITACION_LICITACION: [
     "numeroLicitacion",

@@ -206,6 +206,10 @@ model AsignacionMaterial {
   fechaEstimadaProveedor  DateTime?
   fechaLimiteConfirmacion DateTime?
   fechaConfirmacion       DateTime?
+  // Constancia de CUÁNDO se rechazó. Separado de fechaConfirmacion a propósito:
+  // aceptar y rechazar son respuestas distintas y conviene poder distinguirlas
+  // sin mirar estatusProveedor. Nulo en los rechazos anteriores a este campo.
+  fechaRechazo            DateTime?
   motivoRechazo           String?
   moneda                  String         @default("MXN")
   createdAt               DateTime       @default(now())

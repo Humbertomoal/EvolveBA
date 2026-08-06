@@ -10,6 +10,7 @@ import { formatImporte } from "@/src/lib/monedas";
 import { notaTipoCambio, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { generarExcelHistoricoAdjunto } from "@/src/lib/historicoPujasActions";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
+import { getDestinatariosLicitacion } from "@/src/lib/destinatariosComprador";
 
 export type DatosResultadoInterno = {
   variables: Record<string, string>;
@@ -101,46 +102,15 @@ export async function prepararResultadoInternoAction(
       moneda: a.moneda,
     }));
 
-    // Comprador asignado + su(s) supervisor(es) (rol esSupervisor, mismo cliente).
-    const comprador = await prisma.usuario.findUnique({
-      where: { id: licitacion.compradorId },
-      select: { nombre: true, apellido: true, email: true, clienteId: true },
-    });
-
-    const supervisores = comprador
-      ? await prisma.usuario.findMany({
-          where: {
-            clienteId: comprador.clienteId,
-            activo: true,
-            id: { not: licitacion.compradorId },
-            rol: { esSupervisor: true },
-          },
-          select: { email: true },
-        })
-      : [];
-
-    const destinatarios = [
-      ...new Set(
-        [comprador?.email, ...supervisores.map((s) => s.email)].filter(
-          (email): email is string => !!email
-        )
-      ),
-    ];
-
-    // TEMP diagnóstico: por qué RESULTADO_INTERNO puede quedar sin destinatarios.
-    console.log("###COLA_CORREOS### [resultadoInterno]", {
-      licitacionId,
-      compradorId: licitacion.compradorId,
-      compradorEncontrado: !!comprador,
-      compradorEmail: comprador?.email ?? null,
-      supervisoresConEmail: supervisores.filter((s) => s.email).length,
-      asignaciones: asignaciones.length,
-      destinatarios: destinatarios.length,
-    });
+    // Comprador asignado + Gerente(s) de Compras. La resolución vive en
+    // destinatariosComprador.ts, compartida con el aviso de respuesta del
+    // proveedor: un solo lugar que tocar el día que cambien los roles.
+    const { correos: destinatarios, nombreComprador } =
+      await getDestinatariosLicitacion(licitacionId);
 
     const variables: Record<string, string> = {
       numeroLicitacion: licitacion.numero,
-      nombreComprador: comprador ? `${comprador.nombre} ${comprador.apellido}`.trim() : "",
+      nombreComprador,
       // Agregados en MXN (líneas convertidas con los tipos de cambio congelados).
       presupuestoObjetivo: formatImporte(resumen.presupuestoObjetivoTotal, monedaConsol),
       totalPrimeraRonda: formatImporte(resumen.primeraRondaTotal, monedaConsol),
