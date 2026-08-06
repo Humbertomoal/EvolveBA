@@ -200,6 +200,12 @@ export default function LicitacionCotizacion({
   const [tiempoExtraActivo, setTiempoExtraActivo] = useState(false);
   const [tiempoExtraRestante, setTiempoExtraRestante] = useState(60);
   const [notifAutoEnvio, setNotifAutoEnvio] = useState(false);
+  // Rechazo del servidor. Antes cualquier fallo de enviarOfertaAction quedaba
+  // como promesa rechazada sin manejar: el proveedor no veía nada y el
+  // formulario se quedaba abierto como si nada hubiera pasado.
+  const [rechazo, setRechazo] = useState<{ motivo: string; mensaje: string } | null>(
+    null
+  );
   const [canceloParticipacion, setCanceloParticipacion] = useState(false);
   const tiempoExtraDisparadoRef = useRef(false);
 
@@ -298,11 +304,15 @@ export default function LicitacionCotizacion({
   // ── Submit ────────────────────────────────────────────────────────────────
   async function enviarOfertaAhora(autoEnvio: boolean) {
     setEnviando(true);
+    setRechazo(null);
     try {
-      // proveedorId y ronda ya NO se envían: la action los resuelve desde la
-      // sesión y desde la licitación, para que no se puedan suplantar.
-      await enviarOfertaAction(
+      // `proveedorId` NO se manda: sale de la sesión en el servidor.
+      // `ronda` SÍ se manda —es lo único que el servidor no puede reconstruir
+      // una vez que la licitación avanzó de ronda— pero allá se valida contra
+      // la línea de tiempo real, así que no es un dato de confianza.
+      const resultado = await enviarOfertaAction(
         id,
+        rondaActual,
         basePath,
         items.map((item, idx) => ({
           licitacionItemId: item.licitacionItemId,
@@ -314,6 +324,17 @@ export default function LicitacionCotizacion({
             : filas[idx].fechaEstimadaEntrega || null,
         }))
       );
+
+      if (!resultado.ok) {
+        setRechazo({ motivo: resultado.motivo, mensaje: resultado.mensaje });
+        setModalConfirm(false);
+        setTiempoExtraActivo(false);
+        // La ronda cerró: el formulario ya no sirve para nada, así que se
+        // bloquea en vez de invitar a reintentar algo que no va a entrar.
+        if (resultado.motivo === "fuera_de_tiempo") setModoSoloLectura(true);
+        return;
+      }
+
       setModalConfirm(false);
       setTiempoExtraActivo(false);
       setModoSoloLectura(true);
@@ -969,6 +990,54 @@ export default function LicitacionCotizacion({
                 nombreProveedor={nombreComprador}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Rechazo del servidor ─────────────────────────────────────────── */}
+      {rechazo && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 w-96 space-y-3 rounded-xl border p-4 shadow-xl ${
+            rechazo.motivo === "fuera_de_tiempo"
+              ? "border-amber-300 bg-amber-50"
+              : "border-red-300 bg-red-50"
+          }`}
+          role="alert"
+        >
+          <p
+            className={`text-sm font-semibold ${
+              rechazo.motivo === "fuera_de_tiempo" ? "text-amber-900" : "text-red-900"
+            }`}
+          >
+            {rechazo.motivo === "fuera_de_tiempo"
+              ? "Tu oferta no se registró"
+              : "No se pudo enviar tu oferta"}
+          </p>
+          <p
+            className={`text-xs ${
+              rechazo.motivo === "fuera_de_tiempo" ? "text-amber-800" : "text-red-800"
+            }`}
+          >
+            {rechazo.mensaje}
+          </p>
+          <div className="flex justify-end gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                setRechazo(null);
+                router.refresh();
+              }}
+              className="text-xs font-medium text-zinc-700 hover:underline"
+            >
+              Actualizar
+            </button>
+            <button
+              type="button"
+              onClick={() => setRechazo(null)}
+              className="text-xs font-medium text-zinc-500 hover:underline"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
