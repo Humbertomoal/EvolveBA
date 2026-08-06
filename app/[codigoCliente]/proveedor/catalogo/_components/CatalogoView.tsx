@@ -123,7 +123,7 @@ export default function CatalogoView({
     const payload = [...new Set([...fueraDeAlcance, ...seleccionInline])];
     const eraPrimeraValidacion = !catalogoValidado.validado;
     startTransition(async () => {
-      await sincronizarMaterialesAction(proveedor.id, payload, basePath, familiasAsignadas);
+      await sincronizarMaterialesAction(payload, basePath, familiasAsignadas);
       toast.success(
         eraPrimeraValidacion ? "Catálogo validado correctamente" : "Cambios guardados"
       );
@@ -268,7 +268,7 @@ export default function CatalogoView({
   function confirmar() {
     const familiasFinal = familiasConSeleccion.map((f) => f.familia);
     startTransition(async () => {
-      await sincronizarMaterialesAction(proveedor.id, selTemp, basePath, familiasFinal);
+      await sincronizarMaterialesAction(selTemp, basePath, familiasFinal);
       setFamiliasAsignadas(familiasFinal);
       setModalAbierto(false);
       router.refresh();
@@ -277,7 +277,7 @@ export default function CatalogoView({
 
   function quitarMaterial(productoId: string) {
     startTransition(async () => {
-      await quitarMaterialProveedorAction(proveedor.id, productoId, basePath);
+      await quitarMaterialProveedorAction(productoId, basePath);
       router.refresh();
     });
   }

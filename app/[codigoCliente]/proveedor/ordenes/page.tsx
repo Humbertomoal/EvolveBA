@@ -1,6 +1,7 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
-import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { notFound } from "next/navigation";
+import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
 import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import OrdenesTabla from "./_components/OrdenesTabla";
@@ -22,7 +23,10 @@ export default async function MisOrdenesPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const proveedorId = await getProveedorIdActual();
+  // Identidad desde el JWT firmado, no desde la cookie escribible.
+  const sesion = await getProveedorSessionSegura();
+  if (!sesion) notFound();
+  const proveedorId = sesion.proveedorId;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawOrdenes: any[] = proveedorId

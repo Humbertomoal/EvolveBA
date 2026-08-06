@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./prisma";
-import { getProveedorIdActual } from "./proveedorSession";
+import { getProveedorSessionSegura } from "./proveedorSessionSegura";
 import { getCompradorSession } from "./compradorSession";
 import { convertirAMoneda, parseTiposCambio } from "./conversionMoneda";
 import {
@@ -125,8 +125,11 @@ export async function buscarOrdenesProveedorAction(
   filtros: FiltrosOrdenes,
   cursor: string | null
 ): Promise<{ ordenes: OrdenCompraRow[]; nextCursor: string | null }> {
-  const proveedorId = await getProveedorIdActual();
-  if (!proveedorId) return { ordenes: [], nextCursor: null };
+  // Identidad desde el JWT firmado, no desde la cookie escribible: esta action
+  // la invoca el cliente, así que el proveedorId NUNCA puede venir de él.
+  const sesion = await getProveedorSessionSegura();
+  if (!sesion) return { ordenes: [], nextCursor: null };
+  const proveedorId = sesion.proveedorId;
 
   const fechaRange = buildFechaRange(filtros);
 

@@ -1,7 +1,8 @@
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
-import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { notFound } from "next/navigation";
+import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
 import { ESTADO_ESPERANDO_VALIDACION } from "@/src/lib/seleccionTypes";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import MisLicitacionesTabla from "./_components/MisLicitacionesTabla";
@@ -79,7 +80,10 @@ export default async function MisLicitacionesPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const proveedorId = await getProveedorIdActual();
+  // Identidad desde el JWT firmado, no desde la cookie escribible.
+  const sesion = await getProveedorSessionSegura();
+  if (!sesion) notFound();
+  const proveedorId = sesion.proveedorId;
 
   // Verify state transitions for active licitaciones
   if (proveedorId) {

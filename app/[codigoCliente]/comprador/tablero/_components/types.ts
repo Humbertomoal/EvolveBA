@@ -3,6 +3,7 @@ import type {
   OpcionProducto,
   OpcionProveedor,
 } from "@/src/lib/tableroFiltros";
+import type { FilaPareto } from "@/src/lib/tableroHistorico";
 
 // Los filtros activos SON los filtros canónicos del tablero: el tipo vive en
 // src/lib/tableroFiltros.ts (módulo puro) para que server y cliente compartan
@@ -81,20 +82,52 @@ export type TableroData = {
     ahorro: number;
     ahorroPercent: number;
   }[];
-  ahorroMaterial: {
-    // Se agrupa por productoId, no por nombre: dos productos con el mismo
-    // nombre y distinto código son materiales distintos y no deben fusionarse.
-    productoId: string;
-    productoCodigo: string;
-    productoNombre: string;
-    familia: string | null;
-    cantidadTotal: number;
-    // Precios promedio en MXN, misma base que el detalle: primera ronda vs.
-    // mejor precio (el ahorro = primera ronda − mejor precio).
-    precioPrimeraRondaPromedio: number;
-    precioMejorPromedio: number;
-    ahorroTotal: number;
-  }[];
+  // NOTA: la gráfica "Ahorro por material" de Fase 0 se retiró. Su dato vive
+  // ahora en historico.ahorroPorProducto (Pareto, con periodo propio) — una
+  // sola vista del mismo número, en vez de dos con ventanas distintas.
+
+  /**
+   * Grupo 3 — análisis histórico. Cada indicador tiene su PROPIA ventana; el
+   * filtro global de periodo no aplica aquí (los de familia/producto/proveedor
+   * sí). Todos los montos en MXN con el TC congelado de cada licitación.
+   */
+  historico: {
+    /** Aditivos → Pareto válido (barras + % acumulado). */
+    ahorroPorProducto: FilaPareto[];
+    montoPorProveedor: FilaPareto[];
+    /** Los 3 proveedores con MEJOR precio unitario promedio del producto elegido. */
+    top3Proveedores: {
+      proveedorId: string;
+      proveedorNombre: string;
+      precioPromedio: number;
+      cantidad: number;
+    }[];
+    /**
+     * Ranking simple, SIN acumulado: los precios unitarios no son aditivos
+     * entre productos (y cada uno trae su propia unidad de medida).
+     */
+    costoUnitario: {
+      productoId: string;
+      etiqueta: string;
+      unidad: string;
+      precioPromedio: number;
+    }[];
+    variacionPrecio: {
+      mes: string;
+      etiqueta: string;
+      precioPromedio: number | null;
+      cantidad: number;
+    }[];
+    /** Productos con compras en la ventana más ancha, para los selectores. */
+    productosOpciones: { id: string; codigo: string; nombre: string }[];
+    /** Producto efectivamente graficado (elegido, prefiltrado o forzado). */
+    productoTop3: string;
+    productoVariacion: string;
+    /** true si el filtro global de producto está fijando #3 y #5. */
+    productoBloqueado: boolean;
+    /** true si el filtro global de proveedor deja el Pareto en una sola barra. */
+    proveedorFiltrado: boolean;
+  };
   onTimeProveedor: {
     proveedorNombre: string;
     /** Órdenes MEDIBLES (entregadas, con fecha objetivo y fecha real), no todas. */

@@ -29,6 +29,20 @@ export type FiltrosTablero = {
   /** Familia (categoría) del producto. SIN_FAMILIA = productos sin clasificar. */
   familia: string;
   productoId: string;
+
+  // ── Grupo 3 (análisis histórico) ───────────────────────────────────────────
+  // Cada indicador trae su PROPIA ventana temporal: el filtro `period` de
+  // arriba no aplica a esa sección. Viajan en la URL para que el server pueda
+  // calcular la ventana más ancha y resolver los cinco con una sola query.
+  // Valores válidos en tableroHistorico.ts (VentanaHistorico).
+  perAhorro: string;
+  perMonto: string;
+  perTop3: string;
+  perCosto: string;
+  perVariacion: string;
+  /** Producto graficado por los indicadores de un solo producto (#3 y #5). */
+  prodTop3: string;
+  prodVariacion: string;
 };
 
 /**
@@ -45,6 +59,14 @@ export const FILTROS_VACIOS: FiltrosTablero = {
   jerarquia: "",
   familia: "",
   productoId: "",
+  // Prefiltros iniciales del Grupo 3.
+  perAhorro: "6m",
+  perMonto: "mes_anterior",
+  perTop3: "mes_anterior",
+  perCosto: "6m",
+  perVariacion: "12m",
+  prodTop3: "",
+  prodVariacion: "",
 };
 
 // ── Periodo ──────────────────────────────────────────────────────────────────
@@ -187,6 +209,13 @@ const PARAM_POR_CAMPO: Record<keyof FiltrosTablero, string> = {
   jerarquia: "jerarquia",
   familia: "familia",
   productoId: "producto",
+  perAhorro: "perAhorro",
+  perMonto: "perMonto",
+  perTop3: "perTop3",
+  perCosto: "perCosto",
+  perVariacion: "perVar",
+  prodTop3: "prodTop3",
+  prodVariacion: "prodVar",
 };
 
 export function filtrosDesdeSearchParams(
@@ -205,6 +234,13 @@ export function filtrosDesdeSearchParams(
     jerarquia: leer("jerarquia"),
     familia: leer("familia"),
     productoId: leer("producto"),
+    perAhorro: leer("perAhorro") || FILTROS_VACIOS.perAhorro,
+    perMonto: leer("perMonto") || FILTROS_VACIOS.perMonto,
+    perTop3: leer("perTop3") || FILTROS_VACIOS.perTop3,
+    perCosto: leer("perCosto") || FILTROS_VACIOS.perCosto,
+    perVariacion: leer("perVar") || FILTROS_VACIOS.perVariacion,
+    prodTop3: leer("prodTop3"),
+    prodVariacion: leer("prodVar"),
   };
 }
 

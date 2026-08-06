@@ -5,7 +5,8 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
 import { getMaterialesProveedor } from "@/src/lib/proveedorMaterialesData";
-import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { notFound } from "next/navigation";
+import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
 import { ESTADO_ESPERANDO_VALIDACION } from "@/src/lib/seleccionTypes";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
@@ -34,7 +35,8 @@ export default async function DetalleLicitacionPage({
   // Verificar estado antes de mostrar (no-op para Cerrada/Finalizada)
   await verificarYActualizarEstado(id);
 
-  const [licitacion, proveedorId] = await Promise.all([
+  // Identidad desde el JWT firmado, no desde la cookie escribible.
+  const [licitacion, sesion] = await Promise.all([
     prisma.licitacion.findUnique({
       where: { id },
       include: {
@@ -53,8 +55,11 @@ export default async function DetalleLicitacionPage({
         _count: { select: { proveedoresInvitados: true } },
       },
     }),
-    getProveedorIdActual(),
+    getProveedorSessionSegura(),
   ]);
+
+  if (!sesion) notFound();
+  const proveedorId = sesion.proveedorId;
 
   if (!licitacion || licitacion.modoLicitacion === "Manual") {
     return (

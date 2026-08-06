@@ -5,7 +5,8 @@ import {
 } from "@/src/lib/proveedorMaterialesData";
 import { getProductos } from "@/src/lib/productos";
 import { getProveedorById, getCatalogoValidadoProveedor } from "@/src/lib/proveedores";
-import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { notFound } from "next/navigation";
+import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import CatalogoView from "./_components/CatalogoView";
@@ -19,10 +20,13 @@ export default async function MiCatalogoMiInformacionPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [proveedorId, productos] = await Promise.all([
-    getProveedorIdActual(),
+  // Identidad desde el JWT firmado, no desde la cookie escribible.
+  const [sesion, productos] = await Promise.all([
+    getProveedorSessionSegura(),
     getProductos(),
   ]);
+  if (!sesion) notFound();
+  const proveedorId = sesion.proveedorId;
 
   const proveedor = proveedorId ? await getProveedorById(proveedorId) : null;
 

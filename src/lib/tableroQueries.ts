@@ -277,6 +277,94 @@ export async function getLicitacionesPipeline(
   });
 }
 
+// ── Histórico (Grupo 3) ──────────────────────────────────────────────────────
+//
+// Select propio porque los indicadores históricos necesitan cosas que el
+// include principal no trae: `proveedorId` en las ofertas (para el top-3 de
+// proveedores, que debe incluir a quienes cotizaron y NO ganaron) y las
+// asignaciones completas (para los montos realmente comprados).
+//
+// OJO con la moneda: la de las ofertas se toma de LicitacionItem.moneda, nunca
+// de OfertaItem.moneda (que no se escribe nunca y siempre vale su default).
+// AsignacionMaterial.moneda SÍ es confiable: se hereda del item al asignar.
+export const LICITACION_HISTORICO_SELECT = {
+  id: true,
+  numero: true,
+  estado: true,
+  tiposCambio: true,
+  fechaCreacion: true,
+  fechaCerrada: true,
+  fechaFinalizada: true,
+  items: {
+    select: {
+      id: true,
+      productoId: true,
+      moneda: true,
+      cantidadSolicitada: true,
+      precioObjetivo: true,
+      producto: {
+        select: {
+          id: true,
+          codigo: true,
+          nombre: true,
+          familia: true,
+          unidadMedida: true,
+          eliminado: true,
+        },
+      },
+      ofertas: {
+        select: {
+          precioUnitario: true,
+          ronda: true,
+          proveedorId: true,
+          proveedor: { select: { razonSocial: true } },
+        },
+      },
+    },
+  },
+  asignaciones: {
+    select: {
+      licitacionItemId: true,
+      proveedorId: true,
+      cantidadAsignada: true,
+      precioUnitario: true,
+      moneda: true,
+      estatusProveedor: true,
+      proveedor: { select: { razonSocial: true } },
+    },
+  },
+} satisfies Prisma.LicitacionSelect;
+
+export type LicitacionHistorico = Prisma.LicitacionGetPayload<{
+  select: typeof LICITACION_HISTORICO_SELECT;
+}>;
+
+export type LicitacionHistoricoItem = LicitacionHistorico["items"][number];
+
+/**
+ * Licitaciones ejecutadas desde `desde`. El filtro global de periodo NO aplica
+ * (cada indicador del Grupo 3 tiene el suyo); `desde` es la ventana más ancha
+ * entre las cinco seleccionadas, y el recorte fino se hace en memoria.
+ */
+export async function getLicitacionesHistorico(
+  filtros: FiltrosTablero,
+  sesion: SesionTablero,
+  desde: Date
+): Promise<LicitacionHistorico[]> {
+  return prisma.licitacion.findMany({
+    where: {
+      ...construirWhereLicitacion(filtros, sesion, { ignorarPeriodo: true }),
+      estado: { in: ESTADOS_EJECUTADAS },
+      OR: [
+        { fechaCerrada: { gte: desde } },
+        { fechaFinalizada: { gte: desde } },
+        { fechaCreacion: { gte: desde } },
+      ],
+    },
+    select: LICITACION_HISTORICO_SELECT,
+  });
+}
+
 // ── Opciones de los desplegables ─────────────────────────────────────────────
 
 export type OpcionesFiltros = {

@@ -21,6 +21,20 @@ import {
 } from "@/src/lib/tableroFiltros";
 import { promediarEtapas } from "@/src/lib/tableroEtapas";
 import {
+  acumularPonderado,
+  asignacionCuenta,
+  construirPareto,
+  dentroDe,
+  esVentanaValida,
+  fechaDeCompra,
+  inicioMasAntiguo,
+  mesesEntre,
+  productoTopPorMonto,
+  promedioPonderado,
+  resolverVentana,
+  type VentanaHistorico,
+} from "@/src/lib/tableroHistorico";
+import {
   CATEGORIAS_PIPELINE,
   ESTADO_OC_PENDIENTE,
   LABEL_CATEGORIA,
@@ -32,6 +46,7 @@ import {
 import {
   esLicitacionEjecutada,
   getEtapasTablero,
+  getLicitacionesHistorico,
   getLicitacionesPipeline,
   getLicitacionesTablero,
   getOpcionesFiltros,
@@ -93,13 +108,33 @@ export default async function TableroIndicadoresPage({
 
   // Todas las consultas pasan por tableroQueries.ts — un solo `where` canónico
   // para licitaciones y órdenes, así ambos KPIs describen el mismo universo.
-  const [opciones, licitaciones, ordenes, etapasRaw, pipelineRaw] =
+  // Ventanas propias del Grupo 3. Se saneen aquí: un valor inválido en la URL
+  // cae al prefiltro en vez de romper el cálculo.
+  const ahora = new Date();
+  const ventanaDe = (valor: string, porDefecto: VentanaHistorico): VentanaHistorico =>
+    esVentanaValida(valor) ? valor : porDefecto;
+
+  const vAhorro = ventanaDe(filtros.perAhorro, "6m");
+  const vMonto = ventanaDe(filtros.perMonto, "mes_anterior");
+  const vTop3 = ventanaDe(filtros.perTop3, "mes_anterior");
+  const vCosto = ventanaDe(filtros.perCosto, "6m");
+  const vVariacion = ventanaDe(filtros.perVariacion, "12m");
+
+  // UNA sola query para los cinco indicadores: se pide la ventana más ancha y
+  // cada uno recorta en memoria. Cinco ventanas ≠ cinco viajes a la BD.
+  const desdeHistorico = inicioMasAntiguo(
+    [vAhorro, vMonto, vTop3, vCosto, vVariacion],
+    ahora
+  );
+
+  const [opciones, licitaciones, ordenes, etapasRaw, pipelineRaw, historicoRaw] =
     await Promise.all([
       getOpcionesFiltros(filtros, sesion),
       getLicitacionesTablero(filtros, sesion),
       getOrdenesTablero(filtros, sesion),
       getEtapasTablero(filtros, sesion),
       getLicitacionesPipeline(filtros, sesion),
+      getLicitacionesHistorico(filtros, sesion, desdeHistorico),
     ]);
 
   // ── Cálculo unificado de ahorro / adherencia / precios ─────────────────────
@@ -121,18 +156,6 @@ export default async function TableroIndicadoresPage({
   let valorPrimeraRonda = 0; // MXN, a precios de la primera ronda CON puja
   let valorMejoresPrecios = 0; // MXN, al mejor precio de todas las rondas
   const ahorroPorMes = new Map<string, number>();
-
-  type MaterialAcc = {
-    productoId: string;
-    productoCodigo: string;
-    productoNombre: string;
-    familia: string | null;
-    cantidadTotal: number;
-    primeraRondaSumMXN: number;
-    mejorSumMXN: number;
-    ahorroSumMXN: number;
-  };
-  const matMap = new Map<string, MaterialAcc>();
 
   const jerMap = new Map<
     string,
@@ -236,40 +259,6 @@ export default async function TableroIndicadoresPage({
       });
     }
 
-    // Gráfica: ahorro por material (MXN), misma definición que el detalle.
-    // Se indexa por licitacionItemId en vez de por posición: el pareo
-    // analisis[i] ↔ items[i] se rompe en silencio en cuanto uno de los dos
-    // arrays se filtra, que es exactamente lo que hace el nivel 2 de arriba.
-    const itemPorId = new Map(items.map((it) => [it.id, it]));
-    // Mismo universo que la tarjeta: si la licitación no entra al ahorro, no
-    // aporta materiales. (No se puede usar `continue` aquí: el bloque de
-    // adherencia por criticidad va después y sí recorre todas.)
-    const materialesDelAhorro = entraAlAhorro ? analisis : [];
-    for (const a of materialesDelAhorro) {
-      if (a.ahorroTotal == null) continue; // material sin puja → fuera del ahorro
-      const it = itemPorId.get(a.licitacionItemId);
-      if (!it) continue;
-
-      const toMXN = (v: number) =>
-        convertirAMoneda(v, a.moneda, MONEDA_BASE, tiposCambio);
-
-      const acc = matMap.get(it.productoId) ?? {
-        productoId: it.productoId,
-        productoCodigo: it.producto.codigo,
-        productoNombre: it.producto.nombre,
-        familia: it.producto.familia?.trim() ? it.producto.familia.trim() : null,
-        cantidadTotal: 0,
-        primeraRondaSumMXN: 0,
-        mejorSumMXN: 0,
-        ahorroSumMXN: 0,
-      };
-      acc.cantidadTotal += a.cantidadSolicitada;
-      acc.primeraRondaSumMXN += toMXN(a.primeraRondaTotal ?? 0);
-      acc.mejorSumMXN += toMXN(a.mejorActualTotal ?? 0);
-      acc.ahorroSumMXN += toMXN(a.ahorroTotal);
-      matMap.set(it.productoId, acc);
-    }
-
     // Gráfica: adherencia por criticidad. Compara unitario vs unitario en la
     // moneda del propio material, así que no requiere conversión.
     const claveJerarquia = lic.jerarquia || "Sin criticidad";
@@ -313,21 +302,6 @@ export default async function TableroIndicadoresPage({
     licitacionesTotales: etapasRaw.licitacionesTotales,
     intervalosDescartados: resumenEtapas.intervalosDescartados,
   };
-
-  const ahorroMaterial: TableroData["ahorroMaterial"] = Array.from(matMap.values())
-    .filter((m) => m.ahorroSumMXN > 0)
-    .sort((a, b) => b.ahorroSumMXN - a.ahorroSumMXN)
-    .map((m) => ({
-      productoId: m.productoId,
-      productoCodigo: m.productoCodigo,
-      productoNombre: m.productoNombre,
-      familia: m.familia,
-      cantidadTotal: m.cantidadTotal,
-      precioPrimeraRondaPromedio:
-        m.cantidadTotal > 0 ? m.primeraRondaSumMXN / m.cantidadTotal : 0,
-      precioMejorPromedio: m.cantidadTotal > 0 ? m.mejorSumMXN / m.cantidadTotal : 0,
-      ahorroTotal: m.ahorroSumMXN,
-    }));
 
   const adherenciaJerarquia: TableroData["adherenciaJerarquia"] = Array.from(
     jerMap.entries()
@@ -384,8 +358,6 @@ export default async function TableroIndicadoresPage({
   // ── Grupo 2: pipeline (foto del estado ACTUAL) ────────────────────────────
   // Universo distinto al de arriba: getLicitacionesPipeline ignora el filtro de
   // periodo a propósito (ver comentario en construirWhereLicitacion).
-  const ahora = new Date();
-
   type AccCategoria = { cantidad: number; sumaMs: number; conDuracion: number };
   const nuevaAcc = (): AccCategoria => ({ cantidad: 0, sumaMs: 0, conDuracion: 0 });
 
@@ -508,6 +480,284 @@ export default async function TableroIndicadoresPage({
     entradasTotales,
   };
 
+  // ── Grupo 3: análisis histórico ───────────────────────────────────────────
+  // Cada indicador tiene su PROPIA ventana; el filtro global de periodo no
+  // aplica aquí. La query ya trajo la ventana más ancha de las cinco, así que
+  // el recorte por indicador es puro, en memoria.
+  const ventanaAhorro = resolverVentana(vAhorro, ahora);
+  const ventanaMonto = resolverVentana(vMonto, ahora);
+  const ventanaTop3 = resolverVentana(vTop3, ahora);
+  const ventanaCosto = resolverVentana(vCosto, ahora);
+  const ventanaVariacion = resolverVentana(vVariacion, ahora);
+
+  const etiquetaProducto = (p: { codigo: string; nombre: string }) =>
+    `${p.codigo} — ${p.nombre}`;
+
+  const ahorroProd = new Map<string, { etiqueta: string; valor: number }>();
+  const montoProv = new Map<string, { etiqueta: string; valor: number }>();
+  const costoProd = new Map<
+    string,
+    { etiqueta: string; unidad: string; montoMXN: number; cantidad: number }
+  >();
+  const productosVistos = new Map<string, { id: string; codigo: string; nombre: string }>();
+  // Montos por producto para resolver el prefiltro de #3 y #5.
+  const montoProdTop3 = new Map<string, number>();
+  const montoProdVariacion = new Map<string, number>();
+  const montoProdAncho = new Map<string, number>();
+
+  // ── Pasada 1: lo que no depende del producto elegido ──────────────────────
+  for (const lic of historicoRaw) {
+    const items = lic.items.filter((it) =>
+      itemPasaFiltro(
+        {
+          productoId: it.productoId,
+          familia: it.producto.familia,
+          productoEliminado: it.producto.eliminado,
+        },
+        filtros
+      )
+    );
+    if (items.length === 0) continue;
+
+    const tc = parseTiposCambio(lic.tiposCambio);
+    const fecha = fechaDeCompra(lic);
+    const itemPorId = new Map(items.map((it) => [it.id, it]));
+
+    for (const it of items) {
+      productosVistos.set(it.productoId, {
+        id: it.productoId,
+        codigo: it.producto.codigo,
+        nombre: it.producto.nombre,
+      });
+    }
+
+    // #1 — Ahorro por producto (misma definición del Grupo 1: primera ronda con
+    // puja − mejor precio, desde OFERTAS).
+    if (dentroDe(fecha, ventanaAhorro)) {
+      const itemsAhorro: LicitacionItemParaAhorro[] = items.map((it) => ({
+        id: it.id,
+        cantidadSolicitada: it.cantidadSolicitada,
+        precioObjetivo: it.precioObjetivo,
+        moneda: it.moneda,
+      }));
+      const ofertasAhorro: OfertaParaAhorro[] = items.flatMap((it) =>
+        it.ofertas.map((o) => ({
+          licitacionItemId: it.id,
+          ronda: o.ronda,
+          precioUnitario: o.precioUnitario,
+        }))
+      );
+      for (const a of calcularAnalisisPorItem(itemsAhorro, ofertasAhorro)) {
+        if (a.ahorroTotal == null) continue;
+        const it = itemPorId.get(a.licitacionItemId);
+        if (!it) continue;
+        const acc = ahorroProd.get(it.productoId) ?? {
+          etiqueta: etiquetaProducto(it.producto),
+          valor: 0,
+        };
+        acc.valor += convertirAMoneda(a.ahorroTotal, a.moneda, MONEDA_BASE, tc);
+        ahorroProd.set(it.productoId, acc);
+      }
+    }
+
+    // #2, #4 y los montos por producto salen de ASIGNACIONES: es la única
+    // fuente que sabe a QUIÉN se le compró y CUÁNTO se compró de verdad.
+    for (const asig of lic.asignaciones) {
+      if (!asignacionCuenta(asig.estatusProveedor)) continue; // rechazada ≠ compra
+      const it = itemPorId.get(asig.licitacionItemId);
+      if (!it) continue; // el material no pasó el filtro de nivel 2
+
+      // Fórmula canónica de monto (seleccionActions.ts). AsignacionMaterial.moneda
+      // es confiable: se hereda del LicitacionItem al asignar.
+      const montoMXN = convertirAMoneda(
+        asig.precioUnitario * asig.cantidadAsignada,
+        asig.moneda,
+        MONEDA_BASE,
+        tc
+      );
+
+      if (dentroDe(fecha, ventanaMonto)) {
+        const acc = montoProv.get(asig.proveedorId) ?? {
+          etiqueta: asig.proveedor.razonSocial,
+          valor: 0,
+        };
+        acc.valor += montoMXN;
+        montoProv.set(asig.proveedorId, acc);
+      }
+
+      if (dentroDe(fecha, ventanaCosto)) {
+        const acc = costoProd.get(it.productoId) ?? {
+          etiqueta: etiquetaProducto(it.producto),
+          unidad: it.producto.unidadMedida,
+          montoMXN: 0,
+          cantidad: 0,
+        };
+        acumularPonderado(acc, { montoMXN, cantidad: asig.cantidadAsignada });
+        costoProd.set(it.productoId, acc);
+      }
+
+      if (dentroDe(fecha, ventanaTop3)) {
+        montoProdTop3.set(it.productoId, (montoProdTop3.get(it.productoId) ?? 0) + montoMXN);
+      }
+      if (dentroDe(fecha, ventanaVariacion)) {
+        montoProdVariacion.set(
+          it.productoId,
+          (montoProdVariacion.get(it.productoId) ?? 0) + montoMXN
+        );
+      }
+      montoProdAncho.set(it.productoId, (montoProdAncho.get(it.productoId) ?? 0) + montoMXN);
+    }
+  }
+
+  // ── Resolución del producto de #3 y #5 ────────────────────────────────────
+  // El filtro global de producto MANDA. Si no hay, se respeta lo que eligió el
+  // usuario en el selector propio; si tampoco, se prefiltra con el producto de
+  // mayor monto en la ventana del indicador, con fallback a la ventana más
+  // ancha para no arrancar en blanco sin explicación.
+  const productoBloqueado = Boolean(filtros.productoId);
+  const productoTop3 =
+    filtros.productoId ||
+    filtros.prodTop3 ||
+    productoTopPorMonto(montoProdTop3) ||
+    productoTopPorMonto(montoProdAncho) ||
+    "";
+  const productoVariacion =
+    filtros.productoId ||
+    filtros.prodVariacion ||
+    productoTopPorMonto(montoProdVariacion) ||
+    productoTopPorMonto(montoProdAncho) ||
+    "";
+
+  // ── Pasada 2: los dos indicadores de un solo producto ─────────────────────
+  const top3Acc = new Map<
+    string,
+    { nombre: string; montoMXN: number; cantidad: number }
+  >();
+  const variacionMes = new Map<string, { montoMXN: number; cantidad: number }>();
+
+  for (const lic of historicoRaw) {
+    const items = lic.items.filter((it) =>
+      itemPasaFiltro(
+        {
+          productoId: it.productoId,
+          familia: it.producto.familia,
+          productoEliminado: it.producto.eliminado,
+        },
+        filtros
+      )
+    );
+    if (items.length === 0) continue;
+
+    const tc = parseTiposCambio(lic.tiposCambio);
+    const fecha = fechaDeCompra(lic);
+
+    // #3 — Top 3 proveedores por precio OFERTADO del producto elegido. Va desde
+    // ofertas y no desde asignaciones a propósito: el sentido del indicador es
+    // comparar proveedores, así que debe incluir a los que cotizaron y NO
+    // ganaron. De cada proveedor se toma su MEJOR precio por material (no el
+    // promedio de sus rondas, que arrastraría sus pujas iniciales altas).
+    if (productoTop3 && dentroDe(fecha, ventanaTop3)) {
+      for (const it of items) {
+        if (it.productoId !== productoTop3) continue;
+        const mejorPorProveedor = new Map<
+          string,
+          { nombre: string; precio: number }
+        >();
+        for (const oferta of it.ofertas) {
+          const previo = mejorPorProveedor.get(oferta.proveedorId);
+          if (!previo || oferta.precioUnitario < previo.precio) {
+            mejorPorProveedor.set(oferta.proveedorId, {
+              nombre: oferta.proveedor.razonSocial,
+              precio: oferta.precioUnitario,
+            });
+          }
+        }
+        for (const [proveedorId, mejor] of mejorPorProveedor) {
+          // La moneda es la del ITEM. OfertaItem.moneda no se escribe nunca.
+          const montoMXN = convertirAMoneda(
+            mejor.precio * it.cantidadSolicitada,
+            it.moneda,
+            MONEDA_BASE,
+            tc
+          );
+          const acc = top3Acc.get(proveedorId) ?? {
+            nombre: mejor.nombre,
+            montoMXN: 0,
+            cantidad: 0,
+          };
+          acumularPonderado(acc, { montoMXN, cantidad: it.cantidadSolicitada });
+          top3Acc.set(proveedorId, acc);
+        }
+      }
+    }
+
+    // #5 — Variación del costo real pagado del producto elegido.
+    if (productoVariacion && dentroDe(fecha, ventanaVariacion)) {
+      const itemPorId = new Map(items.map((it) => [it.id, it]));
+      for (const asig of lic.asignaciones) {
+        if (!asignacionCuenta(asig.estatusProveedor)) continue;
+        const it = itemPorId.get(asig.licitacionItemId);
+        if (!it || it.productoId !== productoVariacion) continue;
+
+        const montoMXN = convertirAMoneda(
+          asig.precioUnitario * asig.cantidadAsignada,
+          asig.moneda,
+          MONEDA_BASE,
+          tc
+        );
+        const mes = claveMes(fecha);
+        const acc = variacionMes.get(mes) ?? { montoMXN: 0, cantidad: 0 };
+        acumularPonderado(acc, { montoMXN, cantidad: asig.cantidadAsignada });
+        variacionMes.set(mes, acc);
+      }
+    }
+  }
+
+  const historico: TableroData["historico"] = {
+    ahorroPorProducto: construirPareto(
+      [...ahorroProd.entries()].map(([id, v]) => ({ id, ...v }))
+    ),
+    montoPorProveedor: construirPareto(
+      [...montoProv.entries()].map(([id, v]) => ({ id, ...v }))
+    ),
+    top3Proveedores: [...top3Acc.entries()]
+      .map(([proveedorId, acc]) => ({
+        proveedorId,
+        proveedorNombre: acc.nombre,
+        precioPromedio: promedioPonderado([acc]) ?? 0,
+        cantidad: acc.cantidad,
+      }))
+      .filter((p) => p.precioPromedio > 0)
+      .sort((a, b) => a.precioPromedio - b.precioPromedio) // MEJOR precio = más bajo
+      .slice(0, 3),
+    costoUnitario: [...costoProd.entries()]
+      .map(([productoId, acc]) => ({
+        productoId,
+        etiqueta: acc.etiqueta,
+        unidad: acc.unidad,
+        precioPromedio: promedioPonderado([acc]) ?? 0,
+      }))
+      .filter((p) => p.precioPromedio > 0)
+      .sort((a, b) => b.precioPromedio - a.precioPromedio),
+    // Eje completo de la ventana: un mes sin compras es un hueco, no un punto.
+    variacionPrecio: mesesEntre(ventanaVariacion).map((mes) => {
+      const acc = variacionMes.get(mes);
+      return {
+        mes,
+        etiqueta: etiquetaMes(mes),
+        precioPromedio: acc ? promedioPonderado([acc]) : null,
+        cantidad: acc?.cantidad ?? 0,
+      };
+    }),
+    productosOpciones: [...productosVistos.values()].sort((a, b) =>
+      a.nombre.localeCompare(b.nombre, "es-MX")
+    ),
+    productoTop3,
+    productoVariacion,
+    productoBloqueado,
+    proveedorFiltrado: Boolean(filtros.proveedorId),
+  };
+
   // ── Compose and render ────────────────────────────────────────────────────
   const data: TableroData = {
     kpis: {
@@ -520,10 +770,10 @@ export default async function TableroIndicadoresPage({
       onTimeDelivery,
     },
     pipeline,
+    historico,
     ahorroMensual,
     tiempoEtapas,
     precioChart,
-    ahorroMaterial,
     onTimeProveedor,
     adherenciaJerarquia,
     proveedoresOpciones: opciones.proveedores,

@@ -1,10 +1,9 @@
-import { cookies } from "next/headers";
 import {
   CODIGO_CLIENTE_SIN_ESPECIFICAR,
   getClienteByCodigo,
 } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
-import { PROVEEDOR_COOKIE } from "@/src/lib/proveedorSession";
+import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
 import { getTotalNoLeidosProveedor } from "@/src/lib/chatActions";
 import { logoutAction } from "@/src/lib/authActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
@@ -30,21 +29,31 @@ export default async function ProveedorLayout({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [cookieStore, proveedoresLista, usuarioActual] = await Promise.all([
-    cookies(),
-    prisma.proveedor.findMany({
-      where: { eliminado: false },
-      select: { id: true, razonSocial: true },
-      orderBy: { createdAt: "asc" },
-    }),
+  // Identidad desde el JWT firmado (getProveedorSessionSegura), NO desde la
+  // cookie cyrgo_proveedor_id, que es escribible desde el navegador. Antes se
+  // leía la cookie y, si no coincidía con nada, se caía al PRIMER proveedor de
+  // la base — dos formas de acabar mostrando datos ajenos.
+  const [sesionProveedor, usuarioActual] = await Promise.all([
+    getProveedorSessionSegura(),
     getUsuarioActual(),
   ]);
 
-  const cookieId = cookieStore.get(PROVEEDOR_COOKIE)?.value ?? "";
-  const proveedorIdActual =
-    proveedoresLista.find((p: any)  => p.id === cookieId)?.id ??
-    proveedoresLista[0]?.id ??
-    "";
+  const proveedorIdActual = sesionProveedor?.proveedorId ?? "";
+
+  // El desplegable de "ver como proveedor" es exclusivo de admins/supervisores.
+  // Para un proveedor la lista va vacía a propósito: antes se le enviaba al
+  // navegador la razón social de TODOS sus competidores dentro del payload de
+  // la página, aunque el selector no se dibujara.
+  const puedeImpersonar = Boolean(
+    usuarioActual && (usuarioActual.esAdmin || usuarioActual.esSupervisor)
+  );
+  const proveedoresLista = puedeImpersonar
+    ? await prisma.proveedor.findMany({
+        where: { eliminado: false },
+        select: { id: true, razonSocial: true },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
 
   let noLeidosInicial = 0;
   if (proveedorIdActual) {

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
-import { getProveedorIdActual } from "@/src/lib/proveedorSession";
+import { notFound } from "next/navigation";
+import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
 import { parseTiposCambio, type TiposCambio } from "@/src/lib/conversionMoneda";
 import ResultadoView from "./_components/ResultadoView";
 
@@ -47,13 +48,11 @@ export default async function ResultadoPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const proveedorId = await getProveedorIdActual();
-  const proveedor = proveedorId
-    ? await prisma.proveedor.findUnique({
-        where: { id: proveedorId },
-        select: { id: true, razonSocial: true },
-      })
-    : null;
+  // Identidad desde el JWT firmado, no desde la cookie escribible.
+  const sesion = await getProveedorSessionSegura();
+  if (!sesion) notFound();
+  const proveedorId = sesion.proveedorId;
+  const proveedor = { id: sesion.proveedorId, razonSocial: sesion.razonSocial };
 
   if (!proveedor) {
     return (

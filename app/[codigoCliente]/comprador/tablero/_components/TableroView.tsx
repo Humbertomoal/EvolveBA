@@ -17,7 +17,11 @@ import { filtrosAQueryString, SIN_FAMILIA } from "@/src/lib/tableroFiltros";
 import type { FiltrosActivos, TableroData } from "./types";
 import { formatDuracionHoras } from "@/src/lib/tableroEtapas";
 import GraficaAdherencia from "./GraficaAdherencia";
-import GraficaAhorro from "./GraficaAhorro";
+import GraficaPareto from "./GraficaPareto";
+import GraficaRankingUnitario from "./GraficaRankingUnitario";
+import GraficaTop3Proveedores from "./GraficaTop3Proveedores";
+import GraficaVariacionPrecio from "./GraficaVariacionPrecio";
+import SelectorPeriodo from "./SelectorPeriodo";
 import GraficaAhorroMensual from "./GraficaAhorroMensual";
 import GraficaOnTime from "./GraficaOnTime";
 import GraficaPipelineCantidad from "./GraficaPipelineCantidad";
@@ -47,7 +51,12 @@ type SectionKey =
   | "etapas"
   | "pipelineCantidad"
   | "pipelineTiempo"
-  | "sinOc";
+  | "sinOc"
+  | "histAhorro"
+  | "histMonto"
+  | "histTop3"
+  | "histVariacion"
+  | "histCosto";
 
 const selectClass =
   "rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -92,7 +101,7 @@ export default function TableroView({
   const {
     kpis,
     precioChart,
-    ahorroMaterial,
+    historico,
     onTimeProveedor,
     adherenciaJerarquia,
     ahorroMensual,
@@ -597,41 +606,215 @@ export default function TableroView({
         )}
       </ChartSection>
 
-      {/* ── Gráfica 2: Ahorro por material ───────────────────────────────────── */}
+
+      {/* ── Grupo 3: análisis histórico ────────────────────────────────────────
+          Cada gráfico de esta sección tiene su PROPIA ventana temporal; el
+          filtro global de periodo no aplica aquí (los de familia, producto y
+          proveedor sí). Se avisa en el encabezado porque, si no, tener cinco
+          ventanas distintas en una pantalla se lee como incoherencia. */}
+      <div className="rounded-[10px] border border-[#ede8e8] bg-surface-muted px-4 py-3">
+        <h2 className="text-sm font-semibold text-zinc-900">Análisis histórico</h2>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          Cada gráfico usa su propio periodo
+          {historico.productoBloqueado &&
+            " · el filtro global de producto está fijando los gráficos de un solo producto"}
+        </p>
+      </div>
+
+      {/* #1 — Ahorro por producto (Pareto) */}
       <ChartSection
-        title="Ahorro por material"
-        hasData={ahorroMaterial.length > 0}
-        isOpen={openTables.has("ahorro")}
-        onToggle={() => toggleTable("ahorro")}
+        title="Ahorro total por producto"
+        subtitle="Primera ronda con puja − mejor precio, en MXN"
+        hasData={historico.ahorroPorProducto.length > 0}
+        isOpen={openTables.has("histAhorro")}
+        onToggle={() => toggleTable("histAhorro")}
+        control={
+          <SelectorPeriodo
+            ariaLabel="Periodo del ahorro por producto"
+            valor={filtros.perAhorro}
+            onChange={(v) => updateFilter("perAhorro", v)}
+          />
+        }
       >
-        <GraficaAhorro data={ahorroMaterial} />
-        {openTables.has("ahorro") && (
+        <GraficaPareto data={historico.ahorroPorProducto} etiquetaValor="Ahorro" />
+        <TablaPareto
+          filas={historico.ahorroPorProducto}
+          encabezado="Producto"
+          encabezadoValor="Ahorro"
+          visible={openTables.has("histAhorro")}
+        />
+      </ChartSection>
+
+      {/* #2 — Monto asignado por proveedor (Pareto) */}
+      <ChartSection
+        title="Monto asignado por proveedor"
+        subtitle="Lo realmente comprado (asignaciones, sin las rechazadas) — no cuadra con «Valor mejores precios», que mide otra cosa"
+        hasData={historico.montoPorProveedor.length > 0}
+        isOpen={openTables.has("histMonto")}
+        onToggle={() => toggleTable("histMonto")}
+        control={
+          <SelectorPeriodo
+            ariaLabel="Periodo del monto por proveedor"
+            valor={filtros.perMonto}
+            onChange={(v) => updateFilter("perMonto", v)}
+          />
+        }
+      >
+        <GraficaPareto
+          data={historico.montoPorProveedor}
+          etiquetaValor="Monto asignado"
+        />
+        {historico.proveedorFiltrado && historico.montoPorProveedor.length <= 1 && (
+          <p className="mt-3 text-xs text-amber-600">
+            Solo se ve un proveedor porque el filtro global de proveedor está
+            activo. Quítalo para comparar contra el resto.
+          </p>
+        )}
+        <TablaPareto
+          filas={historico.montoPorProveedor}
+          encabezado="Proveedor"
+          encabezadoValor="Monto asignado"
+          visible={openTables.has("histMonto")}
+        />
+      </ChartSection>
+
+      {/* #3 y #5 — indicadores de un solo producto */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartSection
+          title="Top 3 proveedores por producto"
+          subtitle="Mejor precio unitario promedio — incluye a quienes cotizaron y no ganaron"
+          hasData={historico.top3Proveedores.length > 0}
+          isOpen={openTables.has("histTop3")}
+          onToggle={() => toggleTable("histTop3")}
+          control={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <SelectorProducto
+                ariaLabel="Producto del top 3"
+                valor={historico.productoTop3}
+                opciones={historico.productosOpciones}
+                bloqueado={historico.productoBloqueado}
+                onChange={(v) => updateFilter("prodTop3", v)}
+              />
+              <SelectorPeriodo
+                ariaLabel="Periodo del top 3"
+                valor={filtros.perTop3}
+                onChange={(v) => updateFilter("perTop3", v)}
+              />
+            </div>
+          }
+        >
+          <GraficaTop3Proveedores data={historico.top3Proveedores} />
+          {openTables.has("histTop3") && (
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                    <th className="pb-2 pr-3">Proveedor</th>
+                    <th className="pb-2 pr-3 text-right">Precio unitario prom.</th>
+                    <th className="pb-2 text-right">Unidades cotizadas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {historico.top3Proveedores.map((row) => (
+                    <tr key={row.proveedorId} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                      <td className="py-1.5 pr-3 font-medium">{row.proveedorNombre}</td>
+                      <td className="py-1.5 pr-3 text-right">${fmt(row.precioPromedio)}</td>
+                      <td className="py-1.5 text-right text-zinc-500">
+                        {row.cantidad.toLocaleString("es-MX")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ChartSection>
+
+        <ChartSection
+          title="Variación de precios por producto"
+          subtitle="Costo unitario promedio pagado, mes a mes"
+          hasData={historico.variacionPrecio.some((v) => v.precioPromedio != null)}
+          isOpen={openTables.has("histVariacion")}
+          onToggle={() => toggleTable("histVariacion")}
+          control={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <SelectorProducto
+                ariaLabel="Producto de la variación"
+                valor={historico.productoVariacion}
+                opciones={historico.productosOpciones}
+                bloqueado={historico.productoBloqueado}
+                onChange={(v) => updateFilter("prodVariacion", v)}
+              />
+              <SelectorPeriodo
+                ariaLabel="Periodo de la variación"
+                valor={filtros.perVariacion}
+                onChange={(v) => updateFilter("perVariacion", v)}
+              />
+            </div>
+          }
+        >
+          <GraficaVariacionPrecio data={historico.variacionPrecio} />
+          {openTables.has("histVariacion") && (
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                    <th className="pb-2 pr-3">Mes</th>
+                    <th className="pb-2 pr-3 text-right">Costo unitario prom.</th>
+                    <th className="pb-2 text-right">Unidades</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {historico.variacionPrecio.map((row) => (
+                    <tr key={row.mes} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+                      <td className="py-1.5 pr-3 font-medium">{row.etiqueta}</td>
+                      <td className="py-1.5 pr-3 text-right">
+                        {row.precioPromedio != null ? `$${fmt(row.precioPromedio)}` : "—"}
+                      </td>
+                      <td className="py-1.5 text-right text-zinc-500">
+                        {row.cantidad.toLocaleString("es-MX")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ChartSection>
+      </div>
+
+      {/* #4 — Costo unitario promedio (ranking, SIN acumulado) */}
+      <ChartSection
+        title="Costo unitario promedio por producto"
+        subtitle="Ponderado por cantidad. Ranking sin acumulado: los precios unitarios no se suman entre productos"
+        hasData={historico.costoUnitario.length > 0}
+        isOpen={openTables.has("histCosto")}
+        onToggle={() => toggleTable("histCosto")}
+        control={
+          <SelectorPeriodo
+            ariaLabel="Periodo del costo unitario"
+            valor={filtros.perCosto}
+            onChange={(v) => updateFilter("perCosto", v)}
+          />
+        }
+      >
+        <GraficaRankingUnitario data={historico.costoUnitario} />
+        {openTables.has("histCosto") && (
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
-                  <th className="pb-2 pr-4">Material</th>
-                  <th className="pb-2 pr-4">Familia</th>
-                  <th className="pb-2 pr-4 text-right">Cantidad total</th>
-                  <th className="pb-2 pr-4 text-right">P. primera ronda prom.</th>
-                  <th className="pb-2 pr-4 text-right">P. mejor prom.</th>
-                  <th className="pb-2 text-right">Ahorro total</th>
+                  <th className="pb-2 pr-3">Producto</th>
+                  <th className="pb-2 pr-3">Unidad</th>
+                  <th className="pb-2 text-right">Costo unitario prom.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-50">
-                {ahorroMaterial.map((row) => (
+                {historico.costoUnitario.map((row) => (
                   <tr key={row.productoId} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
-                    <td className="py-2 pr-4 font-medium">
-                      {row.productoNombre}
-                      <span className="ml-1.5 font-normal text-xs text-zinc-400">
-                        {row.productoCodigo}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-4 text-zinc-500">{row.familia ?? "—"}</td>
-                    <td className="py-2 pr-4 text-right">{row.cantidadTotal.toLocaleString("es-MX")}</td>
-                    <td className="py-2 pr-4 text-right">${fmt(row.precioPrimeraRondaPromedio)}</td>
-                    <td className="py-2 pr-4 text-right">${fmt(row.precioMejorPromedio)}</td>
-                    <td className="py-2 text-right font-medium text-green-600">${fmt(row.ahorroTotal)}</td>
+                    <td className="py-1.5 pr-3 font-medium">{row.etiqueta}</td>
+                    <td className="py-1.5 pr-3 text-zinc-500">{row.unidad.trim() || "—"}</td>
+                    <td className="py-1.5 text-right">${fmt(row.precioPromedio)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -802,12 +985,90 @@ function PipelineTile({
   );
 }
 
+/** Tabla de detalle compartida por los dos Paretos (ahorro y monto). */
+function TablaPareto({
+  filas,
+  encabezado,
+  encabezadoValor,
+  visible,
+}: {
+  filas: { id: string; etiqueta: string; valor: number; porcentajeAcumulado: number }[];
+  encabezado: string;
+  encabezadoValor: string;
+  visible: boolean;
+}) {
+  if (!visible) return null;
+  return (
+    <div className="mt-5 overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+            <th className="pb-2 pr-3">{encabezado}</th>
+            <th className="pb-2 pr-3 text-right">{encabezadoValor}</th>
+            <th className="pb-2 text-right">% acumulado</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-50">
+          {filas.map((row) => (
+            <tr key={row.id} className="text-zinc-700 hover:bg-zinc-50/50 transition-colors duration-150">
+              <td className="py-1.5 pr-3 font-medium">{row.etiqueta}</td>
+              <td className="py-1.5 pr-3 text-right">${fmt(row.valor)}</td>
+              <td className="py-1.5 text-right text-zinc-500">
+                {row.porcentajeAcumulado}%
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Selector de producto de los indicadores de un solo producto (#3 y #5).
+ * Se deshabilita cuando el filtro global de producto está activo: ese filtro
+ * manda, y dejarlo editable permitiría pedir un producto que el filtro global
+ * ya excluyó.
+ */
+function SelectorProducto({
+  valor,
+  opciones,
+  bloqueado,
+  onChange,
+  ariaLabel,
+}: {
+  valor: string;
+  opciones: { id: string; codigo: string; nombre: string }[];
+  bloqueado: boolean;
+  onChange: (valor: string) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <select
+      aria-label={ariaLabel}
+      value={valor}
+      disabled={bloqueado}
+      title={bloqueado ? "Fijado por el filtro global de producto" : undefined}
+      onChange={(e) => onChange(e.target.value)}
+      className="max-w-[13rem] truncate rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:bg-zinc-50 disabled:text-zinc-400"
+    >
+      {opciones.length === 0 && <option value="">Sin productos con compras</option>}
+      {opciones.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.codigo} — {p.nombre}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function ChartSection({
   title,
   subtitle,
   hasData,
   isOpen,
   onToggle,
+  control,
   children,
 }: {
   title: string;
@@ -815,15 +1076,18 @@ function ChartSection({
   hasData: boolean;
   isOpen: boolean;
   onToggle: () => void;
+  /** Controles propios de la gráfica (periodo, producto) — Grupo 3. */
+  control?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-zinc-400">{subtitle}</p>}
         </div>
+        {control}
         {hasData && (
           <button
             type="button"

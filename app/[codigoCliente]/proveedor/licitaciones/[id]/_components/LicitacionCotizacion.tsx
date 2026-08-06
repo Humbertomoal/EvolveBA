@@ -299,10 +299,10 @@ export default function LicitacionCotizacion({
   async function enviarOfertaAhora(autoEnvio: boolean) {
     setEnviando(true);
     try {
+      // proveedorId y ronda ya NO se envían: la action los resuelve desde la
+      // sesión y desde la licitación, para que no se puedan suplantar.
       await enviarOfertaAction(
         id,
-        proveedorId,
-        rondaActual,
         basePath,
         items.map((item, idx) => ({
           licitacionItemId: item.licitacionItemId,
