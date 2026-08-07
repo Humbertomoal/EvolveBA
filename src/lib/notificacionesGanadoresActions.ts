@@ -6,6 +6,7 @@ import {
   type ItemMaterialGanado,
 } from "@/src/lib/plantillasCorreo";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
+import { soloCorreoProveedor } from "@/src/lib/correoProveedor";
 
 // Variables personalizadas por destinatario (email → { variable: valor }).
 type VarsPorDestinatario = Record<string, Record<string, string>>;
@@ -35,13 +36,14 @@ const VACIO: DatosNotificacionesGanadores = {
   noGanadores: GRUPO_VACIO,
 };
 
-// Correo de contacto de un proveedor: vendedor con fallback al administrativo.
+// Correo de contacto de un proveedor: vendedor con respaldo al administrativo.
+// El criterio vive en correoProveedor.ts, compartido con el resto de los
+// envíos (invitación, cambio de fecha, credenciales) — un solo lugar.
 function correoProveedor(p: {
   vendedorCorreo: string | null;
   contactoAdminCorreo: string;
 }): string | null {
-  const correo = (p.vendedorCorreo ?? "").trim() || (p.contactoAdminCorreo ?? "").trim();
-  return correo || null;
+  return soloCorreoProveedor(p) || null;
 }
 
 /**

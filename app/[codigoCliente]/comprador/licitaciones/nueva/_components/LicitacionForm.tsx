@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
+import { soloCorreoProveedor } from "@/src/lib/correoProveedor";
 import {
   actualizarLicitacionAction,
   crearLicitacionAction,
@@ -621,7 +622,8 @@ Asistente de Inteligencia Artificial`;
     const conCorreo: string[] = [];
     let excluidos = 0;
     for (const id of proveedoresSeleccionados) {
-      const correo = proveedores.find((p: any) => p.id === id)?.contactoAdminCorreo?.trim();
+      const proveedor = proveedores.find((p: any) => p.id === id);
+      const correo = proveedor ? soloCorreoProveedor(proveedor) : "";
       if (correo) conCorreo.push(correo);
       else excluidos++;
     }
@@ -649,7 +651,8 @@ Asistente de Inteligencia Artificial`;
   function proveedoresConCorreo(): { proveedorId: string; correo: string }[] {
     const resultado: { proveedorId: string; correo: string }[] = [];
     for (const id of proveedoresSeleccionados) {
-      const correo = proveedores.find((p: any) => p.id === id)?.contactoAdminCorreo?.trim();
+      const proveedor = proveedores.find((p: any) => p.id === id);
+      const correo = proveedor ? soloCorreoProveedor(proveedor) : "";
       if (correo) resultado.push({ proveedorId: id, correo });
     }
     return resultado;

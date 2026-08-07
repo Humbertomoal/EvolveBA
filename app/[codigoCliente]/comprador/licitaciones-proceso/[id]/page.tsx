@@ -9,6 +9,7 @@ import {
   filtrarItemsPorMaterialesProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
+import { soloCorreoProveedor } from "@/src/lib/correoProveedor";
 import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,
@@ -70,7 +71,17 @@ export default async function DetalleLicitacionProcesoPage({
       },
       proveedoresInvitados: {
         include: {
-          proveedor: { select: { id: true, razonSocial: true, contactoAdminCorreo: true } },
+          // vendedorCorreo es OBLIGATORIO en este select: correoDeProveedor()
+          // lo prefiere sobre el administrativo, y si no viene en el payload
+          // caería al respaldo SIEMPRE sin que nada lo delate.
+          proveedor: {
+            select: {
+              id: true,
+              razonSocial: true,
+              vendedorCorreo: true,
+              contactoAdminCorreo: true,
+            },
+          },
         },
         orderBy: { invitadoEn: "asc" },
       },
@@ -356,8 +367,8 @@ export default async function DetalleLicitacionProcesoPage({
   // ── Datos para el reenvío del correo de invitación ─────────────────────────
   const usuarioActual = await getUsuarioActual();
   const correosProveedoresInvitados = licitacion.proveedoresInvitados
-    .map((lp: any) => lp.proveedor.contactoAdminCorreo?.trim())
-    .filter((c: any): c is string => !!c);
+    .map((lp: any) => soloCorreoProveedor(lp.proveedor))
+    .filter((c: string): c is string => !!c);
 
   const itemsConProductoId = licitacion.items.map((item: any) => ({
     productoId: item.productoId,
@@ -383,7 +394,7 @@ export default async function DetalleLicitacionProcesoPage({
   const nombrePorDestinatario: Record<string, string> = {};
   const fichasPorDestinatario: Record<string, string[]> = {};
   for (const lp of licitacion.proveedoresInvitados) {
-    const correo = (lp as any).proveedor.contactoAdminCorreo?.trim();
+    const correo = soloCorreoProveedor((lp as any).proveedor);
     if (!correo) continue;
     const materialesIds = mapaMaterialesProveedores[(lp as any).proveedor.id] ?? [];
     const itemsFiltrados = filtrarItemsPorMaterialesProveedor(itemsConProductoId, materialesIds);

@@ -19,6 +19,7 @@ import PanelFiltros from "@/app/_components/PanelFiltros";
 import type { SeccionFiltroConfig } from "@/app/_components/PanelFiltros";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
+import { correoDeProveedor } from "@/src/lib/correoProveedor";
 import BotonEnviarCorreo from "@/src/components/BotonEnviarCorreo";
 import type { AccesoProveedorResumen, CatalogoValidado } from "@/src/lib/proveedores";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
@@ -254,8 +255,10 @@ export default function ProveedoresTabla({
 
                 const nombreEsRespaldo = !proveedor.vendedorNombre;
                 const nombreContacto = proveedor.vendedorNombre || proveedor.contactoAdminNombre;
-                const correoEsRespaldo = !proveedor.vendedorCorreo;
-                const correoContacto = proveedor.vendedorCorreo || proveedor.contactoAdminCorreo;
+                // Mismo criterio que usan los envíos (correoDeProveedor):
+                // vendedor primero, administrativo como respaldo marcado.
+                const { correo: correoContacto, esRespaldo: correoEsRespaldo } =
+                  correoDeProveedor(proveedor);
 
                 return (
                   <tr key={proveedor.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
@@ -336,12 +339,11 @@ export default function ProveedoresTabla({
                               passwordTemporal:
                                 "(la que se te compartió al dar de alta tu acceso)",
                             }}
-                            destinatarios={
-                              proveedor.contactoAdminCorreo
-                                ? [proveedor.contactoAdminCorreo]
-                                : []
-                            }
-                            deshabilitado={!proveedor.contactoAdminCorreo}
+                            // Las credenciales del portal van al VENDEDOR, no a
+                            // administración. `correoContacto` ya aplica esa
+                            // preferencia (ver correoDeProveedor).
+                            destinatarios={correoContacto ? [correoContacto] : []}
+                            deshabilitado={!correoContacto}
                             tooltipDeshabilitado="Este proveedor no tiene un correo de contacto registrado."
                           />
                         )}
