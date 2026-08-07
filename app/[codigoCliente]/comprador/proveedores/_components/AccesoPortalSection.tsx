@@ -6,6 +6,7 @@ import {
   IconKey,
   IconLock,
   IconLockOpen,
+  IconMail,
   IconRefresh,
   IconX,
 } from "@tabler/icons-react";
@@ -13,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import {
+  cambiarCorreoAccesoProveedorAction,
   crearAccesoProveedorAction,
   restablecerPasswordProveedorAction,
   toggleActivoAccesoProveedorAction,
@@ -61,6 +63,7 @@ export default function AccesoPortalSection({
   nombreProveedor,
   nombreContacto,
   correoContacto,
+  vendedorCorreo,
 }: {
   proveedorId: string;
   acceso: AccesoProveedor | null;
@@ -70,6 +73,9 @@ export default function AccesoPortalSection({
   nombreProveedor: string;
   nombreContacto: string;
   correoContacto: string;
+  /** Contacto comercial del proveedor. Solo es un atajo para rellenar el
+   *  correo de acceso: los dos campos siguen siendo independientes. */
+  vendedorCorreo: string;
 }) {
   const router = useRouter();
   const [activarToggle, setActivarToggle] = useState(false);
@@ -80,6 +86,11 @@ export default function AccesoPortalSection({
     { email: string; passwordTemporal: string } | null
   >(null);
   const [mostrarModalCorreo, setMostrarModalCorreo] = useState(false);
+  // Cambio del correo de LOGIN (Usuario.email). Independiente de
+  // vendedorCorreo: editar el contacto comercial no cambia la credencial.
+  const [editandoCorreo, setEditandoCorreo] = useState(false);
+  const [nuevoCorreo, setNuevoCorreo] = useState("");
+  const [errorCorreo, setErrorCorreo] = useState<string | null>(null);
 
   async function handleGenerarAcceso() {
     setError(null);
@@ -112,6 +123,33 @@ export default function AccesoPortalSection({
       return;
     }
     setCredenciales({ email: resultado.email, passwordTemporal: resultado.passwordTemporal });
+    router.refresh();
+  }
+
+  function abrirCambioCorreo() {
+    setNuevoCorreo(acceso?.email ?? "");
+    setErrorCorreo(null);
+    setEditandoCorreo(true);
+  }
+
+  async function handleCambiarCorreo() {
+    setErrorCorreo(null);
+    setCargando(true);
+    const resultado = await cambiarCorreoAccesoProveedorAction(
+      proveedorId,
+      nuevoCorreo,
+      basePath
+    );
+    setCargando(false);
+    if (!resultado.ok) {
+      setErrorCorreo(resultado.error);
+      return;
+    }
+    setEditandoCorreo(false);
+    toast.success(
+      `Correo de acceso actualizado. El proveedor ahora inicia sesión con ${resultado.email}.`,
+      { duration: 6000 }
+    );
     router.refresh();
   }
 
@@ -182,6 +220,65 @@ export default function AccesoPortalSection({
             Último acceso: {formatFechaHora(acceso.ultimoAcceso)}
           </p>
 
+          {/* ── Cambiar el correo de LOGIN ───────────────────────────────────
+              Usuario.email es la credencial, independiente de vendedorCorreo:
+              editar el contacto comercial del proveedor NO la cambia. */}
+          {editandoCorreo && (
+            <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              <label className="block text-xs font-medium text-zinc-700">
+                Nuevo correo de acceso
+              </label>
+              <input
+                type="email"
+                value={nuevoCorreo}
+                onChange={(e) => setNuevoCorreo(e.target.value)}
+                placeholder="correo@empresa.com"
+                autoFocus
+                className={INPUT}
+              />
+              <p className="text-xs text-zinc-500">
+                Con este correo iniciará sesión el proveedor. Su contraseña no
+                cambia. Este dato es independiente del correo de contacto del
+                vendedor.
+              </p>
+
+              {/* Atajo de captura, NO una sincronización: rellena el input y el
+                  comprador decide. Los dos campos siguen siendo independientes.
+                  Se oculta si el proveedor no tiene correo de vendedor, o si ya
+                  es el que está escrito. */}
+              {vendedorCorreo.trim() &&
+                vendedorCorreo.trim().toLowerCase() !== nuevoCorreo.trim().toLowerCase() && (
+                  <button
+                    type="button"
+                    onClick={() => setNuevoCorreo(vendedorCorreo.trim())}
+                    disabled={cargando}
+                    className="text-xs font-medium text-[var(--color-primario)] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Usar el correo del vendedor ({vendedorCorreo.trim()})
+                  </button>
+                )}
+              {errorCorreo && <p className="text-xs text-red-600">{errorCorreo}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCambiarCorreo}
+                  disabled={cargando || !nuevoCorreo.trim()}
+                  className={BTN_PRIMARIO}
+                >
+                  {cargando ? "Guardando…" : "Guardar correo"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditandoCorreo(false)}
+                  disabled={cargando}
+                  className={BTN_SECUNDARIO}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -191,6 +288,15 @@ export default function AccesoPortalSection({
             >
               <IconRefresh className="h-4 w-4" />
               Restablecer contraseña
+            </button>
+            <button
+              type="button"
+              onClick={abrirCambioCorreo}
+              disabled={cargando || editandoCorreo}
+              className={`${BTN_SECUNDARIO} flex items-center gap-2`}
+            >
+              <IconMail className="h-4 w-4" />
+              Cambiar correo de acceso
             </button>
             <button
               type="button"

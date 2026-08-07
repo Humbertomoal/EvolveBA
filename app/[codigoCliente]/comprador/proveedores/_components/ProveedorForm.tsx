@@ -538,6 +538,7 @@ export default function ProveedorForm({
                 proveedorExistente.vendedorNombre || proveedorExistente.contactoAdminNombre
               }
               correoContacto={proveedorExistente.contactoAdminCorreo}
+              vendedorCorreo={proveedorExistente.vendedorCorreo}
             />
           ) : (
             <fieldset className="space-y-2">

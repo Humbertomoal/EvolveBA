@@ -15,6 +15,19 @@ export type ResultadoAcceso =
 
 export type ResultadoAccion = { ok: true } | { ok: false; error: string };
 
+/**
+ * ¿Es una violación de unicidad (P2002) sobre Usuario.email? Se inspecciona sin
+ * importar tipos de Prisma para no arrastrar su runtime a este módulo.
+ */
+function esCorreoDuplicado(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const e = error as { code?: unknown; meta?: { target?: unknown } };
+  if (e.code !== "P2002") return false;
+  const target = e.meta?.target;
+  if (Array.isArray(target)) return target.some((t) => String(t).includes("email"));
+  return target === undefined || String(target).includes("email");
+}
+
 async function verificarEsAdmin(): Promise<string | null> {
   const usuario = await getUsuarioActual();
   if (!usuario?.esAdmin) {
@@ -134,6 +147,86 @@ export async function restablecerPasswordProveedorAction(
 
   revalidar(basePath, proveedorId);
   return { ok: true, email: usuario.email, passwordTemporal };
+}
+
+/**
+ * Cambia el correo con el que el proveedor INICIA SESIÓN (Usuario.email).
+ *
+ * ── Por qué existe una acción aparte ───────────────────────────────────────
+ * `Usuario.email` y `Proveedor.vendedorCorreo` son campos INDEPENDIENTES a
+ * propósito: uno es la credencial de login, el otro el contacto comercial. El
+ * de login se captura una sola vez al crear el acceso y nada lo volvía a tocar,
+ * así que editar el correo del vendedor no cambiaba con qué correo entra el
+ * proveedor —ni a dónde llega el restablecimiento de contraseña—, y quedaban
+ * desincronizados sin que nada lo delatara.
+ *
+ * Esta acción NO toca vendedorCorreo. Cambiar uno no cambia el otro.
+ *
+ * ── Permisos ───────────────────────────────────────────────────────────────
+ * Es una acción de administración: la identidad sale de la sesión server-side
+ * (verificarEsAdmin) y un proveedor no puede invocarla para cambiarse el suyo
+ * ni el de un competidor.
+ */
+export async function cambiarCorreoAccesoProveedorAction(
+  proveedorId: string,
+  nuevoEmail: string,
+  basePath: string
+): Promise<ResultadoAccion & { emailAnterior?: string; email?: string }> {
+  const errorAuth = await verificarEsAdmin();
+  if (errorAuth) return { ok: false, error: errorAuth };
+
+  // Misma normalización que crearAccesoProveedorAction: el login es
+  // case-insensitive en la práctica, así que se guarda siempre en minúsculas.
+  const emailNormalizado = nuevoEmail.trim().toLowerCase();
+  if (!emailNormalizado || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalizado)) {
+    return { ok: false, error: "Ingresa un correo electrónico válido." };
+  }
+
+  const proveedor = await db.proveedor.findUnique({
+    where: { id: proveedorId },
+    select: { usuarioId: true },
+  });
+  if (!proveedor?.usuarioId) {
+    return { ok: false, error: "Este proveedor no tiene acceso al portal." };
+  }
+
+  const usuarioActual = await db.usuario.findUnique({
+    where: { id: proveedor.usuarioId },
+    select: { email: true },
+  });
+  if (!usuarioActual) {
+    return { ok: false, error: "No se encontró el usuario de acceso del proveedor." };
+  }
+  if (usuarioActual.email.toLowerCase() === emailNormalizado) {
+    return { ok: false, error: "El proveedor ya inicia sesión con ese correo." };
+  }
+
+  // Usuario.email es @unique GLOBAL (no por cliente): el correo puede estar
+  // tomado por un comprador, un admin o el usuario de otro proveedor.
+  const existente = await db.usuario.findUnique({
+    where: { email: emailNormalizado },
+    select: { id: true },
+  });
+  if (existente) {
+    return { ok: false, error: "Ese correo ya está en uso por otro usuario." };
+  }
+
+  try {
+    await db.usuario.update({
+      where: { id: proveedor.usuarioId },
+      data: { email: emailNormalizado },
+    });
+  } catch (error) {
+    // Carrera: alguien tomó ese correo entre la verificación y el update.
+    // Sin esto el comprador vería el error crudo de Prisma.
+    if (esCorreoDuplicado(error)) {
+      return { ok: false, error: "Ese correo ya está en uso por otro usuario." };
+    }
+    throw error;
+  }
+
+  revalidar(basePath, proveedorId);
+  return { ok: true, emailAnterior: usuarioActual.email, email: emailNormalizado };
 }
 
 export async function toggleActivoAccesoProveedorAction(
