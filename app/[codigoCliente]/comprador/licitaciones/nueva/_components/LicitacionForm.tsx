@@ -28,7 +28,11 @@ import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { MONEDAS } from "@/src/lib/monedas";
 import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
-import { formatFechaMexico, parsearFechaMexico } from "@/src/lib/dateUtils";
+import {
+  fechaParaInput,
+  formatFechaMexico,
+  parsearFechaMexico,
+} from "@/src/lib/dateUtils";
 import {
   generarEnlacesFichas,
   generarTablaMateriales,
@@ -1395,7 +1399,12 @@ Asistente de Inteligencia Artificial`;
                 <input
                   type="datetime-local"
                   value={fechaEjecucion}
-                  min={new Date().toISOString().slice(0, 16)}
+                  // El mínimo es AHORA en hora de México. Antes se usaba
+                  // new Date().toISOString(), que devuelve UTC: el input
+                  // datetime-local lo interpreta como hora local, así que el
+                  // mínimo quedaba 6 h en el futuro todo el día y a partir de
+                  // las 6 PM saltaba al día siguiente, bloqueando "hoy".
+                  min={fechaParaInput(new Date())}
                   onChange={(e) => setFechaEjecucion(e.target.value)}
                   className={iClass(intentoGuardar && !!errores.fechaEjecucion)}
                 />
