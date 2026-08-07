@@ -22,6 +22,7 @@ import {
 import type { AccesoProveedor } from "@/src/lib/proveedores";
 import ModalCorreo from "@/src/components/ModalCorreo";
 import BotonEnviarCorreo from "@/src/components/BotonEnviarCorreo";
+import { correoDeProveedor } from "@/src/lib/correoProveedor";
 
 const BTN_PRIMARIO =
   "rounded-md bg-[var(--color-primario)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-secundario)] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60";
@@ -45,14 +46,12 @@ function formatFechaHora(iso: string | null): string {
   });
 }
 
-/** Prefiere el correo de contacto administrativo; si coincide con el de
- * acceso o no existe, cae al de acceso (el mismo que se usó como usuario). */
-function resolverDestinatario(correoContacto: string, correoAcceso: string): string {
-  const contacto = correoContacto.trim();
-  return contacto && contacto.toLowerCase() !== correoAcceso.toLowerCase()
-    ? contacto
-    : correoAcceso;
-}
+// El destinatario sale de correoDeProveedor (vendedor → administrativo), igual
+// que el resto de los envíos a proveedor. Antes había aquí un resolvedor propio
+// con la prioridad INVERTIDA —prefería el administrativo— que hacía que las
+// credenciales del portal se ofrecieran a facturación. Si no hay ninguno de los
+// dos correos, la lista queda vacía y el comprador la completa a mano en el
+// modal (permitirEditarDestinatarios).
 
 export default function AccesoPortalSection({
   proveedorId,
@@ -91,6 +90,13 @@ export default function AccesoPortalSection({
   const [editandoCorreo, setEditandoCorreo] = useState(false);
   const [nuevoCorreo, setNuevoCorreo] = useState("");
   const [errorCorreo, setErrorCorreo] = useState<string | null>(null);
+
+  // Destinatario por defecto de los correos a este proveedor.
+  const { correo: correoDestino } = correoDeProveedor({
+    vendedorCorreo,
+    contactoAdminCorreo: correoContacto,
+  });
+  const destinatariosIniciales = correoDestino ? [correoDestino] : [];
 
   async function handleGenerarAcceso() {
     setError(null);
@@ -327,7 +333,10 @@ export default function AccesoPortalSection({
                 passwordTemporal:
                   '(usa la opción "Restablecer contraseña" para generar una nueva)',
               }}
-              destinatarios={[resolverDestinatario(correoContacto, acceso.email)]}
+              destinatarios={destinatariosIniciales}
+              // Mismo correo de bienvenida que el modal de abajo: los dos
+              // caminos deben ofrecer las mismas capacidades.
+              permitirEditarDestinatarios
               deshabilitado={!correoContactoValido}
               tooltipDeshabilitado={
                 !correoContactoValido
@@ -458,7 +467,11 @@ export default function AccesoPortalSection({
             usuarioAcceso: credenciales.email,
             passwordTemporal: credenciales.passwordTemporal,
           }}
-          destinatarios={[resolverDestinatario(correoContacto, credenciales.email)]}
+          destinatarios={destinatariosIniciales}
+          // Único correo con destinatarios editables: no usa
+          // adjuntosPorDestinatario ni variablesPorDestinatario, así que un
+          // destinatario agregado a mano recibe exactamente lo mismo.
+          permitirEditarDestinatarios
           onEnviado={() => {
             setMostrarModalCorreo(false);
             setCredenciales(null);

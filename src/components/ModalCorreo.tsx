@@ -69,6 +69,7 @@ export default function ModalCorreo({
   variablesPorDestinatario,
   notaPersonalizacion,
   tituloModal,
+  permitirEditarDestinatarios = false,
 }: {
   abierto: boolean;
   onCerrar: () => void;
@@ -101,6 +102,17 @@ export default function ModalCorreo({
   notaPersonalizacion?: string;
   /** Título del header del modal. Si se omite, usa el título por defecto. */
   tituloModal?: string;
+  /**
+   * Permite agregar/quitar destinatarios desde el preview. Default FALSE: los
+   * flujos existentes (invitación, ganadores) siguen en solo lectura.
+   *
+   * OJO al activarlo: `adjuntosPorDestinatario` y `variablesPorDestinatario`
+   * están indexados POR CORREO, así que un destinatario agregado a mano no
+   * tiene entrada en esos mapas y recibiría el correo sin fichas propias y con
+   * las variables base. Solo debe activarse en correos SIN personalización por
+   * destinatario (hoy: ALTA_PROVEEDOR).
+   */
+  permitirEditarDestinatarios?: boolean;
 }) {
   const [cargando, setCargando] = useState(true);
   const [asuntoOriginal, setAsuntoOriginal] = useState("");
@@ -114,6 +126,12 @@ export default function ModalCorreo({
   // quita para todos (evita una matriz archivo × proveedor en el modal).
   const [quitados, setQuitados] = useState<Set<string>>(new Set());
   const [fichasVisibles, setFichasVisibles] = useState(false);
+  // Lista VIGENTE de destinatarios. La prop `destinatarios` es solo el valor
+  // inicial; con permitirEditarDestinatarios el comprador la modifica y el
+  // envío usa este estado. Sin la prop activa, se mantiene igual a la prop.
+  const [destinatariosVigentes, setDestinatariosVigentes] = useState<string[]>(destinatarios);
+  const [nuevoDestinatario, setNuevoDestinatario] = useState("");
+  const [errorDestinatario, setErrorDestinatario] = useState<string | null>(null);
 
   useEffect(() => {
     if (!abierto) return;
@@ -122,6 +140,12 @@ export default function ModalCorreo({
     // en un envío anterior no debe arrastrarse al siguiente.
     setQuitados(new Set());
     setFichasVisibles(false);
+    // Los destinatarios se resiembran desde la prop por la misma razón: una
+    // edición previa no debe arrastrarse, y así el modo solo-lectura queda
+    // siempre exactamente igual a la prop.
+    setDestinatariosVigentes(destinatarios);
+    setNuevoDestinatario("");
+    setErrorDestinatario(null);
 
     // Modo libre (sin tipo): no hay plantilla que previsualizar — arranca
     // con asunto vacío y el cuerpo listo con la firma estándar al final.
@@ -195,8 +219,33 @@ export default function ModalCorreo({
     0
   );
 
+  const RE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function agregarDestinatario() {
+    const correo = nuevoDestinatario.trim().toLowerCase();
+    if (!correo) return;
+    if (!RE_CORREO.test(correo)) {
+      setErrorDestinatario("Ese no parece un correo válido.");
+      return;
+    }
+    // Duplicado sin distinguir mayúsculas: los correos no son case-sensitive
+    // en la práctica y dos chips iguales enviarían el mismo correo dos veces.
+    if (destinatariosVigentes.some((d) => d.toLowerCase() === correo)) {
+      setErrorDestinatario("Ese destinatario ya está en la lista.");
+      return;
+    }
+    setDestinatariosVigentes((prev) => [...prev, correo]);
+    setNuevoDestinatario("");
+    setErrorDestinatario(null);
+  }
+
+  function quitarDestinatario(correo: string) {
+    setDestinatariosVigentes((prev) => prev.filter((d) => d !== correo));
+    setErrorDestinatario(null);
+  }
+
   async function handleEnviar() {
-    if (destinatarios.length === 0) {
+    if (destinatariosVigentes.length === 0) {
       toast.error("No hay destinatarios para este correo");
       return;
     }
@@ -205,7 +254,7 @@ export default function ModalCorreo({
     setError(null);
 
     const resultados = await Promise.all(
-      destinatarios.map((para) => {
+      destinatariosVigentes.map((para) => {
         // Comunes + los propios de este destinatario, menos los que el
         // comprador quitó en el preview.
         const propios = (adjuntosPorDestinatario?.[para] ?? []).filter(
@@ -241,7 +290,9 @@ export default function ModalCorreo({
     }
 
     toast.success(
-      destinatarios.length === 1 ? "Correo enviado" : `${destinatarios.length} correos enviados`
+      destinatariosVigentes.length === 1
+        ? "Correo enviado"
+        : `${destinatariosVigentes.length} correos enviados`
     );
     onEnviado?.();
     onCerrar();
@@ -298,19 +349,67 @@ export default function ModalCorreo({
               <div>
                 <label className="block text-xs font-medium text-zinc-500">Para</label>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {destinatarios.length === 0 ? (
+                  {destinatariosVigentes.length === 0 ? (
                     <span className="text-xs text-zinc-400">Sin destinatarios</span>
                   ) : (
-                    destinatarios.map((d) => (
+                    destinatariosVigentes.map((d) => (
                       <span
                         key={d}
-                        className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700"
+                        className="flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700"
                       >
                         {d}
+                        {permitirEditarDestinatarios && (
+                          <button
+                            type="button"
+                            onClick={() => quitarDestinatario(d)}
+                            disabled={enviando}
+                            aria-label={`Quitar ${d}`}
+                            title={`Quitar ${d}`}
+                            className="text-zinc-400 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <IconX className="h-3 w-3" />
+                          </button>
+                        )}
                       </span>
                     ))
                   )}
                 </div>
+
+                {permitirEditarDestinatarios && (
+                  <div className="mt-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={nuevoDestinatario}
+                        onChange={(e) => {
+                          setNuevoDestinatario(e.target.value);
+                          setErrorDestinatario(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            // Enter agrega el destinatario, no envía el correo.
+                            e.preventDefault();
+                            agregarDestinatario();
+                          }
+                        }}
+                        placeholder="Agregar otro correo…"
+                        disabled={enviando}
+                        className="flex-1 rounded-md border border-zinc-300 px-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+                      />
+                      <button
+                        type="button"
+                        onClick={agregarDestinatario}
+                        disabled={enviando || !nuevoDestinatario.trim()}
+                        className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                    {errorDestinatario && (
+                      <p className="mt-1 text-xs text-red-600">{errorDestinatario}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Asunto */}

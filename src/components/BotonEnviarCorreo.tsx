@@ -18,6 +18,7 @@ export default function BotonEnviarCorreo({
   deshabilitado = false,
   tooltipDeshabilitado,
   soloIcono = false,
+  permitirEditarDestinatarios = false,
 }: {
   /** Si se omite, el correo se abre en modo libre (sin plantilla) — ver ModalCorreo. */
   tipo?: TipoCorreo;
@@ -33,6 +34,8 @@ export default function BotonEnviarCorreo({
   tooltipDeshabilitado?: string;
   /** Ícono solo (sin texto), para columnas de acciones en tablas — mismo patrón que los demás íconos de acción. */
   soloIcono?: boolean;
+  /** Se pasa tal cual a ModalCorreo. Default FALSE: solo lectura. */
+  permitirEditarDestinatarios?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
 
@@ -72,6 +75,7 @@ export default function BotonEnviarCorreo({
         adjuntos={adjuntos}
         onEnviado={onEnviado}
         aviso={aviso}
+        permitirEditarDestinatarios={permitirEditarDestinatarios}
       />
     </>
   );
