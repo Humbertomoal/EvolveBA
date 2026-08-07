@@ -201,5 +201,10 @@ export async function enviarOfertaAction(
   }
 
   revalidatePath(`${basePath}/proveedor/licitaciones/${licitacionId}`);
+  // También la vista del COMPRADOR: antes solo se revalidaba la del proveedor,
+  // así que quien entrara al detalle después de una oferta nueva podía recibir
+  // una versión cacheada sin ella. No resuelve la pantalla YA abierta (de eso
+  // se encarga el refresco automático de DetalleLicitacion), pero es gratis.
+  revalidatePath(`${basePath}/comprador/licitaciones-proceso/${licitacionId}`);
   return { ok: true };
 }

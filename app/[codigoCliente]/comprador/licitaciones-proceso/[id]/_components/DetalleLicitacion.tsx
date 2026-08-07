@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
+import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
 import { forzarAvanceRondaAction } from "@/src/lib/rondasActions";
 import {
   descargarComparativoOfertasPdfAction,
@@ -297,6 +298,12 @@ export default function DetalleLicitacion({
   monedaConsolidacion?: string;
 }) {
   const router = useRouter();
+
+  // Refresco automático: sin esto la vista es una foto del momento en que se
+  // navegó, y las ofertas que van llegando durante la ronda no aparecen hasta
+  // salir y volver a entrar. Se detiene cuando la licitación ya no está en
+  // curso: una vez cerrada no hay nada nuevo que traer.
+  useRefrescoAutomatico(estado === "En Proceso" || estado === "Programada");
   usePageTitle(`Licitación ${numero}`);
   const [tab, setTab] = useState<"participantes" | "mejores">("participantes");
   const [modalProveedor, setModalProveedor] =

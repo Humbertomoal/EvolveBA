@@ -7,6 +7,7 @@ import {
 } from "@tabler/icons-react";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
+import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -112,6 +113,7 @@ export default function LicitacionCotizacion({
   maxRondas,
   rondaFinMs,
   esperandoDecision,
+  estado,
   instrucciones,
   archivosAdjuntos = [],
   proveedorId,
@@ -132,6 +134,8 @@ export default function LicitacionCotizacion({
   maxRondas: number;
   rondaFinMs: number | null;
   esperandoDecision: boolean;
+  /** Estado de la licitación. Solo se usa para detener el refresco automático. */
+  estado: string;
   instrucciones: string | null;
   archivosAdjuntos?: string[];
   proveedorId: string;
@@ -208,6 +212,34 @@ export default function LicitacionCotizacion({
   );
   const [canceloParticipacion, setCanceloParticipacion] = useState(false);
   const tiempoExtraDisparadoRef = useRef(false);
+
+  // ── Refresco automático ───────────────────────────────────────────────────
+  // Sin esto la vista es una foto: el proveedor podía seguir viendo la ronda N
+  // con el servidor ya en la N+1 y cotizar en la ronda equivocada.
+  // `rondaActual`, `rondaFinMs` y `esperandoDecision` son PROPS, así que el
+  // refresh las actualiza solas. Se detiene si la licitación ya no admite
+  // ofertas (además, al cerrarse la página cambia a la vista de resultados y
+  // este componente se desmonta, lo que limpia el intervalo por su cuenta).
+  useRefrescoAutomatico(estado === "En Proceso" || estado === "Programada");
+
+  // Al AVANZAR la ronda hay que soltar el estado local que bloquea el
+  // formulario. Sin esto, el proveedor que ya envió en la ronda anterior
+  // quedaba en "solo lectura" y no podía cotizar la nueva, aunque los datos
+  // frescos ya hubieran llegado.
+  // `filas` NO se toca a propósito: lo que tecleó sigue ahí y sirve de punto
+  // de partida para la ronda nueva.
+  const rondaPrevia = useRef(rondaActual);
+  useEffect(() => {
+    if (rondaPrevia.current === rondaActual) return;
+    rondaPrevia.current = rondaActual;
+    setModoSoloLectura(false);
+    setTiempoExtraActivo(false);
+    setTiempoExtraRestante(60);
+    setNotifAutoEnvio(false);
+    setCanceloParticipacion(false);
+    setRechazo(null);
+    tiempoExtraDisparadoRef.current = false;
+  }, [rondaActual]);
 
   // Detect when the round clock hits 0 while the user is watching
   useEffect(() => {

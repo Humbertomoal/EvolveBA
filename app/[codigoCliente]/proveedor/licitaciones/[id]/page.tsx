@@ -302,6 +302,7 @@ export default async function DetalleLicitacionPage({
       maxRondas={licitacion.maxRondas}
       rondaFinMs={rondaFinMs}
       esperandoDecision={licitacion.esperandoDecision}
+      estado={licitacion.estado}
       instrucciones={licitacion.instrucciones}
       archivosAdjuntos={parsearJsonArray(licitacion.archivosAdjuntos)}
       proveedorId={proveedorId}
