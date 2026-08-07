@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconAlertTriangle,
   IconArrowDown,
   IconArrowUp,
   IconChevronDown,
@@ -12,47 +13,31 @@ import {
 import { useState, useTransition } from "react";
 import Badge from "@/src/components/Badge";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
-import { formatImporte } from "@/src/lib/monedas";
 import {
-  getHistoricoPujas,
+  faltanTiposCambio,
+  formatMontoConEquivalencia,
+  type TiposCambio,
+} from "@/src/lib/conversionMoneda";
+import {
+  construirHojaHistorico,
+  nombreArchivoSeguro,
   type FilaHistoricoPuja,
-} from "@/src/lib/historicoPujasActions";
+} from "@/src/lib/historicoPujasExcel";
+import { getHistoricoPujas } from "@/src/lib/historicoPujasActions";
 
 const TODOS_LOS_PROVEEDORES = "";
 const TODAS_LAS_RONDAS = "";
-
-function nombreArchivoSeguro(texto: string): string {
-  return texto.replace(/[^a-zA-Z0-9_-]+/g, "_");
-}
-
-function formatMontoSigno(n: number, moneda: string): string {
-  try {
-    return n.toLocaleString("es-MX", { style: "currency", currency: moneda });
-  } catch {
-    return `$${n.toFixed(2)}`;
-  }
-}
-
-/** Texto plano "-$150.00 (-8.5%)" / "Sin cambio" / "Ronda inicial", para el Excel exportado desde el cliente. */
-function formatVariacionTexto(
-  monto: number | null,
-  pct: number | null,
-  moneda: string
-): string {
-  if (monto == null || pct == null) return "Ronda inicial";
-  if (monto === 0) return "Sin cambio";
-  const signo = monto > 0 ? "+" : "";
-  return `${signo}${formatMontoSigno(monto, moneda)} (${signo}${pct.toFixed(1)}%)`;
-}
 
 function VariacionCelda({
   monto,
   pct,
   moneda,
+  tiposCambio,
 }: {
   monto: number | null;
   pct: number | null;
   moneda: string;
+  tiposCambio: TiposCambio;
 }) {
   if (monto == null || pct == null) {
     return <span className="text-xs text-zinc-400">Ronda inicial</span>;
@@ -74,7 +59,7 @@ function VariacionCelda({
         <IconArrowUp className="h-3.5 w-3.5" />
       )}
       {signo}
-      {formatMontoSigno(monto, moneda)} ({signo}
+      {formatMontoConEquivalencia(monto, moneda, tiposCambio)} ({signo}
       {pct.toFixed(1)}%)
     </span>
   );
@@ -102,6 +87,9 @@ export default function HistoricoPujas({
   const [rondasDisponibles, setRondasDisponibles] = useState<number[]>([]);
   const [filas, setFilas] = useState<FilaHistoricoPuja[]>([]);
   const [truncado, setTruncado] = useState(false);
+  // Tasas congeladas de la licitación. Vienen con las filas en vez de por prop
+  // para no tener que tocar los dos call sites (AsignacionForm y SeguimientoView).
+  const [tiposCambio, setTiposCambio] = useState<TiposCambio>({});
 
   function cargarDatos(proveedorId: string, ronda: number | "") {
     startTransition(async () => {
@@ -112,6 +100,7 @@ export default function HistoricoPujas({
       );
       setFilas(resultado.filas);
       setTruncado(resultado.truncado);
+      setTiposCambio(resultado.tiposCambio);
       if (ronda === TODAS_LAS_RONDAS) {
         const rondas = Array.from(
           new Set(resultado.filas.map((f) => f.ronda))
@@ -145,30 +134,11 @@ export default function HistoricoPujas({
   function handleDescargarExcel() {
     import("xlsx").then((XLSX) => {
       const modoTodos = proveedorSeleccionado === TODOS_LOS_PROVEEDORES;
-      const filasExcel = filas.map((f) => ({
-        Ronda: `R${f.ronda}`,
-        ...(modoTodos ? { Proveedor: f.proveedorNombre } : {}),
-        Material: f.productoNombre,
-        "Cantidad ofertada": f.cantidadDisponible,
-        "Precio unitario": `${formatImporte(f.precioUnitario, f.moneda)}`,
-        Subtotal: `${formatImporte(f.subtotal, f.moneda)}`,
-        "Variación vs ronda anterior": formatVariacionTexto(
-          f.variacionMonto,
-          f.variacionPct,
-          f.moneda
-        ),
-        "¿Cumple fecha?": f.puedeCumplirFecha ? "Sí" : "No",
-        "Fecha estimada de entrega": formatFechaMexico(f.fechaEstimadaEntrega),
-        "Fecha/hora de la puja": formatFechaMexico(f.fechaPuja, {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      }));
-
-      const hoja = XLSX.utils.json_to_sheet(filasExcel);
+      // Mismo constructor que usa el adjunto del correo RESULTADO_INTERNO: las
+      // columnas ya no se definen dos veces, así que no pueden divergir.
+      const hoja = construirHojaHistorico(XLSX, filas, tiposCambio, {
+        incluirProveedor: modoTodos,
+      });
       const libro = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(libro, hoja, "Histórico");
 
@@ -187,6 +157,15 @@ export default function HistoricoPujas({
   }
 
   const modoTodos = proveedorSeleccionado === TODOS_LOS_PROVEEDORES;
+
+  // Sin la tasa de una moneda, `tasaDe` cae a 1 y la "conversión" devuelve el
+  // monto intacto: se vería "$92.50 USD (≈ $92.50 MXN)". Es el mismo síntoma
+  // que el bug de la columna muerta pero por otra causa, y en silencio — de ahí
+  // el aviso explícito.
+  const faltaTC = faltanTiposCambio(
+    filas.map((f) => f.moneda),
+    tiposCambio
+  );
 
   return (
     <div className="rounded-card border border-border bg-white shadow-card overflow-hidden">
@@ -266,6 +245,17 @@ export default function HistoricoPujas({
             </button>
           </div>
 
+          {faltaTC && (
+            <p className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <IconAlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+              <span>
+                Falta capturar el tipo de cambio de alguna moneda de esta
+                licitación. Los equivalentes en MXN se están mostrando sin
+                convertir.
+              </span>
+            </p>
+          )}
+
           {truncado && (
             <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               Se muestran los primeros 500 registros. Filtra por proveedor o
@@ -323,16 +313,21 @@ export default function HistoricoPujas({
                         {f.cantidadDisponible}
                       </td>
                       <td className="px-3 py-2 text-right text-zinc-600">
-                        {formatImporte(f.precioUnitario, f.moneda)}
+                        {formatMontoConEquivalencia(
+                          f.precioUnitario,
+                          f.moneda,
+                          tiposCambio
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-zinc-800">
-                        {formatImporte(f.subtotal, f.moneda)}
+                        {formatMontoConEquivalencia(f.subtotal, f.moneda, tiposCambio)}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <VariacionCelda
                           monto={f.variacionMonto}
                           pct={f.variacionPct}
                           moneda={f.moneda}
+                          tiposCambio={tiposCambio}
                         />
                       </td>
                       <td className="px-3 py-2 text-center">

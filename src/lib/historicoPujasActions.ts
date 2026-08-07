@@ -1,34 +1,27 @@
 "use server";
 
 import { prisma } from "@/src/lib/prisma";
-import { formatFechaMexico } from "@/src/lib/dateUtils";
-import { formatImporte } from "@/src/lib/monedas";
+import { parseTiposCambio, type TiposCambio } from "@/src/lib/conversionMoneda";
 import { calcularVariacionesPorGrupo } from "@/src/lib/variacionRonda";
+import {
+  conMontosMXN,
+  construirHojaHistorico,
+  nombreArchivoSeguro,
+  type FilaHistoricoPuja,
+} from "@/src/lib/historicoPujasExcel";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
-export type FilaHistoricoPuja = {
-  ronda: number;
-  proveedorId: string;
-  proveedorNombre: string;
-  productoNombre: string;
-  cantidadDisponible: number;
-  precioUnitario: number;
-  moneda: string;
-  subtotal: number;
-  puedeCumplirFecha: boolean;
-  fechaEstimadaEntrega: string | null;
-  fechaPuja: string;
-  /** vs la ronda inmediatamente anterior de ESTE proveedor en ESTE material — null = primera ronda en que pujó (no hay anterior). */
-  variacionMonto: number | null;
-  variacionPct: number | null;
-};
+// El tipo vive en historicoPujasExcel.ts (módulo puro) para que el cliente y el
+// servidor compartan una sola definición; se reexporta para no romper los
+// imports existentes.
+export type { FilaHistoricoPuja };
 
 const LIMITE_FILAS = 500;
 
 async function consultarOfertasHistorico(
   licitacionId: string,
   opciones: { proveedorId?: string; ronda?: number; limite?: number }
-): Promise<{ filas: FilaHistoricoPuja[]; total: number }> {
+): Promise<{ filas: FilaHistoricoPuja[]; total: number; tiposCambio: TiposCambio }> {
   const { proveedorId, ronda, limite } = opciones;
 
   // Se trae SIEMPRE el histórico completo (todas las rondas) del alcance
@@ -41,11 +34,26 @@ async function consultarOfertasHistorico(
     ...(proveedorId ? { proveedorId } : {}),
   };
 
+  // Las tasas viven en la licitación (congeladas al crearla), no en la oferta.
+  // Se cargan aquí y se devuelven junto a las filas para que HistoricoPujas no
+  // necesite props nuevas en sus dos call sites.
+  const licitacion = await prisma.licitacion.findUnique({
+    where: { id: licitacionId },
+    select: { tiposCambio: true },
+  });
+  const tiposCambio = parseTiposCambio(licitacion?.tiposCambio);
+
   const ofertas = await prisma.ofertaItem.findMany({
     where,
     include: {
       proveedor: { select: { razonSocial: true } },
-      licitacionItem: { select: { producto: { select: { nombre: true } } } },
+      licitacionItem: {
+        // `moneda` es la FUENTE DE VERDAD. Antes no se pedía aquí y la fila
+        // terminaba usando OfertaItem.moneda (columna muerta, siempre "MXN"),
+        // así que un panel cotizado en USD se etiquetaba MXN y jamás se
+        // convertía. Ver la nota del schema en LicitacionItem/OfertaItem.
+        select: { moneda: true, producto: { select: { nombre: true } } },
+      },
     },
     orderBy: [
       { ronda: "asc" },
@@ -61,21 +69,25 @@ async function consultarOfertasHistorico(
 
   const filasCompletas: FilaHistoricoPuja[] = ofertas.map((o) => {
     const variacion = variaciones.get(o) ?? null;
-    return {
-      ronda: o.ronda,
-      proveedorId: o.proveedorId,
-      proveedorNombre: o.proveedor.razonSocial,
-      productoNombre: o.licitacionItem.producto.nombre,
-      cantidadDisponible: o.cantidadDisponible,
-      precioUnitario: o.precioUnitario,
-      moneda: o.moneda,
-      subtotal: o.cantidadDisponible * o.precioUnitario,
-      puedeCumplirFecha: o.puedeCumplirFecha,
-      fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
-      fechaPuja: o.createdAt.toISOString(),
-      variacionMonto: variacion?.diffMonto ?? null,
-      variacionPct: variacion?.diffPct ?? null,
-    };
+    return conMontosMXN(
+      {
+        ronda: o.ronda,
+        proveedorId: o.proveedorId,
+        proveedorNombre: o.proveedor.razonSocial,
+        productoNombre: o.licitacionItem.producto.nombre,
+        cantidadDisponible: o.cantidadDisponible,
+        precioUnitario: o.precioUnitario,
+        // NO `o.moneda`: esa es la columna muerta. Ver el select de arriba.
+        moneda: o.licitacionItem.moneda,
+        subtotal: o.cantidadDisponible * o.precioUnitario,
+        puedeCumplirFecha: o.puedeCumplirFecha,
+        fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
+        fechaPuja: o.createdAt.toISOString(),
+        variacionMonto: variacion?.diffMonto ?? null,
+        variacionPct: variacion?.diffPct ?? null,
+      },
+      tiposCambio
+    );
   });
 
   const filasFiltradas = ronda
@@ -85,35 +97,24 @@ async function consultarOfertasHistorico(
   const total = filasFiltradas.length;
   const filas = limite ? filasFiltradas.slice(0, limite) : filasFiltradas;
 
-  return { filas, total };
+  return { filas, total, tiposCambio };
 }
 
 export async function getHistoricoPujas(
   licitacionId: string,
   proveedorId?: string,
   ronda?: number
-): Promise<{ filas: FilaHistoricoPuja[]; truncado: boolean }> {
-  const { filas, total } = await consultarOfertasHistorico(licitacionId, {
+): Promise<{
+  filas: FilaHistoricoPuja[];
+  truncado: boolean;
+  tiposCambio: TiposCambio;
+}> {
+  const { filas, total, tiposCambio } = await consultarOfertasHistorico(licitacionId, {
     proveedorId,
     ronda,
     limite: LIMITE_FILAS,
   });
-  return { filas, truncado: total > LIMITE_FILAS };
-}
-
-function nombreArchivoSeguro(texto: string): string {
-  return texto.replace(/[^a-zA-Z0-9_-]+/g, "_");
-}
-
-function formatVariacionTexto(
-  variacionMonto: number | null,
-  variacionPct: number | null,
-  moneda: string
-): string {
-  if (variacionMonto == null || variacionPct == null) return "Ronda inicial";
-  if (variacionMonto === 0) return "Sin cambio";
-  const signo = variacionMonto > 0 ? "+" : "";
-  return `${signo}${formatImporte(variacionMonto, moneda)} (${signo}${variacionPct.toFixed(1)}%)`;
+  return { filas, truncado: total > LIMITE_FILAS, tiposCambio };
 }
 
 const LIMITE_BYTES_ADJUNTO_EXCEL = 3 * 1024 * 1024; // 3MB, mismo límite prudente que adjuntosCorreoActions.ts
@@ -130,34 +131,16 @@ export async function generarExcelHistoricoAdjunto(
   licitacionNumero: string
 ): Promise<AdjuntoCorreo | null> {
   try {
-    const { filas } = await consultarOfertasHistorico(licitacionId, {});
+    const { filas, tiposCambio } = await consultarOfertasHistorico(licitacionId, {});
     if (filas.length === 0) return null;
 
     const XLSX = await import("xlsx");
-    const filasExcel = filas.map((f) => ({
-      Ronda: `R${f.ronda}`,
-      Proveedor: f.proveedorNombre,
-      Material: f.productoNombre,
-      "Cantidad ofertada": f.cantidadDisponible,
-      "Precio unitario": formatImporte(f.precioUnitario, f.moneda),
-      Subtotal: formatImporte(f.subtotal, f.moneda),
-      "Variación vs ronda anterior": formatVariacionTexto(
-        f.variacionMonto,
-        f.variacionPct,
-        f.moneda
-      ),
-      "¿Cumple fecha?": f.puedeCumplirFecha ? "Sí" : "No",
-      "Fecha estimada de entrega": formatFechaMexico(f.fechaEstimadaEntrega),
-      "Fecha/hora de la puja": formatFechaMexico(f.fechaPuja, {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    }));
-
-    const hoja = XLSX.utils.json_to_sheet(filasExcel);
+    // Mismas columnas que la descarga del histórico: las dos salen del mismo
+    // constructor, así que no pueden volver a divergir. Aquí siempre va la
+    // columna Proveedor porque el adjunto cubre a todos.
+    const hoja = construirHojaHistorico(XLSX, filas, tiposCambio, {
+      incluirProveedor: true,
+    });
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "Histórico");
     const buffer: Buffer = XLSX.write(libro, { type: "buffer", bookType: "xlsx" });
