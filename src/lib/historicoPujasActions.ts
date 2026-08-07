@@ -11,10 +11,13 @@ import {
 } from "@/src/lib/historicoPujasExcel";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 
-// El tipo vive en historicoPujasExcel.ts (módulo puro) para que el cliente y el
-// servidor compartan una sola definición; se reexporta para no romper los
-// imports existentes.
-export type { FilaHistoricoPuja };
+// OJO: aquí NO se reexporta `FilaHistoricoPuja`. Un archivo "use server" debe
+// exportar SOLO funciones async — ni siquiera tipos. La transformación de
+// Turbopack arma la lista de exports ANTES de que TypeScript borre los tipos,
+// así que un `export type { X }` termina emitido como
+// `ensureServerEntryExports([..., X])` con X ya inexistente: ReferenceError al
+// evaluar el módulo, sin error de tipos ni de build. Quien necesite el tipo lo
+// importa de historicoPujasExcel.ts, que es donde vive.
 
 const LIMITE_FILAS = 500;
 
