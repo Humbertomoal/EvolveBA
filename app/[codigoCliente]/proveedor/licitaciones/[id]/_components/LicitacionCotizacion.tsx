@@ -40,6 +40,7 @@ export type ItemDetalle = {
     cantidadDisponible: number;
     puedeCumplirFecha: boolean;
     fechaEstimadaEntrega: string | null;
+    noDisponible: boolean;
   } | null;
   // Oferta del mismo proveedor en la ronda inmediatamente anterior — solo se
   // usa para pre-llenar los campos cuando aún no ha cotizado en la ronda actual.
@@ -48,6 +49,7 @@ export type ItemDetalle = {
     cantidadDisponible: number;
     puedeCumplirFecha: boolean;
     fechaEstimadaEntrega: string | null;
+    noDisponible: boolean;
   } | null;
 };
 
@@ -56,6 +58,8 @@ type FilaState = {
   precioUnitario: string;
   puedeCumplirFecha: boolean;
   fechaEstimadaEntrega: string;
+  /** "No dispongo de esta partida": la vía explícita que reemplaza al precio 0. */
+  noDisponible: boolean;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -185,7 +189,12 @@ export default function LicitacionCotizacion({
         cantidadDisponible: base
           ? String(Math.min(base.cantidadDisponible, item.cantidadSolicitada))
           : String(item.cantidadSolicitada),
-        precioUnitario: base ? String(base.precioUnitario) : "",
+        // Un precio 0 heredado de una oferta previa NO se precarga: dejarlo
+        // reintroduciría por la puerta de atrás el valor que este cambio
+        // elimina. Se muestra vacío para que el proveedor lo capture bien o
+        // marque "No dispongo".
+        precioUnitario: base && base.precioUnitario > 0 ? String(base.precioUnitario) : "",
+        noDisponible: base?.noDisponible ?? false,
         puedeCumplirFecha: base ? base.puedeCumplirFecha : true,
         fechaEstimadaEntrega: base?.fechaEstimadaEntrega
           ? new Date(base.fechaEstimadaEntrega).toISOString().split("T")[0]
@@ -363,16 +372,34 @@ export default function LicitacionCotizacion({
   const [modalConfirm, setModalConfirm] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
-  // ── Cantidad disponible validation ────────────────────────────────────────
+  // ── Validación por fila ───────────────────────────────────────────────────
+  // Una partida marcada "No dispongo" no se valida: no lleva precio ni cantidad
+  // y ese es justamente su propósito.
   const rowErrors = items.map((item, idx) => {
-    const val = parseFloat(filas[idx].cantidadDisponible);
-    return filas[idx].cantidadDisponible !== "" &&
-      !isNaN(val) &&
-      val > item.cantidadSolicitada
+    const fila = filas[idx];
+    if (fila.noDisponible) return null;
+    const val = parseFloat(fila.cantidadDisponible);
+    return fila.cantidadDisponible !== "" && !isNaN(val) && val > item.cantidadSolicitada
       ? `La cantidad no puede superar la solicitada (${item.cantidadSolicitada} ${item.unidadMedida})`
       : null;
   });
-  const hayErroresCantidad = rowErrors.some(Boolean);
+
+  // El precio no se validaba en absoluto: solo se comprobaba la cantidad, así
+  // que un campo vacío o un 0 pasaban derecho y llegaban a la base.
+  const rowErroresPrecio = items.map((_item, idx) => {
+    const fila = filas[idx];
+    if (fila.noDisponible) return null;
+    if (fila.precioUnitario.trim() === "") return "Captura un precio unitario";
+    const precio = parseFloat(fila.precioUnitario);
+    if (!Number.isFinite(precio)) return "El precio no es un número válido";
+    if (precio <= 0) {
+      return "El precio debe ser mayor que cero. Si no puedes surtir esta partida, marca “No dispongo”.";
+    }
+    return null;
+  });
+
+  const hayErroresCantidad =
+    rowErrors.some(Boolean) || rowErroresPrecio.some(Boolean);
 
   // ── Live totals per moneda ────────────────────────────────────────────────
   const totalesPorMoneda = useMemo(() => {
@@ -422,12 +449,21 @@ export default function LicitacionCotizacion({
         basePath,
         items.map((item, idx) => ({
           licitacionItemId: item.licitacionItemId,
-          precioUnitario: parseFloat(filas[idx].precioUnitario) || 0,
-          cantidadDisponible: parseFloat(filas[idx].cantidadDisponible) || 0,
+          // Sin `|| 0`: ese fallback convertía un campo VACÍO en un precio de
+          // cero en silencio, que era la vía principal por la que entraban los
+          // ceros que envenenaban los comparativos. Ahora un vacío produce NaN,
+          // que la validación de abajo y la del servidor rechazan.
+          precioUnitario: filas[idx].noDisponible
+            ? 0
+            : parseFloat(filas[idx].precioUnitario),
+          cantidadDisponible: filas[idx].noDisponible
+            ? 0
+            : parseFloat(filas[idx].cantidadDisponible) || 0,
           puedeCumplirFecha: filas[idx].puedeCumplirFecha,
           fechaEstimadaEntrega: filas[idx].puedeCumplirFecha
             ? null
             : filas[idx].fechaEstimadaEntrega || null,
+          noDisponible: filas[idx].noDisponible,
         }))
       );
 
@@ -746,16 +782,19 @@ export default function LicitacionCotizacion({
                               min="0"
                               max={item.cantidadSolicitada}
                               step="any"
-                              value={fila.cantidadDisponible}
+                              disabled={fila.noDisponible}
+                              value={fila.noDisponible ? "" : fila.cantidadDisponible}
                               onChange={(e) =>
                                 setFila(idx, "cantidadDisponible", e.target.value)
                               }
                               className={
-                                rowError
-                                  ? INPUT_ERR
-                                  : cantParcial
-                                    ? INPUT_WARN
-                                    : INPUT
+                                fila.noDisponible
+                                  ? `${INPUT} cursor-not-allowed opacity-40`
+                                  : rowError
+                                    ? INPUT_ERR
+                                    : cantParcial
+                                      ? INPUT_WARN
+                                      : INPUT
                               }
                               placeholder="0"
                             />
@@ -776,21 +815,58 @@ export default function LicitacionCotizacion({
                         {/* Precio unitario */}
                         <td className="px-3 py-2.5">
                           {rondaAbierta ? (
-                            <div className="relative">
-                              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
-                                $
-                              </span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={fila.precioUnitario}
-                                onChange={(e) =>
-                                  setFila(idx, "precioUnitario", e.target.value)
-                                }
-                                className={`${INPUT} pl-7`}
-                                placeholder="0.00"
-                              />
+                            <div className="space-y-1.5">
+                              <div className="relative">
+                                <span
+                                  className={`pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400 ${
+                                    fila.noDisponible ? "opacity-40" : ""
+                                  }`}
+                                >
+                                  $
+                                </span>
+                                <input
+                                  type="number"
+                                  // `min` pasa de "0" a un positivo: antes el
+                                  // propio formulario declaraba que 0 era un
+                                  // precio aceptable.
+                                  min="0.01"
+                                  step="0.01"
+                                  disabled={fila.noDisponible}
+                                  value={fila.noDisponible ? "" : fila.precioUnitario}
+                                  onChange={(e) =>
+                                    setFila(idx, "precioUnitario", e.target.value)
+                                  }
+                                  className={`${INPUT} pl-7 ${
+                                    fila.noDisponible
+                                      ? "cursor-not-allowed opacity-40"
+                                      : rowErroresPrecio[idx]
+                                        ? "border-red-400 focus:border-red-400 focus:ring-red-200"
+                                        : ""
+                                  }`}
+                                  placeholder={fila.noDisponible ? "—" : "0.00"}
+                                />
+                              </div>
+
+                              {rowErroresPrecio[idx] && (
+                                <p className="text-[11px] leading-tight text-red-600">
+                                  {rowErroresPrecio[idx]}
+                                </p>
+                              )}
+
+                              {/* La vía EXPLÍCITA para no cotizar, que sustituye
+                                  al 0. Sin esto, bloquear el 0 dejaría sin salida
+                                  a quien de verdad no puede surtir la partida. */}
+                              <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-700">
+                                <input
+                                  type="checkbox"
+                                  checked={fila.noDisponible}
+                                  onChange={(e) =>
+                                    setFila(idx, "noDisponible", e.target.checked)
+                                  }
+                                  className="h-3.5 w-3.5 rounded border-zinc-300 accent-[var(--color-primario)]"
+                                />
+                                No dispongo de esta partida
+                              </label>
                             </div>
                           ) : rondaActual === 0 ? (
                             <div className="relative">

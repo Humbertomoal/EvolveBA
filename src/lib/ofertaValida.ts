@@ -45,3 +45,20 @@ export function esOfertaValida(oferta: OfertaEvaluable): boolean {
 export function soloOfertasValidas<T extends OfertaEvaluable>(ofertas: readonly T[]): T[] {
   return ofertas.filter(esOfertaValida);
 }
+
+/**
+ * ¿Es una CAPTURA aceptable? Regla distinta de `esOfertaValida`, y la
+ * diferencia es el punto entero de este cambio:
+ *
+ *   · esOfertaValida  → ¿compite por "el más barato"?   "no dispongo" = NO.
+ *   · esCapturaValida → ¿el proveedor puede enviar esto? "no dispongo" = SÍ.
+ *
+ * Marcar "no dispongo" es una respuesta legítima y completa; lo que deja de ser
+ * aceptable es el precio en 0 o vacío, que era la forma implícita —y ambigua—
+ * de decir lo mismo. La usan por igual la validación del formulario y la del
+ * servidor, para que no puedan discrepar.
+ */
+export function esCapturaValida(oferta: OfertaEvaluable): boolean {
+  if (oferta.noDisponible) return true;
+  return Number.isFinite(oferta.precioUnitario) && oferta.precioUnitario > 0;
+}

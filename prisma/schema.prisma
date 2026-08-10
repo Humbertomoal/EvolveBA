@@ -171,6 +171,16 @@ model OfertaItem {
   ronda                Int            @default(1)
   precioUnitario       Float
   cantidadDisponible   Float
+  // Vía EXPLÍCITA para "no dispongo de esta partida". Antes los proveedores
+  // usaban precioUnitario = 0 con ese significado (o dejaban el campo vacío,
+  // que el formulario convertía en 0 en silencio), y como 0 es el precio más
+  // bajo posible ganaba todos los comparativos: envenenaba "el precio más
+  // eficiente", inflaba el ahorro reportado y llegaba a preseleccionar al
+  // proveedor como GANADOR a $0 en la pantalla de asignación.
+  // Con noDisponible = true, precioUnitario se guarda en 0 pero NO compite:
+  // ver esOfertaValida() en src/lib/ofertaValida.ts, por donde pasan todos los
+  // cálculos de mínimo.
+  noDisponible         Boolean        @default(false)
   puedeCumplirFecha    Boolean        @default(true)
   fechaEstimadaEntrega DateTime?
   moneda               String         @default("MXN") // NO CONFIAR — ver nota arriba; la buena es LicitacionItem.moneda

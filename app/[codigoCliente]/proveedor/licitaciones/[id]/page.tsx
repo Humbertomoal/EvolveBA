@@ -121,6 +121,7 @@ export default async function DetalleLicitacionPage({
             cantidadDisponible: true,
             puedeCumplirFecha: true,
             fechaEstimadaEntrega: true,
+            noDisponible: true,
           },
           orderBy: [{ licitacionItemId: "asc" }, { ronda: "asc" }],
         })
@@ -253,6 +254,7 @@ export default async function DetalleLicitacionPage({
             cantidadDisponible: oferta.cantidadDisponible,
             puedeCumplirFecha: oferta.puedeCumplirFecha,
             fechaEstimadaEntrega: oferta.fechaEstimadaEntrega?.toISOString() ?? null,
+            noDisponible: oferta.noDisponible,
           }
         : null,
       ofertaAnterior: ofertaAnterior
@@ -262,6 +264,7 @@ export default async function DetalleLicitacionPage({
             puedeCumplirFecha: ofertaAnterior.puedeCumplirFecha,
             fechaEstimadaEntrega:
               ofertaAnterior.fechaEstimadaEntrega?.toISOString() ?? null,
+            noDisponible: ofertaAnterior.noDisponible,
           }
         : null,
     };

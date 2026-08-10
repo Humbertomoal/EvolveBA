@@ -67,6 +67,10 @@ export type ProveedorParticipante = {
   variacionPct: number | null;
   historialRondas: RondaHistorial[];
   ofertaDetalle: OfertaDetalle[];
+  /** Partidas con oferta VÁLIDA de este proveedor (excluye "no dispongo"). */
+  partidasCotizadas: number;
+  /** Partidas de la licitación. Si no coincide con la anterior, el total es parcial. */
+  partidasTotales: number;
 };
 
 export type AnalisisProductoItem = {
@@ -566,9 +570,24 @@ export default function DetalleLicitacion({
                         )}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-zinc-800">
-                        {p.mejorTotalActual != null
-                          ? formatMoneda(p.mejorTotalActual, monedaConsolidacion)
-                          : "—"}
+                        {p.mejorTotalActual != null ? (
+                          <>
+                            {formatMoneda(p.mejorTotalActual, monedaConsolidacion)}
+                            {/* Un total que no cubre todas las partidas NO es
+                                comparable con uno completo: se marca para que
+                                nadie lo lea como "el más barato". */}
+                            {p.partidasCotizadas < p.partidasTotales && (
+                              <span
+                                className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+                                title={`Cotizó ${p.partidasCotizadas} de ${p.partidasTotales} partidas. El total no cubre la licitación completa.`}
+                              >
+                                Incompleto {p.partidasCotizadas}/{p.partidasTotales}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className={`px-4 py-3 text-right font-medium ${varColorClass(p.variacionPct)}`}>
                         {formatPct(p.variacionPct)}

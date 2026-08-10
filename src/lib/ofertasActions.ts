@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { exigirProveedorSesion } from "@/src/lib/proveedorSessionSegura";
+import { esCapturaValida } from "@/src/lib/ofertaValida";
 
 type OfertaItemInput = {
   licitacionItemId: string;
@@ -10,13 +11,16 @@ type OfertaItemInput = {
   cantidadDisponible: number;
   puedeCumplirFecha: boolean;
   fechaEstimadaEntrega: string | null;
+  /** true = "no dispongo de esta partida". Ver ofertaValida.ts. */
+  noDisponible: boolean;
 };
 
 export type MotivoRechazoOferta =
   | "fuera_de_tiempo"
   | "no_invitado"
   | "materiales_invalidos"
-  | "licitacion_no_disponible";
+  | "licitacion_no_disponible"
+  | "precio_invalido";
 
 export type ResultadoOferta =
   | { ok: true }
@@ -169,7 +173,35 @@ export async function enviarOfertaAction(
     };
   }
 
+  // Un precio debe ser un número REAL y positivo, salvo que la partida venga
+  // marcada como "no dispongo". Se valida AQUÍ y no solo en el formulario:
+  // la validación del cliente es comodidad, esta es la que manda. Sin ella,
+  // cualquiera puede llamar la acción a mano y volver a meter ceros —y un 0
+  // llega a preseleccionar al proveedor como ganador a $0 en la asignación.
+  if (!items.every(esCapturaValida)) {
+    return {
+      ok: false,
+      motivo: "precio_invalido",
+      mensaje:
+        "Cada partida necesita un precio mayor que cero, o quedar marcada como “No dispongo de esta partida”.",
+    };
+  }
+
   for (const item of items) {
+    // Con "no dispongo" el precio y la cantidad se NORMALIZAN a 0: así el dato
+    // queda inequívoco y no sobrevive un precio viejo de una ronda anterior que
+    // luego alguien pudiera leer sin mirar el flag.
+    const datos = {
+      precioUnitario: item.noDisponible ? 0 : item.precioUnitario,
+      cantidadDisponible: item.noDisponible ? 0 : item.cantidadDisponible,
+      noDisponible: item.noDisponible,
+      puedeCumplirFecha: item.puedeCumplirFecha,
+      fechaEstimadaEntrega:
+        item.noDisponible || !item.fechaEstimadaEntrega
+          ? null
+          : new Date(item.fechaEstimadaEntrega),
+    };
+
     await prisma.ofertaItem.upsert({
       where: {
         licitacionItemId_proveedorId_ronda: {
@@ -182,21 +214,9 @@ export async function enviarOfertaAction(
         licitacionItemId: item.licitacionItemId,
         proveedorId,
         ronda,
-        precioUnitario: item.precioUnitario,
-        cantidadDisponible: item.cantidadDisponible,
-        puedeCumplirFecha: item.puedeCumplirFecha,
-        fechaEstimadaEntrega: item.fechaEstimadaEntrega
-          ? new Date(item.fechaEstimadaEntrega)
-          : null,
+        ...datos,
       },
-      update: {
-        precioUnitario: item.precioUnitario,
-        cantidadDisponible: item.cantidadDisponible,
-        puedeCumplirFecha: item.puedeCumplirFecha,
-        fechaEstimadaEntrega: item.fechaEstimadaEntrega
-          ? new Date(item.fechaEstimadaEntrega)
-          : null,
-      },
+      update: datos,
     });
   }
 

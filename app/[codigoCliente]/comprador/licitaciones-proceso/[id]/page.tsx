@@ -279,6 +279,12 @@ export default async function DetalleLicitacionProcesoPage({
         mejorTotalActual,
         variacionPct,
         historialRondas,
+        // `itemIdsCotizados` sale de ofertasProveedor, que ya viene filtrado por
+        // soloOfertasValidas: las partidas marcadas "no dispongo" (y las que
+        // quedaron en 0) no cuentan como cubiertas. Si esto queda por debajo del
+        // total, el comprador ve el total marcado como INCOMPLETO.
+        partidasCotizadas: itemIdsCotizados.length,
+        partidasTotales: licitacion.items.length,
         ofertaDetalle: licitacion.items.map((item: any) => {
           const oferta = ofertasProveedorRondaActual.find(
             (o: any) => o.licitacionItemId === item.id
