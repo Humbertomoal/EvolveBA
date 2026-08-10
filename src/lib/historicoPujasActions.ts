@@ -23,9 +23,15 @@ const LIMITE_FILAS = 500;
 
 async function consultarOfertasHistorico(
   licitacionId: string,
-  opciones: { proveedorId?: string; ronda?: number; limite?: number }
+  opciones: {
+    proveedorId?: string;
+    ronda?: number;
+    limite?: number;
+    /** Acota a UNA partida. Lo usa el modal de selección del histórico. */
+    licitacionItemId?: string;
+  }
 ): Promise<{ filas: FilaHistoricoPuja[]; total: number; tiposCambio: TiposCambio }> {
-  const { proveedorId, ronda, limite } = opciones;
+  const { proveedorId, ronda, limite, licitacionItemId } = opciones;
 
   // Se trae SIEMPRE el histórico completo (todas las rondas) del alcance
   // proveedor-filtrado: la variación ronda-a-ronda de una fila puede
@@ -35,6 +41,10 @@ async function consultarOfertasHistorico(
   const where = {
     licitacionItem: { licitacionId },
     ...(proveedorId ? { proveedorId } : {}),
+    // A diferencia de `ronda`, este filtro SÍ va en la consulta: acotar por
+    // partida no rompe el cálculo de variación, que se agrupa por
+    // (proveedor, partida) — las demás partidas nunca entraban en ese grupo.
+    ...(licitacionItemId ? { licitacionItemId } : {}),
   };
 
   // Las tasas viven en la licitación (congeladas al crearla), no en la oferta.
@@ -74,6 +84,8 @@ async function consultarOfertasHistorico(
     const variacion = variaciones.get(o) ?? null;
     return conMontosMXN(
       {
+        id: o.id,
+        licitacionItemId: o.licitacionItemId,
         ronda: o.ronda,
         proveedorId: o.proveedorId,
         proveedorNombre: o.proveedor.razonSocial,
@@ -106,7 +118,9 @@ async function consultarOfertasHistorico(
 export async function getHistoricoPujas(
   licitacionId: string,
   proveedorId?: string,
-  ronda?: number
+  ronda?: number,
+  /** Acota a UNA partida. Lo usa el modal de selección del comprador. */
+  licitacionItemId?: string
 ): Promise<{
   filas: FilaHistoricoPuja[];
   truncado: boolean;
@@ -115,6 +129,7 @@ export async function getHistoricoPujas(
   const { filas, total, tiposCambio } = await consultarOfertasHistorico(licitacionId, {
     proveedorId,
     ronda,
+    licitacionItemId,
     limite: LIMITE_FILAS,
   });
   return { filas, truncado: total > LIMITE_FILAS, tiposCambio };

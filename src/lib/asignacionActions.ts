@@ -5,6 +5,16 @@ import { prisma } from "@/src/lib/prisma";
 import { crearOrdenesCompraParaLicitacion } from "./ordenesUtils";
 import { registrarCambioEstado, getUsuarioIdActual } from "./estadoLog";
 import { ESTADO_ESPERANDO_VALIDACION } from "./seleccionTypes";
+import { exigirCompradorSesion } from "./compradorSessionSegura";
+
+// SEGURIDAD: hasta ahora NINGUNA de estas acciones validaba sesión ni rol.
+// proxy.ts solo exige que haya sesión, sin comparar tipoUsuario contra la
+// sección, así que cualquier usuario autenticado —incluido un PROVEEDOR— podía
+// confirmar asignaciones, reasignar proveedores o finalizar licitaciones con
+// solo conocer el id. Es el mismo agujero que se tapó en las acciones de ronda,
+// y aquí es peor: estas escriben los precios que terminan en órdenes de compra.
+// Los 20 call sites viven bajo /comprador/seleccion-proveedores/, así que la
+// guarda no cambia ningún flujo legítimo.
 
 export type FilaAsignacion = {
   licitacionItemId: string;
@@ -42,6 +52,7 @@ export async function revalidarSeleccionAction(
   licitacionId: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
   revalidar(basePath, licitacionId);
 }
 
@@ -63,6 +74,8 @@ export async function confirmarAsignacionesAction(
   filas: FilaAsignacion[],
   tiempoConfirmacionHoras: number
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   const fechaLimiteConfirmacion = new Date(
     Date.now() + tiempoConfirmacionHoras * 60 * 60 * 1000
   );
@@ -125,6 +138,8 @@ export async function finalizarSinEsperarAction(
   licitacionId: string,
   filas: FilaAsignacion[]
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   const anterior = await prisma.licitacion.findUnique({
     where: { id: licitacionId },
     select: { estado: true },
@@ -180,6 +195,8 @@ export async function reasignarProveedorAction(
   licitacionId: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   const fechaLimiteConfirmacion = new Date(
     Date.now() + tiempoConfirmacionHoras * 60 * 60 * 1000
   );
@@ -225,6 +242,8 @@ export async function editarAsignacionPendienteAction(
   licitacionId: string,
   basePath: string
 ): Promise<{ actualizada: boolean }> {
+  await exigirCompradorSesion();
+
   const { count } = await prisma.asignacionMaterial.updateMany({
     where: { id: asignacionId, estatusProveedor: "Pendiente" },
     data: {
@@ -258,6 +277,8 @@ export async function forzarCierreSeleccionAction(
   licitacionId: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   await prisma.asignacionMaterial.updateMany({
     where: { licitacionId, estatusProveedor: "Pendiente" },
     data: { estatusProveedor: "Aprobado" },
@@ -283,6 +304,8 @@ export async function finalizarLicitacionAction(
   licitacionId: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   const anterior = await prisma.licitacion.findUnique({
     where: { id: licitacionId },
     select: { estado: true },

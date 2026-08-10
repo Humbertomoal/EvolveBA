@@ -3,6 +3,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { soloOfertasValidas } from "@/src/lib/ofertaValida";
+import { claveSeleccion } from "@/src/lib/seleccionPrecioTypes";
 import AsignacionForm from "./_components/AsignacionForm";
 import SeguimientoView from "./_components/SeguimientoView";
 import type {
@@ -93,6 +94,26 @@ export default async function DetalleSeleccionPage({
   });
   const todasLasOfertas = soloOfertasValidas(todasLasOfertasCrudas);
 
+  // Decisiones manuales del comprador (tabla borrador). Sobreviven a recargas,
+  // así que el trabajo de negociación —que puede durar días de llamadas— no se
+  // pierde al refrescar la pantalla.
+  const seleccionesGuardadas = await prisma.seleccionPrecioComprador.findMany({
+    where: { licitacionItem: { licitacionId: id } },
+    select: {
+      licitacionItemId: true,
+      proveedorId: true,
+      ofertaItemId: true,
+      precioNegociado: true,
+    },
+  });
+  const seleccionPorClave = new Map(
+    seleccionesGuardadas.map((s) => [claveSeleccion(s.licitacionItemId, s.proveedorId), s])
+  );
+  // El registro elegido puede ser CUALQUIER puja del proveedor, incluida una
+  // que el mínimo automático descartó por más cara — ese es justamente el caso
+  // que esto resuelve. Se busca en las crudas, no en las filtradas.
+  const ofertaPorId = new Map(todasLasOfertasCrudas.map((o) => [o.id, o]));
+
   // ── Construir items para la forma de asignación ──────────────────────────────
   // `item` sin anotar como `any` a propósito: así el tipo inferido por Prisma
   // manda, y si alguien vuelve a quitar `moneda` del select de arriba esto deja
@@ -110,8 +131,37 @@ export default async function DetalleSeleccionPage({
       }
     }
 
+    // La elección manual PISA el mínimo automático. Se aplica antes de ordenar
+    // porque cambiar el precio de un proveedor puede cambiar quién es el más
+    // barato de la partida —y el primero del orden es el ganador preseleccionado.
+    for (const [proveedorId, automatica] of bestPerProveedor) {
+      const sel = seleccionPorClave.get(claveSeleccion(item.id, proveedorId));
+      if (!sel?.ofertaItemId) continue;
+      const elegida = ofertaPorId.get(sel.ofertaItemId);
+      // Un id que ya no corresponde a este proveedor/partida se ignora en vez
+      // de romper: se degrada al mínimo automático.
+      if (
+        elegida &&
+        elegida.proveedorId === proveedorId &&
+        elegida.licitacionItemId === item.id
+      ) {
+        bestPerProveedor.set(proveedorId, elegida as typeof automatica);
+      }
+    }
+
     const ofertas: OfertaParaDropdown[] = [...bestPerProveedor.values()]
-      .sort((a: any, b: any) => a.precioUnitario - b.precioUnitario)
+      .map((o) => {
+        const sel = seleccionPorClave.get(claveSeleccion(item.id, o.proveedorId));
+        // El precio negociado sustituye al del registro, pero NO a la ronda:
+        // la ronda sigue siendo la del registro sobre el que se negoció, que es
+        // lo que hace auditable el número que acaba en la orden de compra.
+        return {
+          ...o,
+          precioUnitario:
+            sel?.precioNegociado != null ? sel.precioNegociado : o.precioUnitario,
+        };
+      })
+      .sort((a, b) => a.precioUnitario - b.precioUnitario)
       .map((o: any) => ({
         proveedorId: o.proveedorId,
         proveedorNombre: o.proveedor.razonSocial,

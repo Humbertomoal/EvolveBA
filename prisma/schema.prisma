@@ -152,6 +152,37 @@ model LicitacionItem {
 
   ofertas      OfertaItem[]
   asignaciones AsignacionMaterial[]
+  seleccionesPrecio SeleccionPrecioComprador[]
+}
+
+// Borrador de trabajo de la pantalla de Selección de Proveedores.
+//
+// Guarda dos decisiones INDEPENDIENTES del comprador por (partida, proveedor):
+//   · ofertaItemId    → "este registro del histórico es el bueno", cuando el
+//                       mínimo automático es un dato erróneo que el proveedor
+//                       corrigió en una ronda posterior (p. ej. cotizó 1000
+//                       pensando en USD y corrigió a 17,448 MXN en la ronda 3).
+//   · precioNegociado → el ajuste acordado por teléfono sobre ese precio.
+// Ambas nulas = usar el mínimo automático de siempre.
+//
+// Deliberadamente SEPARADA de AsignacionMaterial: crear filas ahí significaría
+// "ya asignado" y la pantalla saltaría de AsignacionForm a SeguimientoView.
+// Esto es trabajo en curso, que puede durar días de llamadas a proveedores.
+//
+// onDelete: Cascade coincide con el FK ya creado en la base. NO es el RESTRICT
+// por defecto de Prisma a propósito: editar una licitación borra y recrea sus
+// LicitacionItem, y con RESTRICT un borrador guardado haría fallar esa edición.
+model SeleccionPrecioComprador {
+  id               String         @id @default(cuid())
+  licitacionItemId String
+  licitacionItem   LicitacionItem @relation(fields: [licitacionItemId], references: [id], onDelete: Cascade)
+  proveedorId      String
+  ofertaItemId     String?
+  precioNegociado  Float?
+  actualizadoPor   String?
+  actualizadoEn    DateTime       @updatedAt
+
+  @@unique([licitacionItemId, proveedorId])
 }
 
 // OJO CON LA MONEDA: la moneda de una línea vive en LicitacionItem.moneda — la

@@ -1,6 +1,12 @@
 "use client";
 
-import { IconDownload, IconPencil, IconRefresh, IconX } from "@tabler/icons-react";
+import {
+  IconDownload,
+  IconHistory,
+  IconPencil,
+  IconRefresh,
+  IconX,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useRef, useState } from "react";
@@ -17,6 +23,13 @@ import {
   notaTipoCambio,
 } from "@/src/lib/conversionMoneda";
 import { cancelarLicitacionAction } from "@/src/lib/rondasActions";
+import {
+  guardarPrecioNegociado,
+  guardarSeleccionRegistro,
+} from "@/src/lib/seleccionPrecioActions";
+import { getHistoricoPujas } from "@/src/lib/historicoPujasActions";
+import type { FilaHistoricoPuja } from "@/src/lib/historicoPujasExcel";
+import { formatFechaMexico } from "@/src/lib/dateUtils";
 import {
   prepararResultadoInternoAction,
   type DatosResultadoInterno,
@@ -53,12 +66,25 @@ type FilaState = {
   // Precio y fecha son editables por el comprador; parten del valor de la
   // oferta pero se pueden ajustar manualmente (negociación, corrección, etc.).
   precioUnitario: number;
+  /**
+   * Ronda del registro del que salió ESTE precio.
+   *
+   * Antes no se guardaba en el estado y `buildFilas` la releía de la oferta
+   * elegida automáticamente, así que si el comprador corregía el precio la
+   * asignación quedaba contradiciéndose: precio de la ronda 3 con `ronda: 2`.
+   * Esa ronda viaja al PDF y a la orden de compra.
+   */
+  ronda: number;
   fechaEstimada: string; // "" = cumple la fecha objetivo / sin estimado
 };
 type ItemAsignacion = { primary: FilaState; secondary: FilaState | null };
 
 function precioDefault(o: OfertaParaDropdown | undefined): number {
   return o?.precioUnitario ?? 0;
+}
+
+function rondaDefault(o: OfertaParaDropdown | undefined): number {
+  return o?.ronda ?? 0;
 }
 
 // Fecha con la que arranca el campo "Fecha estimada prov.": si el proveedor ya
@@ -158,7 +184,7 @@ function initAsignacion(
     const best = item.ofertas[0];
     if (!best) {
       init[item.licitacionItemId] = {
-        primary: { proveedorId: "", cantidad: 0, precioUnitario: 0, fechaEstimada: "" },
+        primary: { proveedorId: "", cantidad: 0, precioUnitario: 0, ronda: 0, fechaEstimada: "" },
         secondary: null,
       };
       continue;
@@ -171,6 +197,7 @@ function initAsignacion(
         proveedorId: best.proveedorId,
         cantidad: primaryCant,
         precioUnitario: precioDefault(best),
+        ronda: rondaDefault(best),
         fechaEstimada: fechaDefault(best, item.fechaEntrega),
       },
       secondary: second
@@ -178,6 +205,7 @@ function initAsignacion(
             proveedorId: second.proveedorId,
             cantidad: resto,
             precioUnitario: precioDefault(second),
+            ronda: rondaDefault(second),
             fechaEstimada: fechaDefault(second, item.fechaEntrega),
           }
         : null,
@@ -367,6 +395,87 @@ export default function AsignacionForm({
     () => initAsignacion(items)
   );
   const [guardando, setGuardando] = useState<"confirmar" | "finalizar" | null>(null);
+
+  // ── Selección del histórico ───────────────────────────────────────────────
+  // Resuelve el error que el sistema no puede detectar solo: un proveedor
+  // cotizó 1000 pensando en USD y corrigió a 17,448 MXN en la ronda 3. Los 1000
+  // son un precio válido, así que el mínimo automático los sigue eligiendo.
+  const [modalHistorico, setModalHistorico] = useState<{
+    licitacionItemId: string;
+    productoNombre: string;
+    proveedorId: string;
+    proveedorNombre: string;
+    moneda: string;
+    rondaVigente: number;
+  } | null>(null);
+  const [pujas, setPujas] = useState<FilaHistoricoPuja[]>([]);
+  const [cargandoPujas, setCargandoPujas] = useState(false);
+  const [guardandoSeleccion, setGuardandoSeleccion] = useState(false);
+
+  async function abrirHistorico(
+    item: ItemParaAsignacion,
+    oferta: OfertaParaDropdown
+  ) {
+    setModalHistorico({
+      licitacionItemId: item.licitacionItemId,
+      productoNombre: item.productoNombre,
+      proveedorId: oferta.proveedorId,
+      proveedorNombre: oferta.proveedorNombre,
+      moneda: item.moneda,
+      rondaVigente: oferta.ronda,
+    });
+    setCargandoPujas(true);
+    setPujas([]);
+    const { filas } = await getHistoricoPujas(
+      licitacion.id,
+      oferta.proveedorId,
+      undefined,
+      item.licitacionItemId
+    );
+    setPujas(filas);
+    setCargandoPujas(false);
+  }
+
+  async function elegirRegistro(ofertaItemId: string | null) {
+    if (!modalHistorico) return;
+    setGuardandoSeleccion(true);
+    const r = await guardarSeleccionRegistro(
+      modalHistorico.licitacionItemId,
+      modalHistorico.proveedorId,
+      ofertaItemId,
+      basePath,
+      licitacion.id
+    );
+    setGuardandoSeleccion(false);
+    if (!r.ok) {
+      window.alert(r.mensaje);
+      return;
+    }
+    setModalHistorico(null);
+    // El precio vigente lo recalcula el servidor (page.tsx aplica la selección
+    // sobre bestPerProveedor y reordena), así que se relee en vez de tocar el
+    // estado local: si no, el dropdown y el orden quedarían desincronizados.
+    router.refresh();
+  }
+
+  // Persiste el precio negociado al SALIR del campo, no en cada tecla: escribir
+  // "17448" dispararía cinco escrituras, y las intermedias son precios que el
+  // comprador nunca quiso guardar.
+  async function persistirPrecio(
+    itemId: string,
+    proveedorId: string,
+    valor: number
+  ) {
+    if (!proveedorId) return;
+    const r = await guardarPrecioNegociado(
+      itemId,
+      proveedorId,
+      valor > 0 ? valor : null,
+      basePath,
+      licitacion.id
+    );
+    if (!r.ok) window.alert(r.mensaje);
+  }
   const [modalCancelar, setModalCancelar] = useState(false);
   const [toggleCancelar, setToggleCancelar] = useState(false);
   const [textoCancelar, setTextoCancelar] = useState("");
@@ -402,6 +511,7 @@ export default function AsignacionForm({
           proveedorId: alt.proveedorId,
           cantidad: resto,
           precioUnitario: precioDefault(alt),
+          ronda: rondaDefault(alt),
           fechaEstimada: fechaDefault(alt, item.fechaEntrega),
         };
       }
@@ -413,6 +523,7 @@ export default function AsignacionForm({
           proveedorId: newProveedorId,
           cantidad: primaryCant,
           precioUnitario: precioDefault(oferta),
+          ronda: rondaDefault(oferta),
           fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
         },
         secondary,
@@ -434,6 +545,7 @@ export default function AsignacionForm({
                 proveedorId: alt.proveedorId,
                 cantidad: resto,
                 precioUnitario: precioDefault(alt),
+          ronda: rondaDefault(alt),
                 fechaEstimada: fechaDefault(alt, item.fechaEntrega),
               }
             : null;
@@ -461,6 +573,7 @@ export default function AsignacionForm({
             ...fila.secondary,
             proveedorId: newProveedorId,
             precioUnitario: precioDefault(oferta),
+          ronda: rondaDefault(oferta),
             fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
           },
         },
@@ -494,6 +607,7 @@ export default function AsignacionForm({
           primary: {
             ...fila.primary,
             precioUnitario: precioDefault(oferta),
+          ronda: rondaDefault(oferta),
             fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
           },
         },
@@ -530,6 +644,7 @@ export default function AsignacionForm({
           secondary: {
             ...fila.secondary,
             precioUnitario: precioDefault(oferta),
+          ronda: rondaDefault(oferta),
             fechaEstimada: fechaDefault(oferta, item.fechaEntrega),
           },
         },
@@ -581,7 +696,10 @@ export default function AsignacionForm({
           // Se guarda el valor EDITADO por el comprador, no el original de la oferta.
           precioUnitario: fila.primary.precioUnitario,
           moneda: item.moneda,
-          ronda: o1.ronda,
+          // La ronda del registro EFECTIVAMENTE usado, del estado de la fila.
+          // Antes se releía de `o1` —la oferta elegida automáticamente—, así que
+          // un precio corregido a mano se guardaba con la ronda del precio viejo.
+          ronda: fila.primary.ronda,
           orden: 1,
           fechaObjetivo: item.fechaEntrega,
           fechaEstimadaProveedor: fila.primary.fechaEstimada || null,
@@ -596,7 +714,7 @@ export default function AsignacionForm({
             cantidadAsignada: fila.secondary.cantidad,
             precioUnitario: fila.secondary.precioUnitario,
             moneda: item.moneda,
-            ronda: o2.ronda,
+            ronda: fila.secondary.ronda,
             orden: 2,
             fechaObjetivo: item.fechaEntrega,
             fechaEstimadaProveedor: fila.secondary.fechaEstimada || null,
@@ -983,20 +1101,32 @@ export default function AsignacionForm({
                       {item.ofertas.length === 0 ? (
                         <span className="text-zinc-400">Sin ofertas</span>
                       ) : (
-                        <select
-                          value={fila.primary.proveedorId}
-                          onChange={(e) =>
-                            updatePrimaryProveedor(item.licitacionItemId, e.target.value)
-                          }
-                          className={INPUT_CLS}
-                          style={{ minWidth: "240px" }}
-                        >
-                          {item.ofertas.map((o: any) => (
-                            <option key={o.proveedorId} value={o.proveedorId}>
-                              {o.proveedorNombre} — {formatImporte(o.precioUnitario, item.moneda)} (disp: {o.cantidadDisponible})
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={fila.primary.proveedorId}
+                            onChange={(e) =>
+                              updatePrimaryProveedor(item.licitacionItemId, e.target.value)
+                            }
+                            className={INPUT_CLS}
+                            style={{ minWidth: "240px" }}
+                          >
+                            {item.ofertas.map((o: any) => (
+                              <option key={o.proveedorId} value={o.proveedorId}>
+                                {o.proveedorNombre} — {formatImporte(o.precioUnitario, item.moneda)} (disp: {o.cantidadDisponible})
+                              </option>
+                            ))}
+                          </select>
+                          {o1 && (
+                            <button
+                              type="button"
+                              onClick={() => abrirHistorico(item, o1)}
+                              className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                              title="Ver histórico de pujas de este proveedor en esta partida"
+                            >
+                              <IconHistory className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className={`${CELL} text-right`}>
@@ -1053,6 +1183,13 @@ export default function AsignacionForm({
                               updatePrimaryPrecio(
                                 item.licitacionItemId,
                                 Math.max(0, Number(e.target.value))
+                              )
+                            }
+                            onBlur={() =>
+                              persistirPrecio(
+                                item.licitacionItemId,
+                                fila.primary.proveedorId,
+                                fila.primary.precioUnitario
                               )
                             }
                             className={`${INPUT_CLS} text-right ${precioMod1 ? "border-amber-400 bg-amber-50/40" : ""}`}
@@ -1329,6 +1466,121 @@ export default function AsignacionForm({
       </div>
 
       {/* ── Modal: Cancelar licitación ──────────────────────────────────── */}
+      {/* ── Modal: histórico de pujas (SOLO LECTURA) ────────────────────────
+          El histórico no se edita nunca: aquí solo se ELIGE cuál registro cuenta
+          como el precio válido de ese proveedor en esa partida. La negociación
+          se hace después, sobre el precio, en la vista previa. */}
+      {modalHistorico && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl">
+            <div className="flex shrink-0 items-start justify-between border-b border-zinc-100 px-5 py-4">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-900">
+                  Pujas de {modalHistorico.proveedorNombre}
+                </h3>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {modalHistorico.productoNombre}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalHistorico(null)}
+                className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                aria-label="Cerrar"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <p className="mb-3 text-xs text-zinc-500">
+                Haz clic en un registro para tomarlo como el precio válido de
+                este proveedor. Útil cuando el más bajo es un dato erróneo que el
+                proveedor corrigió en una ronda posterior.
+              </p>
+
+              {cargandoPujas ? (
+                <p className="py-6 text-center text-sm text-zinc-400">Cargando…</p>
+              ) : pujas.length === 0 ? (
+                <p className="py-6 text-center text-sm text-zinc-400">
+                  Sin pujas registradas.
+                </p>
+              ) : (
+                <div className="overflow-hidden rounded-md border border-zinc-100">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-100 bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                        <th className="px-3 py-2">Ronda</th>
+                        <th className="px-3 py-2 text-right">Precio unitario</th>
+                        <th className="px-3 py-2">Fecha</th>
+                        <th className="px-3 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {pujas.map((p) => {
+                        const esVigente = p.ronda === modalHistorico.rondaVigente;
+                        return (
+                          <tr
+                            key={p.id}
+                            className={esVigente ? "bg-emerald-50/60" : "hover:bg-zinc-50/60"}
+                          >
+                            <td className="px-3 py-2">
+                              <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600">
+                                R{p.ronda}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right font-medium text-zinc-800">
+                              {formatImporte(p.precioUnitario, p.moneda)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-zinc-500">
+                              {formatFechaMexico(p.fechaPuja)}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {esVigente ? (
+                                <span className="text-xs font-medium text-emerald-700">
+                                  En uso
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={guardandoSeleccion}
+                                  onClick={() => elegirRegistro(p.id)}
+                                  className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                                >
+                                  Usar este
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center justify-between border-t border-zinc-100 px-5 py-3">
+              <button
+                type="button"
+                disabled={guardandoSeleccion}
+                onClick={() => elegirRegistro(null)}
+                className="text-xs font-medium text-zinc-500 hover:text-zinc-800 disabled:opacity-50"
+              >
+                Volver al más bajo automático
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalHistorico(null)}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalCancelar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex w-full max-w-md flex-col rounded-xl bg-white shadow-xl">

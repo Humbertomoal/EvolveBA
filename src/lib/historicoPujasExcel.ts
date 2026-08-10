@@ -23,9 +23,17 @@ import { convertirAMXN, tasaDe, type TiposCambio } from "./conversionMoneda";
  * intentaba. Ver la nota del schema en LicitacionItem.
  */
 export type FilaHistoricoPuja = {
+  /** Id de la puja (OfertaItem). Lo usa la selección del histórico del comprador. */
+  id: string;
   ronda: number;
   proveedorId: string;
   proveedorNombre: string;
+  /**
+   * Partida a la que pertenece la puja. Sin esto solo quedaba `productoNombre`,
+   * y cruzar por nombre es frágil: dos partidas pueden compartir producto con
+   * distinta especificación.
+   */
+  licitacionItemId: string;
   productoNombre: string;
   cantidadDisponible: number;
   /** Precio tal como lo cotizó el proveedor, en `moneda`. */
