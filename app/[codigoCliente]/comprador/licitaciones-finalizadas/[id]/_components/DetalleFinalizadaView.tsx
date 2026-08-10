@@ -236,8 +236,11 @@ function HistorialPujasTab({
         // Compute minimum price per ronda
         const minPorRonda: Record<number, number> = {};
         for (const fila of item.filas) {
+          // `> 0` además de `!== null`: aquí las ofertas ya vienen aplanadas a
+          // precio por proveedor, sin el flag noDisponible, así que la guarda de
+          // precio es la que impide que un 0 se lleve el mínimo de la ronda.
           const precios = Object.values(fila.ofertas).filter(
-            (p): p is number => p !== null
+            (p): p is number => typeof p === "number" && p > 0
           );
           if (precios.length > 0) {
             minPorRonda[fila.ronda] = Math.min(...precios);

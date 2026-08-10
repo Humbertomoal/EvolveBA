@@ -3,6 +3,7 @@
 // ambas vistas usen exactamente las mismas fórmulas.
 
 import { convertirAMoneda, MONEDA_BASE, type TiposCambio } from "./conversionMoneda";
+import { soloOfertasValidas } from "./ofertaValida";
 
 export type LicitacionItemParaAhorro = {
   id: string;
@@ -15,6 +16,8 @@ export type OfertaParaAhorro = {
   licitacionItemId: string;
   ronda: number;
   precioUnitario: number;
+  /** Ver ofertaValida.ts. Opcional: ausente equivale a false. */
+  noDisponible?: boolean | null;
 };
 
 export type AnalisisItemAhorro = {
@@ -63,11 +66,21 @@ export function calcularAnalisisPorItem(
   ofertas: OfertaParaAhorro[]
 ): AnalisisItemAhorro[] {
   return items.map((item) => {
-    const itemOfertas = ofertas.filter((o) => o.licitacionItemId === item.id);
+    // Se filtra ANTES de cualquier min: una oferta en 0 (o marcada "no
+    // dispongo") no compite por el precio más bajo. Sin esto, un solo 0 se
+    // llevaba el mínimo de todas las rondas y hundía el total del material.
+    // Y como el filtro se aplica sobre TODAS las rondas, un 0 corregido en una
+    // ronda posterior queda descartado y gana el precio real corregido.
+    const itemOfertas = soloOfertasValidas(
+      ofertas.filter((o) => o.licitacionItemId === item.id)
+    );
     const precios = itemOfertas.map((o) => o.precioUnitario);
     const mejorActualUnitario = precios.length > 0 ? Math.min(...precios) : null;
 
     let primeraRondaUnitario: number | null = null;
+    // "Primera ronda con puja" se calcula sobre las ofertas ya filtradas: si en
+    // la ronda 1 todos pusieron 0, esa no fue una ronda con precios reales y la
+    // base de comparación del ahorro debe ser la primera que sí los tuvo.
     const primeraRondaConPuja = primeraRondaConOferta(itemOfertas);
     if (primeraRondaConPuja != null) {
       const preciosPrimeraRondaValida = itemOfertas

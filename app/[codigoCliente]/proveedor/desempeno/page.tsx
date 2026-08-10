@@ -32,6 +32,7 @@ import {
   getOpcionesProveedor,
   marcarProveedorAutenticado,
 } from "@/src/lib/tableroProveedorQueries";
+import { soloOfertasValidas } from "@/src/lib/ofertaValida";
 import DesempenoView from "./_components/DesempenoView";
 import type { DesempenoData } from "./_components/types";
 
@@ -187,14 +188,18 @@ export default async function MiDesempenoPage({
 
     // ── Indicadores 11-12: materiales que PERDIÓ ────────────────────────────
     for (const it of items) {
-      if (it.ofertas.length === 0) continue; // no ofertó → no lo perdió
+      // Una partida que el proveedor dejó en 0 o marcó "no dispongo" no es una
+      // que haya "perdido": nunca compitió. Si además se comparara ese 0 contra
+      // el precio ganador, el sobrecosto saldría absurdo.
+      const misOfertasValidas = soloOfertasValidas(it.ofertas);
+      if (misOfertasValidas.length === 0) continue; // no ofertó → no lo perdió
       const gano = misAsignaciones.some((a) => a.licitacionItemId === it.id);
       if (gano) continue;
 
       const delItem = asignacionesVivas.filter((a) => a.licitacionItemId === it.id);
       if (delItem.length === 0) continue; // sin ganador real → nada que comparar
 
-      const miMejor = Math.min(...it.ofertas.map((o) => o.precioUnitario));
+      const miMejor = Math.min(...misOfertasValidas.map((o) => o.precioUnitario));
       // Cada lado se convierte con SU moneda antes de compararse.
       const precioOfertadoMXN = convertirAMoneda(miMejor, it.moneda, MONEDA_BASE, tc);
       const precioGanadorMXN = Math.min(

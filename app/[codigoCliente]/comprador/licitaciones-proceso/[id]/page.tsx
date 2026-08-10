@@ -9,6 +9,7 @@ import {
   filtrarItemsPorMaterialesProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
+import { soloOfertasValidas } from "@/src/lib/ofertaValida";
 import { soloCorreoProveedor } from "@/src/lib/correoProveedor";
 import {
   calcularAnalisisPorItem,
@@ -191,8 +192,12 @@ export default async function DetalleLicitacionProcesoPage({
         : null;
 
       // ── Historial completo de este proveedor (todas las rondas) ──────────────
-      const ofertasProveedor = todasLasOfertas.filter(
-        (o: any) => o.proveedorId === proveedorId
+      // Filtrado aquí para que TODO lo que se derive abajo —total inicial, mejor
+      // total actual, variación, materiales cotizados— ignore las ofertas en 0 y
+      // las marcadas "no dispongo". Un solo 0 hundía el total del proveedor y lo
+      // dejaba encabezando el comparativo.
+      const ofertasProveedor = soloOfertasValidas(
+        todasLasOfertas.filter((o: any) => o.proveedorId === proveedorId)
       );
 
       // "Total Inicial" = la primera ronda en la que el proveedor realmente
@@ -212,16 +217,19 @@ export default async function DetalleLicitacionProcesoPage({
             }, 0)
           : null;
 
+      // Sin `(o: any)`: ahora que ofertasProveedor tiene el tipo real de Prisma,
+      // anotarlo como any hacía que new Set() devolviera Set<unknown> y todo lo
+      // que colgaba de ahí perdiera el tipo en silencio.
       const itemIdsCotizados = [
-        ...new Set(ofertasProveedor.map((o: any) => o.licitacionItemId)),
+        ...new Set(ofertasProveedor.map((o) => o.licitacionItemId)),
       ];
       const mejorTotalActual =
         itemIdsCotizados.length > 0
           ? itemIdsCotizados.reduce((sum: number, itemId: string) => {
               const item = itemsPorId.get(itemId);
               const preciosItem = ofertasProveedor
-                .filter((o: any) => o.licitacionItemId === itemId)
-                .map((o: any) => o.precioUnitario);
+                .filter((o) => o.licitacionItemId === itemId)
+                .map((o) => o.precioUnitario);
               const mejor = Math.min(...preciosItem);
               const subtotal = mejor * (item?.cantidadSolicitada ?? 0);
               return sum + convertirAMoneda(subtotal, item?.moneda ?? "MXN", monedaConsolidacion, tiposCambio);
@@ -234,7 +242,7 @@ export default async function DetalleLicitacionProcesoPage({
           : null;
 
       const rondasParticipadas = [
-        ...new Set(ofertasProveedor.map((o: any) => o.ronda as number)),
+        ...new Set(ofertasProveedor.map((o) => o.ronda)),
       ].sort((a, b) => a - b);
       const ultimaRondaProveedor = rondasParticipadas[rondasParticipadas.length - 1];
 

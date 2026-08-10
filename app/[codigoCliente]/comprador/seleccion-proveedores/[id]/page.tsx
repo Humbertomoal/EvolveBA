@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
+import { soloOfertasValidas } from "@/src/lib/ofertaValida";
 import AsignacionForm from "./_components/AsignacionForm";
 import SeguimientoView from "./_components/SeguimientoView";
 import type {
@@ -77,12 +78,20 @@ export default async function DetalleSeleccionPage({
     orderBy: [{ licitacionItemId: "asc" }, { orden: "asc" }],
   });
 
-  // Todas las ofertas para esta licitación (para dropdowns)
-  const todasLasOfertas = await prisma.ofertaItem.findMany({
+  // Todas las ofertas para esta licitación (para dropdowns).
+  //
+  // El filtro va AQUÍ, en la fuente, y no en los dos bloques que la consumen:
+  // ambos construyen un `bestPerProveedor` que se queda con la PRIMERA oferta de
+  // cada proveedor, y como esta consulta ordena por precio ascendente, esa
+  // primera es la más barata. Con un 0 de por medio, el proveedor que dejó la
+  // partida en blanco quedaba preseleccionado como GANADOR a $0 en
+  // AsignacionForm — a un descuido de emitir una orden de compra en cero.
+  const todasLasOfertasCrudas = await prisma.ofertaItem.findMany({
     where: { licitacionItem: { licitacionId: id } },
     include: { proveedor: { select: { id: true, razonSocial: true } } },
     orderBy: { precioUnitario: "asc" },
   });
+  const todasLasOfertas = soloOfertasValidas(todasLasOfertasCrudas);
 
   // ── Construir items para la forma de asignación ──────────────────────────────
   // `item` sin anotar como `any` a propósito: así el tipo inferido por Prisma
@@ -125,11 +134,17 @@ export default async function DetalleSeleccionPage({
   });
 
   // Proveedores distintos que participaron (para el selector del histórico de pujas)
+  // Tupla anotada en vez de `(o: any)`: con el `any`, new Map() no podía
+  // resolver la forma [clave, valor] y devolvía Map<unknown, unknown>, lo que
+  // obligaba al `as string` de abajo. Con el tipo real de Prisma no hace falta.
   const proveedoresParticipantes = [
     ...new Map(
-      todasLasOfertas.map((o: any) => [o.proveedorId, o.proveedor.razonSocial])
+      todasLasOfertas.map((o): [string, string] => [
+        o.proveedorId,
+        o.proveedor.razonSocial,
+      ])
     ).entries(),
-  ].map(([proveedorId, nombre]) => ({ id: proveedorId, nombre: nombre as string }));
+  ].map(([proveedorId, nombre]) => ({ id: proveedorId, nombre }));
 
   const licitacionInfo = {
     id: licitacion.id,

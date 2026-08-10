@@ -54,6 +54,7 @@ import {
   type LicitacionItemTablero,
   type OrdenTablero,
 } from "@/src/lib/tableroQueries";
+import { soloOfertasValidas } from "@/src/lib/ofertaValida";
 import TableroView from "./_components/TableroView";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import type { TableroData } from "./_components/types";
@@ -269,8 +270,12 @@ export default async function TableroIndicadoresPage({
     };
     entradaJer.licitaciones++;
     for (const item of items) {
-      if (!item.precioObjetivo || item.ofertas.length === 0) continue;
-      const minOferta = Math.min(...item.ofertas.map((o) => o.precioUnitario));
+      // Sin el filtro, una oferta en 0 siempre cumplía `minOferta <= objetivo`
+      // y el material se contaba como "dentro de objetivo" aunque nadie lo
+      // hubiera cotizado de verdad.
+      const ofertasValidas = soloOfertasValidas(item.ofertas);
+      if (!item.precioObjetivo || ofertasValidas.length === 0) continue;
+      const minOferta = Math.min(...ofertasValidas.map((o) => o.precioUnitario));
       if (minOferta <= item.precioObjetivo) entradaJer.dentro++;
       else entradaJer.fuera++;
     }
