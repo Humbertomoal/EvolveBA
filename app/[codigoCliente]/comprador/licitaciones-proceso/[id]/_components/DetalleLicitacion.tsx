@@ -6,6 +6,7 @@ import {
   IconMail,
   IconMessageCircle,
   IconPlayerSkipForward,
+  IconPlayerTrackNext,
   IconReceipt,
   IconX,
 } from "@tabler/icons-react";
@@ -15,7 +16,10 @@ import { Fragment, useState } from "react";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
 import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
-import { forzarAvanceRondaAction } from "@/src/lib/rondasActions";
+import {
+  cerrarTodasLasRondasAction,
+  forzarAvanceRondaAction,
+} from "@/src/lib/rondasActions";
 import {
   descargarComparativoOfertasPdfAction,
   descargarResumenLicitacionPdfAction,
@@ -357,6 +361,33 @@ export default function DetalleLicitacion({
     setForzando(false);
   }
 
+  // Cierre total: salta a la decisión final sin pasar por las rondas que falten.
+  // Solo aparece cuando quedan 2 o más rondas; con una sola, el botón de al lado
+  // ya hace exactamente esto y dos botones idénticos confunden.
+  const rondasRestantes = maxRondas - rondaActual;
+
+  async function handleCerrarTodas() {
+    const detalle =
+      rondasRestantes === 1
+        ? `la Ronda ${maxRondas}`
+        : `las Rondas ${rondaActual + 1} a ${maxRondas}`;
+    const msg =
+      `¿Cerrar TODAS las rondas restantes?\n\n` +
+      `Se omitirán ${detalle} (${rondasRestantes} ${rondasRestantes === 1 ? "ronda" : "rondas"}) ` +
+      `y la licitación pasará directo a la decisión final.\n` +
+      `Los proveedores ya no podrán cotizar.\n\n` +
+      `Esta acción no se puede deshacer.`;
+    if (!window.confirm(msg)) return;
+
+    setForzando(true);
+    const resultado = await cerrarTodasLasRondasAction(id, basePath);
+    router.refresh();
+    setForzando(false);
+    // Se avisa solo cuando NO se pudo: el éxito ya se ve en la pantalla, que
+    // pasa a "Revisando resultados finales".
+    if (!resultado.ok) window.alert(resultado.mensaje);
+  }
+
   const TAB_BTN = (active: boolean) =>
     `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
       active
@@ -426,6 +457,20 @@ export default function DetalleLicitacion({
             >
               <IconPlayerSkipForward className="h-4 w-4" />
               Forzar cierre de ronda
+            </button>
+          )}
+
+          {/* Cierre total — solo si quedan 2+ rondas (ver handleCerrarTodas) */}
+          {!esperandoDecision && rondaActual > 0 && rondasRestantes >= 2 && (
+            <button
+              type="button"
+              onClick={handleCerrarTodas}
+              disabled={forzando}
+              className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
+              title={`Omite las ${rondasRestantes} rondas restantes y pasa a la decisión final`}
+            >
+              <IconPlayerTrackNext className="h-4 w-4" />
+              Cerrar todas las rondas
             </button>
           )}
 

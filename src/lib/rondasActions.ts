@@ -7,6 +7,118 @@ import {
   getUsuarioIdActual,
   ESTADO_ESPERANDO_DECISION,
 } from "@/src/lib/estadoLog";
+import { exigirCompradorSesion } from "@/src/lib/compradorSessionSegura";
+import type { ResultadoCierreRondas } from "@/src/lib/rondasTypes";
+
+// NOTA: los tipos de resultado viven en rondasTypes.ts. Este archivo es
+// "use server" y NO debe exportar nada que no sea una función async — ni
+// siquiera tipos (ver el comentario de rondasTypes.ts).
+
+/**
+ * Cierra DE GOLPE todas las rondas restantes y salta al estado final.
+ *
+ * Destino: el pseudo-estado "Esperando Decisión" — `esperandoDecision = true`
+ * sobre `estado = "En Proceso"`, que es exactamente donde queda una licitación
+ * que agota sus rondas por tiempo. NO va a "Esperando Validación": ese estado
+ * es posterior y lo escribe asignacionActions al mandar la asignación
+ * preliminar; saltar ahí se brincaría la decisión del comprador, que es
+ * justamente el paso que este botón habilita.
+ *
+ * `inicioRondaActual` NO se toca, y es deliberado aunque parezca al revés:
+ * ponerlo en `now` haría que la rama (b) de `rondaAceptable` (ofertasActions)
+ * aceptara ofertas para la penúltima ronda durante los 3 minutos de gracia
+ * SIGUIENTES al cierre. Dejándolo intacto, la gracia se mide desde que empezó
+ * la ronda que estaba en curso y la ventana queda cerrada.
+ */
+export async function cerrarTodasLasRondasAction(
+  id: string,
+  basePath: string
+): Promise<ResultadoCierreRondas> {
+  const { usuarioId } = await exigirCompradorSesion();
+
+  const lic = await prisma.licitacion.findUnique({
+    where: { id },
+    select: {
+      estado: true,
+      esperandoDecision: true,
+      modoLicitacion: true,
+      rondaActual: true,
+      maxRondas: true,
+    },
+  });
+
+  if (!lic) {
+    return { ok: false, motivo: "no_encontrada", mensaje: "La licitación no existe." };
+  }
+  if (lic.modoLicitacion === "Manual") {
+    return {
+      ok: false,
+      motivo: "modo_manual",
+      mensaje: "Las licitaciones de captura manual no manejan rondas.",
+    };
+  }
+  if (lic.estado !== "En Proceso") {
+    return {
+      ok: false,
+      motivo: "estado_invalido",
+      mensaje: `La licitación está en "${lic.estado}" y ya no admite cierre de rondas.`,
+    };
+  }
+  if (lic.esperandoDecision) {
+    return {
+      ok: false,
+      motivo: "ya_cerrada",
+      mensaje: "Las rondas ya están cerradas; la licitación espera tu decisión.",
+    };
+  }
+  if (lic.rondaActual < 1) {
+    return {
+      ok: false,
+      motivo: "sin_iniciar",
+      mensaje: "La licitación aún no arranca su primera ronda.",
+    };
+  }
+
+  const now = new Date();
+
+  // Compare-and-set: el estado leído va en el WHERE, así que Postgres resuelve
+  // esto como un solo UPDATE condicional. Si otro clic —o el avance automático
+  // que dispara cualquier carga de página— ganó la carrera, el WHERE no casa y
+  // count === 0. Sin esto, dos ejecuciones dejarían DOS entradas
+  // "En Proceso → Esperando Decisión" en la bitácora, que es de donde el
+  // Tablero saca los tiempos por etapa.
+  const resultado = await prisma.licitacion.updateMany({
+    where: {
+      id,
+      estado: "En Proceso",
+      esperandoDecision: false,
+      rondaActual: lic.rondaActual,
+      maxRondas: lic.maxRondas,
+    },
+    data: {
+      rondaActual: lic.maxRondas,
+      esperandoDecision: true,
+      fechaFinReal: now,
+      fechaEsperandoDecision: now,
+    },
+  });
+
+  if (resultado.count === 0) {
+    return {
+      ok: false,
+      motivo: "ya_cerrada",
+      mensaje: "Otro usuario (o el avance automático) cerró las rondas primero.",
+    };
+  }
+
+  // Solo se registra si ESTA llamada fue la que escribió.
+  await registrarCambioEstado(id, "En Proceso", ESTADO_ESPERANDO_DECISION, usuarioId);
+
+  revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
+  revalidatePath(`${basePath}/comprador/licitaciones-proceso/${id}`);
+
+  return { ok: true, rondasOmitidas: lic.maxRondas - lic.rondaActual };
+}
 
 // Fuerza el fin de la ronda actual:
 // - Si es ronda intermedia: avanza a la siguiente
@@ -15,6 +127,8 @@ export async function forzarAvanceRondaAction(
   id: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   const lic = await prisma.licitacion.findUnique({
     where: { id },
     select: { rondaActual: true, maxRondas: true },
@@ -53,6 +167,8 @@ export async function agregarRondaExtraAction(
   id: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   const lic = await prisma.licitacion.findUnique({
     where: { id },
     select: { rondaActual: true, maxRondas: true, esperandoDecision: true },
@@ -86,6 +202,8 @@ export async function cerrarLicitacionAction(
   id: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   // Lee el estado previo para encadenar bien la bitácora (En Proceso o el
   // pseudo-estado "Esperando Decisión" según el flag).
   const anterior = await prisma.licitacion.findUnique({
@@ -110,6 +228,8 @@ export async function cancelarLicitacionAction(
   id: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
+
   const anterior = await prisma.licitacion.findUnique({
     where: { id },
     select: { estado: true, esperandoDecision: true },
