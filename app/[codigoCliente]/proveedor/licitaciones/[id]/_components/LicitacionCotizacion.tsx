@@ -6,7 +6,10 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
-import { getMensajesNoLeidos } from "@/src/lib/chatActions";
+import {
+  getMensajesNoLeidos,
+  marcarAvisosSistemaLeidos,
+} from "@/src/lib/chatActions";
 import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -269,6 +272,19 @@ export default function LicitacionCotizacion({
   // servidor. Se difiere al primer efecto (solo corre en el navegador).
   const [montado, setMontado] = useState(false);
   useEffect(() => setMontado(true), []);
+
+  // Estar en esta pantalla acusa recibo del aviso de ronda: es donde el
+  // proveedor ve el modal con el texto completo. Sin esto la banda del portal
+  // se quedaría fija, porque `marcarLeidos` vive dentro del ChatWidget y este
+  // solo se monta al ABRIR el panel de chat (chatAbierto arranca en false).
+  //
+  // Marca SOLO los avisos "sistema" de ESTA licitación: los mensajes reales del
+  // comprador siguen sin leer hasta que se abra el chat, y las novedades de las
+  // otras licitaciones siguen en la banda.
+  useEffect(() => {
+    if (!proveedorId) return;
+    marcarAvisosSistemaLeidos(id, proveedorId);
+  }, [id, proveedorId]);
 
   useEffect(() => {
     const rondaPreviaVista = rondaVistaRef.current;
@@ -1194,7 +1210,14 @@ export default function LicitacionCotizacion({
                 <button
                   type="button"
                   autoFocus
-                  onClick={() => setAvisoRonda(null)}
+                  onClick={() => {
+                    setAvisoRonda(null);
+                    // El acuse explícito. El efecto de montaje ya cubre al que
+                    // entra después, pero un aviso que llega ESTANDO en la
+                    // pantalla no volvería a montar nada: sin esto, la banda
+                    // señalaría la licitación que el proveedor tiene abierta.
+                    if (proveedorId) marcarAvisosSistemaLeidos(id, proveedorId);
+                  }}
                   className="rounded-lg bg-[var(--color-primario)] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)]"
                 >
                   Entendido

@@ -4,13 +4,18 @@ import {
 } from "@/src/lib/getClienteByCodigo";
 import { prisma } from "@/src/lib/prisma";
 import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
-import { getTotalNoLeidosProveedor } from "@/src/lib/chatActions";
+import {
+  getAvisosRondaPendientes,
+  getTotalNoLeidosProveedor,
+} from "@/src/lib/chatActions";
 import { logoutAction } from "@/src/lib/authActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
 import TopBar from "@/app/_components/TopBar";
 import { PageHeaderProvider } from "@/app/_components/PageHeaderContext";
 import { SidebarStateProvider } from "@/app/_components/SidebarStateContext";
 import ProveedorSidebarWrapper from "./_components/ProveedorSidebarWrapper";
+import BandaAvisosProveedor from "./_components/BandaAvisosProveedor";
+import type { AvisoLicitacionPendiente } from "@/src/lib/avisosProveedorTypes";
 
 export default async function ProveedorLayout({
   children,
@@ -55,10 +60,16 @@ export default async function ProveedorLayout({
       })
     : [];
 
+  // Estado inicial resuelto en el servidor para que el badge y la banda salgan
+  // ya pintados en el primer render, sin esperar al primer sondeo de 30 s.
   let noLeidosInicial = 0;
+  let avisosIniciales: AvisoLicitacionPendiente[] = [];
   if (proveedorIdActual) {
     try {
-      noLeidosInicial = await getTotalNoLeidosProveedor(proveedorIdActual);
+      [noLeidosInicial, avisosIniciales] = await Promise.all([
+        getTotalNoLeidosProveedor(proveedorIdActual),
+        getAvisosRondaPendientes(proveedorIdActual),
+      ]);
     } catch {}
   }
 
@@ -91,6 +102,15 @@ export default async function ProveedorLayout({
                 proveedorIdActual={proveedorIdActual}
                 usuario={usuarioActual}
                 logoutAction={logoutAction}
+              />
+            )}
+            {/* Debajo del TopBar (sticky top-0, h-16) para no taparlo. Vive en
+                el layout, así que acompaña al proveedor por todo el portal. */}
+            {proveedorIdActual && (
+              <BandaAvisosProveedor
+                basePath={basePath}
+                proveedorId={proveedorIdActual}
+                avisosIniciales={avisosIniciales}
               />
             )}
             <div className="p-4 sm:p-8">{children}</div>
