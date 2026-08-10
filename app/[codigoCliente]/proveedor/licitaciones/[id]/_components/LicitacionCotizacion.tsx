@@ -241,6 +241,35 @@ export default function LicitacionCotizacion({
     tiempoExtraDisparadoRef.current = false;
   }, [rondaActual]);
 
+  // ── Toast de cambio de ronda ──────────────────────────────────────────────
+  // Efecto SEPARADO del de arriba a propósito: aquel suelta estado del
+  // formulario, este solo presenta. Mezclarlos hace frágiles ambos.
+  //
+  // Usa sus PROPIOS refs: los efectos corren en orden de declaración, así que
+  // para cuando este ejecuta, `rondaPrevia.current` ya fue actualizado por el
+  // anterior y compararlo aquí nunca detectaría nada.
+  //
+  // Observa las DOS señales porque `rondaActual` sola no basta: en el cierre
+  // (natural o por el botón "cerrar todas") la ronda puede no moverse y lo que
+  // cambia es `esperandoDecision`.
+  const [avisoRonda, setAvisoRonda] = useState<
+    { tipo: "nueva_ronda"; ronda: number } | { tipo: "cierre" } | null
+  >(null);
+  const rondaVistaRef = useRef(rondaActual);
+  const esperandoVistoRef = useRef(esperandoDecision);
+
+  useEffect(() => {
+    const cerroAhora = esperandoDecision && !esperandoVistoRef.current;
+    const avanzoAhora = rondaActual > rondaVistaRef.current;
+    rondaVistaRef.current = rondaActual;
+    esperandoVistoRef.current = esperandoDecision;
+
+    // El cierre manda: si en el mismo refresco avanzó la ronda Y se cerró,
+    // lo relevante para el proveedor es que ya no puede cotizar.
+    if (cerroAhora) setAvisoRonda({ tipo: "cierre" });
+    else if (avanzoAhora) setAvisoRonda({ tipo: "nueva_ronda", ronda: rondaActual });
+  }, [rondaActual, esperandoDecision]);
+
   // Detect when the round clock hits 0 while the user is watching
   useEffect(() => {
     if (
@@ -1098,6 +1127,50 @@ export default function LicitacionCotizacion({
             <button
               type="button"
               onClick={() => setNotifAutoEnvio(false)}
+              className="text-xs text-zinc-500 hover:text-zinc-700"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast de cambio de ronda ──────────────────────────────────────── */}
+      {/* Se apila sobre el de auto-envío (bottom-28) para que no se tapen si
+          los dos aparecen: el auto-envío ocurre justo al cerrar la ronda. */}
+      {avisoRonda && (
+        <div
+          className={`fixed right-6 z-50 w-80 space-y-2 rounded-xl border p-4 shadow-xl ${
+            notifAutoEnvio ? "bottom-28" : "bottom-6"
+          } ${
+            avisoRonda.tipo === "cierre"
+              ? "border-violet-200 bg-violet-50"
+              : "border-emerald-200 bg-emerald-50"
+          }`}
+          role="status"
+        >
+          <p
+            className={`text-sm font-semibold ${
+              avisoRonda.tipo === "cierre" ? "text-violet-900" : "text-emerald-900"
+            }`}
+          >
+            {avisoRonda.tipo === "cierre"
+              ? "La licitación cerró"
+              : `Comenzó la ronda ${avisoRonda.ronda}`}
+          </p>
+          <p
+            className={`text-xs ${
+              avisoRonda.tipo === "cierre" ? "text-violet-700" : "text-emerald-700"
+            }`}
+          >
+            {avisoRonda.tipo === "cierre"
+              ? "Ya no se reciben ofertas. Revisa el chat para ver el aviso completo."
+              : "Puedes mejorar tu oferta. Revisa el chat para ver el aviso completo."}
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setAvisoRonda(null)}
               className="text-xs text-zinc-500 hover:text-zinc-700"
             >
               Cerrar

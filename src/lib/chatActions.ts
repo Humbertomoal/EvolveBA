@@ -6,13 +6,41 @@ import { getIdentidadActual } from "./proveedorSessionSegura";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
 
+/**
+ * "sistema" son los avisos automáticos de cambio de ronda (avisosRonda.ts).
+ * No los escribe ninguna persona y nadie responde como sistema.
+ */
+export type EmisorChat = "comprador" | "proveedor" | "sistema";
+
 export type MensajeDTO = {
   id: string;
-  emisor: "comprador" | "proveedor";
+  emisor: EmisorChat;
   mensaje: string;
   leido: boolean;
   createdAt: string;
 };
+
+/**
+ * Filtro de `emisor` para "mensajes dirigidos a MÍ que puedo no haber leído".
+ * Es ASIMÉTRICO a propósito:
+ *
+ *   · Proveedor  → { not: "proveedor" }  ⇒ comprador Y sistema.
+ *     Los avisos automáticos de ronda deben encender su badge; son para él.
+ *
+ *   · Comprador  → "proveedor"           ⇒ EXACTAMENTE lo de antes.
+ *     No se le cuentan los del sistema: los dispara su propia operación
+ *     (avanzar o cerrar rondas) y le llegarían como notificaciones de sí mismo,
+ *     multiplicadas por cada proveedor invitado.
+ *
+ * Antes esto era `propio === "comprador" ? "proveedor" : "comprador"`. Con solo
+ * dos emisores daba igual; en cuanto entra "sistema" el opuesto literal deja de
+ * significar "lo ajeno", y el proveedor se habría quedado sin badge.
+ */
+function emisorAjeno(
+  propio: "comprador" | "proveedor"
+): { not: string } | string {
+  return propio === "proveedor" ? { not: "proveedor" } : "proveedor";
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El chat es COMPARTIDO: el mismo ChatWidget lo montan el comprador y el
@@ -72,7 +100,7 @@ export async function getMensajes(
     });
     return rows.map((m) => ({
       id: m.id,
-      emisor: m.emisor as "comprador" | "proveedor",
+      emisor: m.emisor as EmisorChat,
       mensaje: m.mensaje,
       leido: m.leido,
       createdAt: (m.createdAt as Date).toISOString(),
@@ -128,7 +156,7 @@ export async function marcarLeidos(
       where: {
         licitacionId,
         proveedorId: actor.proveedorId,
-        emisor: actor.emisor === "comprador" ? "proveedor" : "comprador",
+        emisor: emisorAjeno(actor.emisor),
         leido: false,
       },
       data: { leido: true },
@@ -150,7 +178,7 @@ export async function getMensajesNoLeidos(
       where: {
         licitacionId,
         proveedorId: actor.proveedorId,
-        emisor: actor.emisor === "comprador" ? "proveedor" : "comprador",
+        emisor: emisorAjeno(actor.emisor),
         leido: false,
       },
     })) as number;
@@ -171,8 +199,14 @@ export async function getTotalNoLeidosProveedor(
   const actor = await resolverActorChat(proveedorId, "proveedor");
   if (!actor) return 0;
   try {
+    // Siempre desde la óptica del proveedor (es su badge global del portal), así
+    // que cuenta comprador + sistema.
     return (await db.chatMensaje.count({
-      where: { proveedorId: actor.proveedorId, emisor: "comprador", leido: false },
+      where: {
+        proveedorId: actor.proveedorId,
+        emisor: emisorAjeno("proveedor"),
+        leido: false,
+      },
     })) as number;
   } catch {
     return 0;

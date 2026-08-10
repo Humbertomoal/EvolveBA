@@ -135,9 +135,41 @@ export default function ChatWidget({
           </p>
         )}
         {mensajes.map((m, i) => {
+          const esSistema = m.emisor === "sistema";
           const esPropio = m.emisor === emisor;
           const prev = mensajes[i - 1];
           const showDate = !prev || !mismodia(prev.createdAt, m.createdAt);
+
+          const separadorFecha = showDate && (
+            <div className="flex justify-center py-2">
+              <span className="rounded-full bg-zinc-100 px-3 py-0.5 text-xs capitalize text-zinc-500">
+                {formatDia(m.createdAt)}
+              </span>
+            </div>
+          );
+
+          // Aviso automático: no es de ninguna de las dos partes, así que va
+          // centrado y con estilo propio en vez de la burbuja de un lado u otro.
+          if (esSistema) {
+            return (
+              <div key={m.id}>
+                {separadorFecha}
+                <div className="flex justify-center py-1">
+                  <div className="max-w-[85%] rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                      Aviso de la licitación
+                    </p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-amber-900">
+                      {m.mensaje}
+                    </p>
+                    <p className="mt-1 text-right text-[10px] text-amber-600">
+                      {formatHora(m.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div key={m.id}>

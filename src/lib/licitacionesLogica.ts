@@ -1,5 +1,6 @@
 import { prisma } from "@/src/lib/prisma";
 import { registrarCambioEstado, ESTADO_ESPERANDO_DECISION } from "@/src/lib/estadoLog";
+import { publicarAvisoRonda } from "@/src/lib/avisosRonda";
 
 /**
  * Avanza el estado de una licitación según el reloj. NO hay cron: esto corre de
@@ -49,6 +50,8 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
     // Transición automática (por tiempo): sin usuario. Solo registra quien escribió.
     if (arranque.count === 1) {
       await registrarCambioEstado(licitacionId, "Programada", "En Proceso", null);
+      // Arranque de la ronda 1: es el primer aviso que recibe el proveedor.
+      await publicarAvisoRonda(licitacionId, { tipo: "nueva_ronda", ronda: 1 });
     }
     return;
   }
@@ -68,8 +71,9 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
   // esta ejecución no hace nada.
   if (lic.rondaActual < lic.maxRondas) {
     // Ronda intermedia: avanza automáticamente. Sin bitácora (los avances
-    // intermedios no se registran), pero el CAS evita el doble salto de ronda.
-    await prisma.licitacion.updateMany({
+    // intermedios no se registran), pero el CAS evita el doble salto de ronda
+    // y —ahora que se lee el count— también el aviso duplicado en el chat.
+    const avance = await prisma.licitacion.updateMany({
       where: {
         id: licitacionId,
         estado: "En Proceso",
@@ -78,6 +82,12 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
       },
       data: { rondaActual: lic.rondaActual + 1, inicioRondaActual: now },
     });
+    if (avance.count === 1) {
+      await publicarAvisoRonda(licitacionId, {
+        tipo: "nueva_ronda",
+        ronda: lic.rondaActual + 1,
+      });
+    }
   } else {
     // Última ronda terminó: esperar decisión del comprador
     const cierre = await prisma.licitacion.updateMany({
@@ -97,6 +107,10 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
         ESTADO_ESPERANDO_DECISION,
         null
       );
+      await publicarAvisoRonda(licitacionId, {
+        tipo: "cierre",
+        ultimaRonda: lic.rondaActual,
+      });
     }
   }
 }

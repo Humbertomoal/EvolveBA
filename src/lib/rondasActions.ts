@@ -8,6 +8,7 @@ import {
   ESTADO_ESPERANDO_DECISION,
 } from "@/src/lib/estadoLog";
 import { exigirCompradorSesion } from "@/src/lib/compradorSessionSegura";
+import { publicarAvisoRonda } from "@/src/lib/avisosRonda";
 import type { ResultadoCierreRondas } from "@/src/lib/rondasTypes";
 
 // NOTA: los tipos de resultado viven en rondasTypes.ts. Este archivo es
@@ -113,6 +114,9 @@ export async function cerrarTodasLasRondasAction(
 
   // Solo se registra si ESTA llamada fue la que escribió.
   await registrarCambioEstado(id, "En Proceso", ESTADO_ESPERANDO_DECISION, usuarioId);
+  // El aviso lleva la ronda en la que se estaba, no maxRondas: para el proveedor
+  // la ronda que "concluyó" es la que él vio abierta, no las que se omitieron.
+  await publicarAvisoRonda(id, { tipo: "cierre", ultimaRonda: lic.rondaActual });
 
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso/${id}`);
@@ -136,26 +140,48 @@ export async function forzarAvanceRondaAction(
   if (!lic) return;
 
   const now = new Date();
+  // Compare-and-set: el estado leído va en el WHERE. Antes era un `update`
+  // directo, así que dos clics —o un clic contra el avance perezoso que dispara
+  // cualquier carga de página— podían aplicar el salto dos veces. Ahora solo
+  // gana uno, y el aviso al proveedor cuelga de esa escritura ganadora.
+  const guardaComun = {
+    id,
+    estado: "En Proceso",
+    esperandoDecision: false,
+    rondaActual: lic.rondaActual,
+    maxRondas: lic.maxRondas,
+  };
+
   if (lic.rondaActual < lic.maxRondas) {
     // Solo avanza de ronda: el estado sigue "En Proceso" (no se registra).
-    await prisma.licitacion.update({
-      where: { id },
+    const avance = await prisma.licitacion.updateMany({
+      where: guardaComun,
       data: { rondaActual: lic.rondaActual + 1, inicioRondaActual: now },
     });
+    if (avance.count === 1) {
+      await publicarAvisoRonda(id, {
+        tipo: "nueva_ronda",
+        ronda: lic.rondaActual + 1,
+      });
+    }
   } else {
-    await prisma.licitacion.update({
-      where: { id },
+    const cierre = await prisma.licitacion.updateMany({
+      where: guardaComun,
       data: { esperandoDecision: true, fechaFinReal: now, fechaEsperandoDecision: now },
     });
-    await registrarCambioEstado(
-      id,
-      "En Proceso",
-      ESTADO_ESPERANDO_DECISION,
-      await getUsuarioIdActual()
-    );
+    if (cierre.count === 1) {
+      await registrarCambioEstado(
+        id,
+        "En Proceso",
+        ESTADO_ESPERANDO_DECISION,
+        await getUsuarioIdActual()
+      );
+      await publicarAvisoRonda(id, { tipo: "cierre", ultimaRonda: lic.rondaActual });
+    }
   }
 
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
+  revalidatePath(`${basePath}/comprador/licitaciones-proceso/${id}`);
 }
 
 // Agrega una ronda extra: incrementa rondaActual y maxRondas en 1,
@@ -175,8 +201,18 @@ export async function agregarRondaExtraAction(
   });
   if (!lic) return;
 
-  await prisma.licitacion.update({
-    where: { id },
+  // Compare-and-set. OJO: `esperandoDecision` va en el WHERE con el valor
+  // LEÍDO, no con `false` — esta acción corre tanto sobre una licitación en
+  // curso como sobre una que ya está en "Esperando Decisión" (ahí es donde
+  // reabre las rondas). Fijarlo a false rompería justo el caso principal.
+  const extra = await prisma.licitacion.updateMany({
+    where: {
+      id,
+      estado: "En Proceso",
+      rondaActual: lic.rondaActual,
+      maxRondas: lic.maxRondas,
+      esperandoDecision: lic.esperandoDecision,
+    },
     data: {
       rondaActual: lic.rondaActual + 1,
       maxRondas: lic.maxRondas + 1,
@@ -185,17 +221,24 @@ export async function agregarRondaExtraAction(
     },
   });
 
-  // Reabre las rondas: si venía de "Esperando Decisión", vuelve a "En Proceso".
-  if (lic.esperandoDecision) {
-    await registrarCambioEstado(
-      id,
-      ESTADO_ESPERANDO_DECISION,
-      "En Proceso",
-      await getUsuarioIdActual()
-    );
+  if (extra.count === 1) {
+    // Reabre las rondas: si venía de "Esperando Decisión", vuelve a "En Proceso".
+    if (lic.esperandoDecision) {
+      await registrarCambioEstado(
+        id,
+        ESTADO_ESPERANDO_DECISION,
+        "En Proceso",
+        await getUsuarioIdActual()
+      );
+    }
+    await publicarAvisoRonda(id, {
+      tipo: "nueva_ronda",
+      ronda: lic.rondaActual + 1,
+    });
   }
 
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
+  revalidatePath(`${basePath}/comprador/licitaciones-proceso/${id}`);
 }
 
 export async function cerrarLicitacionAction(
