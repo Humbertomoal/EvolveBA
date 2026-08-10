@@ -11,10 +11,12 @@ import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import { enviarOfertaAction } from "@/src/lib/ofertasActions";
 import { formatImporte } from "@/src/lib/monedas";
 import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
+import { textoAvisoRonda } from "@/src/lib/plantillasChat";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
 
@@ -241,7 +243,7 @@ export default function LicitacionCotizacion({
     tiempoExtraDisparadoRef.current = false;
   }, [rondaActual]);
 
-  // ── Toast de cambio de ronda ──────────────────────────────────────────────
+  // ── Aviso de cambio de ronda (modal) ──────────────────────────────────────
   // Efecto SEPARADO del de arriba a propósito: aquel suelta estado del
   // formulario, este solo presenta. Mezclarlos hace frágiles ambos.
   //
@@ -252,22 +254,49 @@ export default function LicitacionCotizacion({
   // Observa las DOS señales porque `rondaActual` sola no basta: en el cierre
   // (natural o por el botón "cerrar todas") la ronda puede no moverse y lo que
   // cambia es `esperandoDecision`.
+  //
+  // El texto sale de `textoAvisoRonda` — LA MISMA función que usa el servidor
+  // en avisosRonda.ts—, así que el modal y el mensaje del chat dicen lo mismo
+  // palabra por palabra. plantillasChat es puro (0 imports), así que se puede
+  // importar aquí sin arrastrar Prisma al bundle del cliente.
   const [avisoRonda, setAvisoRonda] = useState<
-    { tipo: "nueva_ronda"; ronda: number } | { tipo: "cierre" } | null
+    { titulo: string; texto: string } | null
   >(null);
   const rondaVistaRef = useRef(rondaActual);
   const esperandoVistoRef = useRef(esperandoDecision);
 
+  // createPortal necesita `document`, que no existe durante el render del
+  // servidor. Se difiere al primer efecto (solo corre en el navegador).
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+
   useEffect(() => {
+    const rondaPreviaVista = rondaVistaRef.current;
     const cerroAhora = esperandoDecision && !esperandoVistoRef.current;
-    const avanzoAhora = rondaActual > rondaVistaRef.current;
+    const avanzoAhora = rondaActual > rondaPreviaVista;
     rondaVistaRef.current = rondaActual;
     esperandoVistoRef.current = esperandoDecision;
 
     // El cierre manda: si en el mismo refresco avanzó la ronda Y se cerró,
     // lo relevante para el proveedor es que ya no puede cotizar.
-    if (cerroAhora) setAvisoRonda({ tipo: "cierre" });
-    else if (avanzoAhora) setAvisoRonda({ tipo: "nueva_ronda", ronda: rondaActual });
+    if (cerroAhora) {
+      // OJO: se usa la ronda PREVIA vista, no `rondaActual`. El botón "cerrar
+      // todas las rondas" salta rondaActual hasta maxRondas, pero el servidor
+      // publica en el chat `ultimaRonda: <la ronda en que estaba>`
+      // (rondasActions.ts:119). Tomar el valor fresco haría que el chat dijera
+      // "la tercera ronda ha concluido" y el modal "la séptima".
+      setAvisoRonda({
+        titulo: "Licitación finalizada",
+        texto: textoAvisoRonda({ tipo: "cierre", ultimaRonda: rondaPreviaVista }),
+      });
+    } else if (avanzoAhora) {
+      setAvisoRonda({
+        titulo: rondaActual <= 1 ? "La licitación ha comenzado" : "Nueva ronda",
+        texto: textoAvisoRonda({ tipo: "nueva_ronda", ronda: rondaActual }),
+      });
+    }
+    // Un solo espacio de estado: si llegaran dos cambios seguidos, el segundo
+    // reemplaza al primero en vez de apilar modales.
   }, [rondaActual, esperandoDecision]);
 
   // Detect when the round clock hits 0 while the user is watching
@@ -1135,49 +1164,46 @@ export default function LicitacionCotizacion({
         </div>
       )}
 
-      {/* ── Toast de cambio de ronda ──────────────────────────────────────── */}
-      {/* Se apila sobre el de auto-envío (bottom-28) para que no se tapen si
-          los dos aparecen: el auto-envío ocurre justo al cerrar la ronda. */}
-      {avisoRonda && (
-        <div
-          className={`fixed right-6 z-50 w-80 space-y-2 rounded-xl border p-4 shadow-xl ${
-            notifAutoEnvio ? "bottom-28" : "bottom-6"
-          } ${
-            avisoRonda.tipo === "cierre"
-              ? "border-violet-200 bg-violet-50"
-              : "border-emerald-200 bg-emerald-50"
-          }`}
-          role="status"
-        >
-          <p
-            className={`text-sm font-semibold ${
-              avisoRonda.tipo === "cierre" ? "text-violet-900" : "text-emerald-900"
-            }`}
+      {/* ── Aviso de cambio de ronda (modal) ──────────────────────────────── */}
+      {/* Va por portal a document.body: el modal nace muy adentro del árbol de
+          la cotización, y cualquier ancestro con overflow o transform recortaría
+          un `fixed`. El portal lo saca de ese contexto de apilamiento.
+          `montado` evita tocar `document` durante el render del servidor. */}
+      {montado &&
+        avisoRonda &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-aviso-ronda"
           >
-            {avisoRonda.tipo === "cierre"
-              ? "La licitación cerró"
-              : `Comenzó la ronda ${avisoRonda.ronda}`}
-          </p>
-          <p
-            className={`text-xs ${
-              avisoRonda.tipo === "cierre" ? "text-violet-700" : "text-emerald-700"
-            }`}
-          >
-            {avisoRonda.tipo === "cierre"
-              ? "Ya no se reciben ofertas. Revisa el chat para ver el aviso completo."
-              : "Puedes mejorar tu oferta. Revisa el chat para ver el aviso completo."}
-          </p>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setAvisoRonda(null)}
-              className="text-xs text-zinc-500 hover:text-zinc-700"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
+            <div className="w-full max-w-lg rounded-2xl bg-white p-7 shadow-2xl">
+              <h2
+                id="titulo-aviso-ronda"
+                className="text-xl font-semibold text-zinc-900"
+              >
+                {avisoRonda.titulo}
+              </h2>
+              <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-zinc-700">
+                {avisoRonda.texto}
+              </p>
+              <div className="mt-7 flex justify-end">
+                {/* Sin cierre automático ni clic-fuera: el texto es largo y este
+                    modal es la red de seguridad para quien no vio el chat. */}
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => setAvisoRonda(null)}
+                  className="rounded-lg bg-[var(--color-primario)] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-secundario)]"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
