@@ -122,7 +122,7 @@ export function licitacionProveedorSelect(proveedorId: ProveedorAutenticado) {
         // Solo SUS ofertas.
         ofertas: {
           where: { proveedorId },
-          select: { precioUnitario: true, ronda: true },
+          select: { precioUnitario: true, ronda: true, proveedorId: true, noDisponible: true },
         },
       },
     },

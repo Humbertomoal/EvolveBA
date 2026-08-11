@@ -1,15 +1,18 @@
 "use client";
 
 import {
+  IconCheck,
+  IconDeviceFloppy,
   IconDownload,
   IconHistory,
+  IconLoader2,
   IconPencil,
   IconRefresh,
   IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   confirmarAsignacionesAction,
   finalizarSinEsperarAction,
@@ -412,6 +415,92 @@ export default function AsignacionForm({
   const [cargandoPujas, setCargandoPujas] = useState(false);
   const [guardandoSeleccion, setGuardandoSeleccion] = useState(false);
 
+  // ── Guardado explícito de la vista previa ─────────────────────────────────
+  // El guardado automático (clic en el histórico, onBlur del precio) NO se
+  // toca: sigue siendo la red que impide perder trabajo. Este botón es
+  // confirmación VISIBLE — el comprador no tenía forma de saber que lo suyo ya
+  // estaba a salvo — y de paso captura lo único que puede quedar pendiente: un
+  // precio tecleado del que aún no se ha salido del campo.
+  const [estadoGuardado, setEstadoGuardado] = useState<
+    "idle" | "guardando" | "guardado"
+  >("idle");
+  const temporizadorGuardado = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (temporizadorGuardado.current) clearTimeout(temporizadorGuardado.current);
+    };
+  }, []);
+
+  /** Vuelve el botón a "Guardar" en cuanto el comprador toca algo. */
+  function marcarCambioPendiente() {
+    if (temporizadorGuardado.current) clearTimeout(temporizadorGuardado.current);
+    setEstadoGuardado((e) => (e === "guardado" ? "idle" : e));
+  }
+
+  async function handleGuardarVistaPrevia() {
+    if (temporizadorGuardado.current) clearTimeout(temporizadorGuardado.current);
+    setEstadoGuardado("guardando");
+
+    // Solo se persisten los precios que DIFIEREN del de la oferta vigente.
+    // Escribir todos convertiría cada partida en "precio negociado" fijo y el
+    // mínimo automático dejaría de aplicar donde nadie negoció nada.
+    //
+    // Las selecciones de registro no se reenvían: se guardan en el clic y el
+    // modal se cierra con router.refresh(), así que nunca quedan pendientes.
+    const pendientes: Promise<unknown>[] = [];
+    for (const item of items) {
+      const fila = asignacion[item.licitacionItemId];
+      if (!fila) continue;
+
+      const o1 = getOferta(item, fila.primary.proveedorId);
+      if (o1 && fila.primary.precioUnitario !== precioDefault(o1)) {
+        pendientes.push(
+          guardarPrecioNegociado(
+            item.licitacionItemId,
+            fila.primary.proveedorId,
+            fila.primary.precioUnitario > 0 ? fila.primary.precioUnitario : null,
+            basePath,
+            licitacion.id
+          )
+        );
+      }
+
+      const o2 = fila.secondary
+        ? getOferta(item, fila.secondary.proveedorId)
+        : undefined;
+      if (o2 && fila.secondary && fila.secondary.precioUnitario !== precioDefault(o2)) {
+        pendientes.push(
+          guardarPrecioNegociado(
+            item.licitacionItemId,
+            fila.secondary.proveedorId,
+            fila.secondary.precioUnitario > 0 ? fila.secondary.precioUnitario : null,
+            basePath,
+            licitacion.id
+          )
+        );
+      }
+    }
+
+    const resultados = await Promise.all(pendientes);
+    const fallo = resultados.find(
+      (r): r is { ok: false; mensaje: string } =>
+        typeof r === "object" && r !== null && (r as { ok: boolean }).ok === false
+    );
+
+    if (fallo) {
+      setEstadoGuardado("idle");
+      window.alert(fallo.mensaje);
+      return;
+    }
+
+    setEstadoGuardado("guardado");
+    // Se relee para que la vista quede alineada con lo persistido: el servidor
+    // reordena el dropdown según los precios guardados.
+    router.refresh();
+    temporizadorGuardado.current = setTimeout(() => setEstadoGuardado("idle"), 4000);
+  }
+
   async function abrirHistorico(
     item: ItemParaAsignacion,
     oferta: OfertaParaDropdown
@@ -582,6 +671,7 @@ export default function AsignacionForm({
   }
 
   function updatePrimaryPrecio(itemId: string, value: number) {
+    marcarCambioPendiente();
     setAsignacion((prev) => ({
       ...prev,
       [itemId]: { ...prev[itemId], primary: { ...prev[itemId].primary, precioUnitario: value } },
@@ -616,6 +706,7 @@ export default function AsignacionForm({
   }
 
   function updateSecondaryPrecio(itemId: string, value: number) {
+    marcarCambioPendiente();
     setAsignacion((prev) => {
       const fila = prev[itemId];
       if (!fila.secondary) return prev;
@@ -1442,10 +1533,41 @@ export default function AsignacionForm({
         >
           {guardando === "finalizar" ? "Guardando…" : "Finalizar sin esperar confirmación"}
         </button>
+        {/* Guardado explícito: el automático ya persistió todo, así que esto es
+            sobre todo confirmación visible. Va antes del PDF para que quede a
+            la vista al terminar de editar la tabla. */}
+        <button
+          type="button"
+          onClick={handleGuardarVistaPrevia}
+          disabled={estadoGuardado === "guardando" || !!guardando}
+          className={`ml-auto flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60 ${
+            estadoGuardado === "guardado"
+              ? "border border-emerald-300 bg-emerald-50 text-emerald-700"
+              : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+          }`}
+          title="Confirma que la selección de registros y los precios negociados quedaron guardados"
+        >
+          {estadoGuardado === "guardando" ? (
+            <>
+              <IconLoader2 className="h-4 w-4 animate-spin" />
+              Guardando…
+            </>
+          ) : estadoGuardado === "guardado" ? (
+            <>
+              <IconCheck className="h-4 w-4" />
+              Guardado
+            </>
+          ) : (
+            <>
+              <IconDeviceFloppy className="h-4 w-4" />
+              Guardar vista previa
+            </>
+          )}
+        </button>
         <button
           type="button"
           onClick={() => generarPDF(licitacion, items, asignacion)}
-          className="ml-auto flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+          className="flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
         >
           <IconDownload className="h-4 w-4" />
           Descargar PDF

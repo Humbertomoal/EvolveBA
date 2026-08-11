@@ -61,7 +61,15 @@ export async function prepararResultadoInternoAction(
 
     const ofertas = await prisma.ofertaItem.findMany({
       where: { licitacionItem: { licitacionId } },
-      select: { licitacionItemId: true, ronda: true, precioUnitario: true },
+      // proveedorId y noDisponible los exige el modelo de línea base promedio,
+      // que agrupa por proveedor y descarta lo no cotizado.
+      select: {
+        licitacionItemId: true,
+        proveedorId: true,
+        ronda: true,
+        precioUnitario: true,
+        noDisponible: true,
+      },
     });
 
     const analisis = calcularAnalisisPorItem(

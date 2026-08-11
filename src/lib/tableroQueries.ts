@@ -130,7 +130,7 @@ export const LICITACION_TABLERO_INCLUDE = {
           eliminado: true,
         },
       },
-      ofertas: { select: { precioUnitario: true, ronda: true } },
+      ofertas: { select: { precioUnitario: true, ronda: true, proveedorId: true, noDisponible: true } },
     },
   },
 } satisfies Prisma.LicitacionInclude;

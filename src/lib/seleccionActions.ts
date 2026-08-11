@@ -96,7 +96,7 @@ export async function buscarSeleccionAction(
             cantidadSolicitada: true,
             precioObjetivo: true,
             moneda: true,
-            ofertas: { select: { ronda: true, precioUnitario: true } },
+            ofertas: { select: { ronda: true, precioUnitario: true, proveedorId: true, noDisponible: true } },
           },
         })
       : [];
@@ -114,6 +114,7 @@ export async function buscarSeleccionAction(
     const ofertasLic = itemsLic.flatMap((i) =>
       i.ofertas.map((o) => ({
         licitacionItemId: i.id,
+        proveedorId: o.proveedorId,
         ronda: o.ronda,
         precioUnitario: o.precioUnitario,
       }))

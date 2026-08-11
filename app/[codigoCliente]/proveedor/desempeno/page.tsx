@@ -132,6 +132,7 @@ export default async function MiDesempenoPage({
     const misOfertas: OfertaParaAhorro[] = items.flatMap((it) =>
       it.ofertas.map((o) => ({
         licitacionItemId: it.id,
+        proveedorId: o.proveedorId,
         ronda: o.ronda,
         precioUnitario: o.precioUnitario,
       }))

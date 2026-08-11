@@ -4,6 +4,10 @@
 
 import { convertirAMoneda, MONEDA_BASE, type TiposCambio } from "./conversionMoneda";
 import { soloOfertasValidas } from "./ofertaValida";
+import {
+  calcularLineaBasePartida,
+  type LineaBasePartida,
+} from "./ahorroPromedio";
 
 export type LicitacionItemParaAhorro = {
   id: string;
@@ -14,6 +18,13 @@ export type LicitacionItemParaAhorro = {
 
 export type OfertaParaAhorro = {
   licitacionItemId: string;
+  /**
+   * REQUERIDO por el modelo de línea base promedio (ahorroPromedio.ts), que
+   * agrupa por proveedor. Se dejó obligatorio a propósito: si fuera opcional,
+   * un call site que olvidara pedirlo en el select caería en silencio al
+   * modelo viejo y nadie lo notaría.
+   */
+  proveedorId: string;
   ronda: number;
   precioUnitario: number;
   /** Ver ofertaValida.ts. Opcional: ausente equivale a false. */
@@ -32,6 +43,14 @@ export type AnalisisItemAhorro = {
   mejorActualTotal: number | null;
   variacionPct: number | null;
   ahorroTotal: number | null;
+  // ── Modelo NUEVO (promedio de dos bolsas) — convive con el viejo ─────────
+  // El viejo (primeraRondaUnitario / ahorroTotal) NO se borra: sigue
+  // disponible como referencia mientras se validan los números nuevos.
+  /** Línea base = promedio 50/50 de la 1ª y 2ª postura del mercado. */
+  lineaBasePromedioUnitario: number | null;
+  lineaBasePromedioTotal: number | null;
+  /** Desglose auditable: bolsas, mediana, límites y quién quedó excluido. */
+  detalleLineaBase: LineaBasePartida;
 };
 
 export type ResumenAhorroCalculado = {
@@ -43,6 +62,12 @@ export type ResumenAhorroCalculado = {
   ahorroPct: number | null;
   variacionPct: number | null;
   hayOfertas: boolean;
+  // ── Modelo NUEVO ────────────────────────────────────────────────────────
+  /** Suma de las líneas base promedio de cada partida. */
+  lineaBasePromedioTotal: number;
+  /** lineaBasePromedioTotal − mejorPrecioActualTotal. */
+  ahorroPromedioTotal: number;
+  ahorroPromedioPct: number | null;
 };
 
 /**
@@ -112,10 +137,25 @@ export function calcularAnalisisPorItem(
         ? primeraRondaTotal - mejorActualTotal
         : null;
 
+    // Modelo nuevo. Se alimenta de TODOS los registros de la partida (incluidos
+    // los que el filtro de arriba dejaría fuera por outlier): la exclusión de
+    // outliers la decide el propio helper contra la mediana, no este filtro.
+    const detalleLineaBase = calcularLineaBasePartida(
+      ofertas.filter((o) => o.licitacionItemId === item.id)
+    );
+    const lineaBasePromedioUnitario = detalleLineaBase.lineaBase;
+    const lineaBasePromedioTotal =
+      lineaBasePromedioUnitario !== null
+        ? lineaBasePromedioUnitario * item.cantidadSolicitada
+        : null;
+
     return {
       licitacionItemId: item.id,
       moneda: item.moneda,
       cantidadSolicitada: item.cantidadSolicitada,
+      lineaBasePromedioUnitario,
+      lineaBasePromedioTotal,
+      detalleLineaBase,
       objetivoUnitario,
       objetivoTotal,
       primeraRondaUnitario,
@@ -174,7 +214,24 @@ export function calcularResumenAhorro(
       ? ((mejorPrecioActualTotal - primeraRondaTotal) / primeraRondaSafe) * 100
       : null;
 
+  // Modelo nuevo: la referencia es el promedio del mercado, no el mínimo de la
+  // primera ronda. El valor final sigue siendo el mismo (mejorPrecioActual),
+  // que el llamador ya sustituye por el precio asignado cuando la licitación
+  // está finalizada.
+  const lineaBasePromedioTotal = analisis.reduce(
+    (s, a) => s + aConsolidacion(a.lineaBasePromedioTotal ?? 0, a.moneda),
+    0
+  );
+  const ahorroPromedioTotal = lineaBasePromedioTotal - mejorPrecioActualTotal;
+  const ahorroPromedioPct =
+    lineaBasePromedioTotal > 0
+      ? (ahorroPromedioTotal / lineaBasePromedioTotal) * 100
+      : null;
+
   return {
+    lineaBasePromedioTotal,
+    ahorroPromedioTotal,
+    ahorroPromedioPct,
     presupuestoObjetivoTotal,
     primeraRondaTotal,
     mejorPrecioActualTotal,
