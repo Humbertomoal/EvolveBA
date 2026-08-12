@@ -28,8 +28,11 @@ export default function Loading() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <SkeletonCard className="h-96 lg:col-span-2" />
-        <SkeletonCard className="h-96" />
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          <SkeletonCard className="h-[375px]" />
+          <SkeletonCard className="h-[500px]" />
+        </div>
+        <SkeletonCard className="h-[891px]" />
       </div>
     </div>
   );

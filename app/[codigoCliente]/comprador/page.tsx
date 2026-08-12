@@ -9,13 +9,14 @@ import {
   avanzarEstadosPendientes,
   getDashboardData,
 } from "@/src/lib/dashboardQueries";
-import { MESES_VENTANA_AHORRO } from "@/src/lib/dashboardTypes";
+import { MESES_VENTANA_AHORRO, formatMonto } from "@/src/lib/dashboardTypes";
 import { Card } from "@/src/components/Card";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import AccesosRapidos from "./_components/AccesosRapidos";
 import AhorroMensualChart from "./_components/AhorroMensualChart";
 import MetricasGrid from "./_components/MetricasGrid";
 import NecesitaAtencion from "./_components/NecesitaAtencion";
+import TopProveedoresChart from "./_components/TopProveedoresChart";
 
 const FORMATO_FECHA = new Intl.DateTimeFormat("es-MX", {
   timeZone: "America/Mexico_City",
@@ -118,14 +119,19 @@ export default async function CompradorDashboardPage({
       </section>
 
       {/* ── Gráfica + atención ─────────────────────────────────────────────── */}
-      {/* items-start: sin esto el grid estira ambas tarjetas a la altura de la
-          más alta, y la de la gráfica —que mide lo que mide su chart— quedaba
-          con un bloque de blanco muerto debajo del eje. */}
+      {/* Auto-balanceo de columnas. La izquierda es un flex vertical con dos
+          tarjetas: la de ahorro mide lo que mide su gráfica (altura fija) y la
+          de proveedores lleva flex-1, así que ABSORBE la diferencia contra el
+          panel de atención, que crece y encoge con los pendientes que haya.
+          Una altura fija aquí cuadraría con los datos de hoy y descuadraría
+          mañana. El min-h de la tarjeta de abajo cubre el caso contrario: que
+          el panel derecho quede tan corto que las barras no respiren. */}
       <section
-        className="grid grid-cols-1 items-start gap-4 animate-fade-in-up lg:grid-cols-3"
+        className="grid grid-cols-1 gap-4 animate-fade-in-up lg:grid-cols-3"
         style={{ animationDelay: "120ms" }}
       >
-        <Card className="p-5 lg:col-span-2">
+        <div className="flex flex-col gap-4 lg:col-span-2">
+        <Card className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-zinc-900">Ahorro por mes</h2>
@@ -164,6 +170,37 @@ export default async function CompradorDashboardPage({
             </p>
           )}
         </Card>
+
+        {/* min-h: en móvil no hay columna que estirar (flex-1 no aplica), así
+            que este es el alto real del gráfico. 400px deja ~34px por barra
+            con las 8 del ranking. */}
+        <Card className="flex min-h-[400px] flex-1 flex-col p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900">Top proveedores</h2>
+              <p className="mt-0.5 text-xs text-zinc-400">
+                Últimos {MESES_VENTANA_AHORRO} meses · MXN adjudicado
+              </p>
+            </div>
+            {data.totalAdjudicadoMXN > 0 && (
+              <p className="shrink-0 text-right text-xs text-zinc-400">
+                <span className="font-semibold text-zinc-600">
+                  {formatMonto(data.totalAdjudicadoMXN)}
+                </span>
+                <br />
+                total adjudicado
+              </p>
+            )}
+          </div>
+
+          {/* min-h-0 es obligatorio: sin él este hijo flex no puede encogerse
+              por debajo de su contenido y el ResponsiveContainer al 100 % no
+              obtiene una altura definida contra la cual medirse. */}
+          <div className="mt-3 min-h-0 flex-1">
+            <TopProveedoresChart data={data.topProveedores} />
+          </div>
+        </Card>
+        </div>
 
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-zinc-900">

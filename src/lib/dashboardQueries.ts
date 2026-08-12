@@ -37,9 +37,17 @@ import {
   type LicitacionItemParaAhorro,
   type OfertaParaAhorro,
 } from "./licitacionesAhorro";
-import { MONEDA_BASE, faltanTiposCambio, parseTiposCambio } from "./conversionMoneda";
+import {
+  MONEDA_BASE,
+  convertirAMoneda,
+  faltanTiposCambio,
+  parseTiposCambio,
+} from "./conversionMoneda";
+import { asignacionCuenta } from "./tableroHistorico";
+import { esOfertaValida } from "./ofertaValida";
 import {
   LIMITE_ITEMS_ATENCION,
+  LIMITE_TOP_PROVEEDORES,
   MESES_VENTANA_AHORRO,
   formatAntiguedad,
   type BloqueAtencion,
@@ -47,6 +55,7 @@ import {
   type DashboardData,
   type ItemAtencion,
   type PuntoAhorroMes,
+  type PuntoTopProveedor,
 } from "./dashboardTypes";
 
 const MS_DIA = 86_400_000;
@@ -249,6 +258,14 @@ export async function getDashboardData(
     // se mueven. `noDisponible` es OBLIGATORIO en el select — sin él,
     // esOfertaValida deja pasar los "no dispongo" (guardados con precio 0) y el
     // ahorro se infla, que es el bug de la licitación 0009 (83.8 % vs 4.2 %).
+    //
+    // Alimenta TRES cosas de una sola pasada: el KPI de ahorro acumulado, la
+    // gráfica mensual y el ranking de proveedores. `asignaciones` se sumó aquí
+    // en vez de en una query aparte porque son ~113 filas contra las ~1,180 de
+    // oferta que esta consulta ya trae: ~10 % más de payload y CERO viajes
+    // nuevos. Un groupBy no serviría de alternativa — Prisma no puede sumar la
+    // expresión `precioUnitario * cantidadAsignada` ni aplicar el tipo de
+    // cambio, que es por licitación.
     prisma.licitacion.findMany({
       where: {
         ...base,
@@ -279,6 +296,20 @@ export async function getDashboardData(
                 noDisponible: true,
               },
             },
+          },
+        },
+        // Ranking de proveedores. `moneda` aquí SÍ es confiable (se hereda del
+        // LicitacionItem al asignar), a diferencia de OfertaItem.moneda, que no
+        // se escribe nunca. `proveedor` va anidado —un join, no un N+1— porque
+        // sin la razón social el ranking serían ids.
+        asignaciones: {
+          select: {
+            proveedorId: true,
+            cantidadAsignada: true,
+            precioUnitario: true,
+            moneda: true,
+            estatusProveedor: true,
+            proveedor: { select: { razonSocial: true } },
           },
         },
       },
@@ -358,13 +389,22 @@ export async function getDashboardData(
     }),
   ]);
 
-  // ── Ahorro: una pasada para el KPI y para la gráfica ──────────────────────
+  // ── Una pasada para el KPI de ahorro, la gráfica y el ranking ─────────────
   const clavesVentana = new Set(claves);
   const ahorroPorMes = new Map<string, number>();
   const avisoTiposCambio: string[] = [];
   let ahorroTotal = 0;
   let lineaBaseTotal = 0;
   let licitacionesConAhorro = 0;
+
+  // Acumuladores del ranking de proveedores, todos en MXN.
+  const porProveedor = new Map<
+    string,
+    { nombre: string; montoMXN: number; ganadas: number }
+  >();
+  // proveedorId → licitaciones en las que ofertó. Sale gratis de las ofertas
+  // que la consulta ya trae para el ahorro.
+  const participaciones = new Map<string, number>();
 
   for (const lic of licitacionesAhorro) {
     if (lic.items.length === 0) continue;
@@ -378,6 +418,55 @@ export async function getDashboardData(
     // que garantiza que el KPI acumulado sea EXACTAMENTE la suma de las barras.
     if (!clavesVentana.has(mes)) continue;
 
+    const tiposCambio = parseTiposCambio(lic.tiposCambio);
+
+    // ── Ranking de proveedores ──────────────────────────────────────────────
+    // Va ANTES de los guards del ahorro (`sin ofertas`, `línea base ≤ 0`) a
+    // propósito: son dos preguntas distintas. Una licitación adjudicada por
+    // captura manual puede no tener con qué calcular ahorro y aun así ser una
+    // compra real; colgar el ranking de esos guards la borraría del top sin
+    // que nadie lo note.
+    const ganadoresDeEstaLic = new Set<string>();
+    for (const asig of lic.asignaciones) {
+      // Una asignación rechazada por el proveedor no es una compra.
+      if (!asignacionCuenta(asig.estatusProveedor)) continue;
+
+      // CRÍTICO: convertir con el TC congelado de ESTA licitación. Sumar
+      // importes en monedas mezcladas no solo escala mal el eje — reordena el
+      // ranking, porque un proveedor que factura en USD aparecería ~18 veces
+      // más chico de lo que es y caería puestos que no le tocan.
+      const montoMXN = convertirAMoneda(
+        asig.precioUnitario * asig.cantidadAsignada,
+        asig.moneda,
+        MONEDA_BASE,
+        tiposCambio
+      );
+
+      const acc = porProveedor.get(asig.proveedorId) ?? {
+        nombre: asig.proveedor.razonSocial,
+        montoMXN: 0,
+        ganadas: 0,
+      };
+      acc.montoMXN += montoMXN;
+      porProveedor.set(asig.proveedorId, acc);
+      ganadoresDeEstaLic.add(asig.proveedorId);
+    }
+    // Se cuenta UNA vez por licitación, no una por partida adjudicada.
+    for (const proveedorId of ganadoresDeEstaLic) {
+      porProveedor.get(proveedorId)!.ganadas++;
+    }
+
+    const participantes = new Set<string>();
+    for (const it of lic.items) {
+      for (const oferta of it.ofertas) {
+        if (esOfertaValida(oferta)) participantes.add(oferta.proveedorId);
+      }
+    }
+    for (const proveedorId of participantes) {
+      participaciones.set(proveedorId, (participaciones.get(proveedorId) ?? 0) + 1);
+    }
+
+    // ── Ahorro ──────────────────────────────────────────────────────────────
     const itemsAhorro: LicitacionItemParaAhorro[] = lic.items.map((it) => ({
       id: it.id,
       cantidadSolicitada: it.cantidadSolicitada,
@@ -395,7 +484,6 @@ export async function getDashboardData(
     );
     if (ofertasAhorro.length === 0) continue;
 
-    const tiposCambio = parseTiposCambio(lic.tiposCambio);
     if (
       faltanTiposCambio(
         lic.items.map((it) => it.moneda),
@@ -429,6 +517,25 @@ export async function getDashboardData(
     etiqueta: etiquetaMes(mes),
     ahorro: ahorroPorMes.get(mes) ?? 0,
   }));
+
+  // El total se calcula sobre TODOS los proveedores, no sobre los del top: es
+  // el denominador con el que la tarjeta dice qué porcentaje del gasto
+  // concentran los que se ven.
+  const totalAdjudicadoMXN = [...porProveedor.values()].reduce(
+    (suma, p) => suma + p.montoMXN,
+    0
+  );
+  const topProveedores: PuntoTopProveedor[] = [...porProveedor.entries()]
+    .map(([proveedorId, p]) => ({
+      proveedorId,
+      nombre: p.nombre,
+      montoMXN: p.montoMXN,
+      licitacionesGanadas: p.ganadas,
+      licitacionesParticipadas: participaciones.get(proveedorId) ?? 0,
+    }))
+    .filter((p) => p.montoMXN > 0)
+    .sort((a, b) => b.montoMXN - a.montoMXN)
+    .slice(0, LIMITE_TOP_PROVEEDORES);
 
   // ── Bloques de atención ───────────────────────────────────────────────────
   const conteos = agruparConteos(filasEstado as FilaGroupBy[]);
@@ -560,6 +667,8 @@ export async function getDashboardData(
       licitacionesConAhorro,
     },
     ahorroMensual,
+    topProveedores,
+    totalAdjudicadoMXN,
     atencion,
     // Sin duplicados: una licitación con tres monedas sin tasa se avisa una vez.
     avisoTiposCambio: [...new Set(avisoTiposCambio)],

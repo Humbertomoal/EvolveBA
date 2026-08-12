@@ -34,6 +34,35 @@ export type PuntoAhorroMes = {
   ahorro: number;
 };
 
+// ── Top proveedores ──────────────────────────────────────────────────────────
+
+/**
+ * Cuántos proveedores entran al ranking.
+ *
+ * Con los datos reales el top-5 concentra el 86 % de lo adjudicado, pero el
+ * 8.º todavía trae millones y del 9.º hacia abajo se cae a cientos de miles:
+ * 8 es donde el corte deja de perder información y empieza a sobrar ruido.
+ * También es el número que hace que la columna izquierda (ahorro + este
+ * ranking) empate de alto con el panel de atención de la derecha.
+ */
+export const LIMITE_TOP_PROVEEDORES = 8;
+
+export type PuntoTopProveedor = {
+  proveedorId: string;
+  /** Razón social completa. El eje la trunca; el tooltip la muestra entera. */
+  nombre: string;
+  /**
+   * Monto adjudicado **en MXN**, ya convertido con el tipo de cambio congelado
+   * de cada licitación. Nunca es una suma de importes en monedas mezcladas:
+   * hacerlo desordenaría el ranking, no solo lo escalaría mal.
+   */
+  montoMXN: number;
+  /** Licitaciones de la ventana en las que se le adjudicó algo. */
+  licitacionesGanadas: number;
+  /** Licitaciones de la ventana en las que ofertó (haya ganado o no). */
+  licitacionesParticipadas: number;
+};
+
 // ── Métricas ─────────────────────────────────────────────────────────────────
 
 /**
@@ -148,6 +177,10 @@ export const LIMITE_ITEMS_ATENCION = 3;
 export type DashboardData = {
   metricas: MetricasDashboard;
   ahorroMensual: PuntoAhorroMes[];
+  /** Ordenado de mayor a menor monto, ya recortado a LIMITE_TOP_PROVEEDORES. */
+  topProveedores: PuntoTopProveedor[];
+  /** Total adjudicado en MXN de TODOS los proveedores, no solo los del top. */
+  totalAdjudicadoMXN: number;
   atencion: BloqueAtencion[];
   /**
    * Números de licitación a las que les falta el tipo de cambio de alguna
