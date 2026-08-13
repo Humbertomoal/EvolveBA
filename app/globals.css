@@ -66,6 +66,68 @@
   }
 }
 
+/* ── Ancho de las pantallas de listado ──────────────────────────────────────
+   Contenedor común de las páginas que son "una tabla grande" (licitaciones,
+   selección, órdenes, finalizadas, lanzamiento).
+
+   Antes cada una repetía su propio tope —unas max-w-6xl (1152px), otras
+   max-w-7xl (1280px)— y las tablas se quedaban angostas con la pantalla medio
+   vacía: en un monitor de 1920 sobraban entre 320 y 448px. Se notaba sobre
+   todo al alejar el zoom, porque el layout SÍ es fluido (main es flex-1 sin
+   tope) mientras que el rem del max-w no cambia: cuanto más se aleja, más
+   crece el hueco alrededor de una tabla que no se mueve.
+
+   Los 1800px no muerden en resoluciones normales —a 1920, main solo ofrece
+   ~1600 útiles— así que en la práctica las tablas usan TODO el ancho
+   disponible. El tope existe solo para que en un ultrawide de 2560+ las filas
+   no se estiren a 2200px, donde el ojo se pierde recorriéndolas.
+
+   El padding lateral no va aquí: ya lo pone <main> (p-4 sm:p-8) en el layout
+   del comprador.
+
+   OJO: esto es SOLO para listados. Formularios, detalles, dashboard y tablero
+   conservan su propio max-w, que es deliberadamente estrecho para leerse bien. */
+.pagina-listado {
+  max-width: 1800px;
+  margin-inline: auto;
+}
+
+/* ── Columna de acciones fija a la derecha ──────────────────────────────────
+   Para el <th> y el <td> de la última columna (Ver / Editar / Eliminar…).
+   Cuando la tabla no cabe y hay scroll horizontal, esos botones eran lo
+   PRIMERO que se salía de vista: había que deslizar hasta el final para poder
+   entrar a una fila. Con esto quedan siempre pegados al borde derecho.
+
+   Los colores van en literal y no con var(): el @theme inline de globals.css
+   INLINEA sus valores en las utilidades y no emite las custom properties, así
+   que `var(--color-border)` no resolvería nada aquí. Si esos tokens cambian
+   arriba, hay que cambiarlos también aquí:
+     #ede8e8 = --color-border      · #f9f7f7 = --color-surface-muted
+
+   El fondo tiene que ser OPACO. El hover de fila es bg-zinc-50/50
+   (semitransparente); si la celda sticky heredara eso, el contenido que pasa
+   por debajo al deslizar se vería a través de los botones. Por eso se pinta
+   sólido y el hover se replica a mano con su equivalente ya mezclado sobre
+   blanco (zinc-50 al 50% sobre #fff ≈ #fcfcfc). */
+.col-acciones-sticky {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background-color: #ffffff;
+  border-left: 1px solid #ede8e8;
+}
+
+/* La cabecera no es blanca sino bg-surface-muted; sin esta regla la celda
+   sticky del thead se veía como un parche blanco sobre la fila gris. */
+thead .col-acciones-sticky {
+  background-color: #f9f7f7;
+  z-index: 2;
+}
+
+tbody tr:hover > .col-acciones-sticky {
+  background-color: #fcfcfc;
+}
+
 /* ── Sombras de scroll para tablas anchas ───────────────────────────────────
    Se aplica JUNTO a overflow-x-auto en el contenedor de una tabla. Pinta una
    sombra en el borde por el que queda contenido fuera de vista, y la quita al

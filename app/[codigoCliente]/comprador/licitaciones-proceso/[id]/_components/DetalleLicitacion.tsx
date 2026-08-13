@@ -366,21 +366,35 @@ export default function DetalleLicitacion({
   }
 
   // Cierre total: salta a la decisión final sin pasar por las rondas que falten.
-  // Solo aparece cuando quedan 2 o más rondas; con una sola, el botón de al lado
-  // ya hace exactamente esto y dos botones idénticos confunden.
+  //
+  // Aparece SIEMPRE que haya una ronda en curso. Antes exigía
+  // `rondasRestantes >= 2`, con el argumento de que con una sola restante el
+  // botón de al lado hace lo mismo — y es falso justo ahí:
+  //   · Ronda 7 de 8 → "forzar avance" ABRE la ronda 8; "cerrar todas" la OMITE
+  //     y va directo a decisión. Son acciones distintas, y era el caso en el
+  //     que el botón desaparecía.
+  //   · Ronda 8 de 8 → no queda nada que omitir; ambos cierran la ronda en
+  //     curso. Aquí sí coinciden, pero esconder el botón en la última ronda
+  //     obligaba a adivinar que el otro también sirve para terminar.
   const rondasRestantes = maxRondas - rondaActual;
 
   async function handleCerrarTodas() {
-    const detalle =
-      rondasRestantes === 1
-        ? `la Ronda ${maxRondas}`
-        : `las Rondas ${rondaActual + 1} a ${maxRondas}`;
+    // En la última ronda no se omite ninguna. El texto genérico daba
+    // "Se omitirán las Rondas 9 a 8 (0 rondas)" — de ahí que este caso tenga
+    // su propio mensaje en vez de intentar parametrizar el mismo.
     const msg =
-      `¿Cerrar TODAS las rondas restantes?\n\n` +
-      `Se omitirán ${detalle} (${rondasRestantes} ${rondasRestantes === 1 ? "ronda" : "rondas"}) ` +
-      `y la licitación pasará directo a la decisión final.\n` +
-      `Los proveedores ya no podrán cotizar.\n\n` +
-      `Esta acción no se puede deshacer.`;
+      rondasRestantes === 0
+        ? `¿Cerrar la Ronda ${rondaActual} (la última) y pasar a la decisión final?\n\n` +
+          `Los proveedores ya no podrán cotizar.\n\n` +
+          `Esta acción no se puede deshacer.`
+        : `¿Cerrar TODAS las rondas restantes?\n\n` +
+          `Se omitirá${rondasRestantes === 1 ? "" : "n"} ` +
+          (rondasRestantes === 1
+            ? `la Ronda ${maxRondas}`
+            : `las Rondas ${rondaActual + 1} a ${maxRondas} (${rondasRestantes} rondas)`) +
+          ` y la licitación pasará directo a la decisión final.\n` +
+          `Los proveedores ya no podrán cotizar.\n\n` +
+          `Esta acción no se puede deshacer.`;
     if (!window.confirm(msg)) return;
 
     setForzando(true);
@@ -464,14 +478,21 @@ export default function DetalleLicitacion({
             </button>
           )}
 
-          {/* Cierre total — solo si quedan 2+ rondas (ver handleCerrarTodas) */}
-          {!esperandoDecision && rondaActual > 0 && rondasRestantes >= 2 && (
+          {/* Cierre total — misma condición que "forzar avance": basta con que
+              haya una ronda en curso (ver handleCerrarTodas). */}
+          {!esperandoDecision && rondaActual > 0 && (
             <button
               type="button"
               onClick={handleCerrarTodas}
               disabled={forzando}
               className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
-              title={`Omite las ${rondasRestantes} rondas restantes y pasa a la decisión final`}
+              title={
+                rondasRestantes === 0
+                  ? "Cierra la ronda en curso y pasa a la decisión final"
+                  : rondasRestantes === 1
+                    ? `Omite la Ronda ${maxRondas} y pasa a la decisión final`
+                    : `Omite las ${rondasRestantes} rondas restantes y pasa a la decisión final`
+              }
             >
               <IconPlayerTrackNext className="h-4 w-4" />
               Cerrar todas las rondas

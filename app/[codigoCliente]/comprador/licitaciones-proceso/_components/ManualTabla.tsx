@@ -151,7 +151,7 @@ export default function ManualTabla({
                   <th className="min-w-[170px] px-3 py-3">Fecha de creación</th>
                   <th className="min-w-[80px] px-3 py-3 text-center">Proveedores</th>
                   <th className="min-w-[160px] px-3 py-3">Estatus</th>
-                  <th className="px-3 py-3" />
+                  <th className="col-acciones-sticky px-3 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -168,7 +168,7 @@ export default function ManualTabla({
                         Capturando cotizaciones
                       </span>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="col-acciones-sticky px-3 py-3">
                       <div className="flex items-center gap-1">
                         <Link
                           href={`${basePath}/comprador/licitaciones-proceso/${l.id}/captura-manual`}

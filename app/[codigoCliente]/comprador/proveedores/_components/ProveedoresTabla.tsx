@@ -181,7 +181,10 @@ export default function ProveedoresTabla({
   ]);
 
   return (
-    <div className="space-y-6">
+    // pagina-listado: esta pantalla no tenía tope y se estiraba sin límite en
+    // ultrawide, mientras las otras cinco paraban en 1800. Alineada para que el
+    // ancho de TODOS los listados se controle desde una sola regla.
+    <div className="pagina-listado space-y-6">
       <div className="flex items-center justify-end">
         <Link
           href={`${basePath}/comprador/proveedores/nuevo`}
@@ -244,7 +247,7 @@ export default function ProveedoresTabla({
                     )}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right font-medium">Acciones</th>
+                <th className="col-acciones-sticky px-4 py-3 text-right font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -307,7 +310,7 @@ export default function ProveedoresTabla({
                     <td className="px-4 py-3">
                       <UltimoAccesoCelda acceso={acceso} />
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="col-acciones-sticky px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Link
                           href={`${basePath}/comprador/proveedores/${proveedor.id}/editar`}

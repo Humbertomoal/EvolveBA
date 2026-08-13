@@ -76,7 +76,7 @@ export default async function LicitacionesEnProcesoPage({
   }
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="pagina-listado space-y-6">
       <PageTitle title="Licitaciones en Proceso" />
       <EnProcesoTabs
         proveedoresLics={proveedoresLics}

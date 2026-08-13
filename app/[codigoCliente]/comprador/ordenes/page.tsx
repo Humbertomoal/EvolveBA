@@ -68,7 +68,7 @@ export default async function OrdenesCompradorPage({
   ].sort() as string[];
 
   return (
-    <div className="max-w-7xl space-y-6">
+    <div className="pagina-listado space-y-6">
       <PageTitle title="Órdenes de Compra" />
       <OrdenesCompradorTabla
         initialData={initialData}

@@ -222,7 +222,7 @@ export default function SeleccionTabla({
                 </th>
                 <th className="min-w-[140px] px-3 py-3 text-right">Ahorro</th>
                 <th className="min-w-[90px] px-3 py-3">Estado</th>
-                <th className="px-3 py-3" />
+                <th className="col-acciones-sticky px-3 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -362,7 +362,7 @@ export default function SeleccionTabla({
                     <td className="px-3 py-3">
                       <Badge variant={ESTADO_VARIANT[l.estado] ?? "neutral"}>{l.estado}</Badge>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="col-acciones-sticky px-3 py-3">
                       <div className="flex items-center gap-1">
                         <Link
                           href={`${basePath}/comprador/seleccion-proveedores/${l.id}`}

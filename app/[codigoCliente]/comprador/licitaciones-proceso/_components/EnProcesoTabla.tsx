@@ -237,7 +237,7 @@ function EnProcesoFila({
         )}
       </td>
 
-      <td className="px-3 py-3">
+      <td className="col-acciones-sticky px-3 py-3">
         <div className="flex items-center gap-1">
           <Link
             href={`${basePath}/comprador/licitaciones-proceso/${l.id}`}
@@ -441,7 +441,7 @@ export default function EnProcesoTabla({
                   <th className="min-w-[110px] px-3 py-3">Comprador</th>
                   <th className="min-w-[140px] px-3 py-3">Costo Objetivo</th>
                   <th className="min-w-[150px] px-3 py-3">Estatus</th>
-                  <th className="px-3 py-3" />
+                  <th className="col-acciones-sticky px-3 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">

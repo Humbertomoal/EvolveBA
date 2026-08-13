@@ -169,7 +169,7 @@ function LicitacionFila({
           {l.estado}
         </span>
       </td>
-      <td className="px-3 py-3">
+      <td className="col-acciones-sticky px-3 py-3">
         <div className="flex items-center gap-1">
           <Link
             href={`${basePath}/comprador/licitaciones/${l.id}/editar`}
@@ -302,7 +302,7 @@ export default function LanzamientoTabla({
                   Tiempo para Inicio
                 </th>
                 <th className="min-w-[110px] px-3 py-3">Estatus</th>
-                <th className="px-3 py-3" />
+                <th className="col-acciones-sticky px-3 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">

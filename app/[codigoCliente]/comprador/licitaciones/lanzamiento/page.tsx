@@ -36,7 +36,7 @@ export default async function LanzamientoLicitacionesPage({
   );
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="pagina-listado space-y-6">
       <PageTitle title="Lanzamiento de Licitaciones" />
       <div className="flex items-center justify-end gap-4">
         <Link

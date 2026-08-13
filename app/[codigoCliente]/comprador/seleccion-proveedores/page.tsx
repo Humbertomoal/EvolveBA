@@ -40,7 +40,7 @@ export default async function SeleccionProveedoresPage({
     .filter(Boolean) as string[];
 
   return (
-    <div className="max-w-7xl space-y-6">
+    <div className="pagina-listado space-y-6">
       <PageTitle title="Selección de Proveedores" />
       <SeleccionTabla
         initialData={initialResult.licitaciones}

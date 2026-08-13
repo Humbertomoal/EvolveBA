@@ -219,7 +219,7 @@ export default function OrdenesCompradorTabla({
                   <th className="min-w-[130px] px-4 py-3">Tiempo restante</th>
                   <th className="min-w-[110px] px-4 py-3">Estatus</th>
                   <th className="min-w-[170px] px-4 py-3">Actualizar estatus</th>
-                  <th className="w-20 px-4 py-3" />
+                  <th className="col-acciones-sticky w-20 px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -261,7 +261,7 @@ export default function OrdenesCompradorTabla({
                         ))}
                       </select>
                     </td>
-                    <td className={`${CELL} whitespace-nowrap`}>
+                    <td className={`col-acciones-sticky ${CELL} whitespace-nowrap`}>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"

@@ -35,7 +35,7 @@ export default async function LicitacionesFinalizadasPage({
     .filter(Boolean) as string[];
 
   return (
-    <div className="max-w-7xl space-y-6">
+    <div className="pagina-listado space-y-6">
       <PageTitle title="Licitaciones Finalizadas" />
       <FinalizadasTabla
         initialData={initialResult.licitaciones}
