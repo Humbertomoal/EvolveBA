@@ -69,6 +69,7 @@ export async function prepararResultadoInternoAction(
         ronda: true,
         precioUnitario: true,
         noDisponible: true,
+        noAplica: true,
       },
     });
 

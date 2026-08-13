@@ -294,6 +294,7 @@ export async function getDashboardData(
                 ronda: true,
                 precioUnitario: true,
                 noDisponible: true,
+                noAplica: true,
               },
             },
           },
@@ -480,6 +481,7 @@ export async function getDashboardData(
         ronda: o.ronda,
         precioUnitario: o.precioUnitario,
         noDisponible: o.noDisponible,
+        noAplica: o.noAplica,
       }))
     );
     if (ofertasAhorro.length === 0) continue;

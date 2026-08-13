@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
+import { esOfertaValida } from "@/src/lib/ofertaValida";
 import { prisma } from "@/src/lib/prisma";
 import DetalleFinalizadaView, {
   type DetalleFinalizadaProps,
@@ -52,6 +53,10 @@ export default async function DetalleFinalizadaPage({
               ronda: true,
               precioUnitario: true,
               cantidadDisponible: true,
+              // Los dos flags se piden para poder decidir aquí qué precio
+              // COMPITE antes de aplanar la matriz (ver abajo).
+              noDisponible: true,
+              noAplica: true,
               proveedor: { select: { id: true, razonSocial: true } },
             },
           },
@@ -123,7 +128,14 @@ export default async function DetalleFinalizadaPage({
             const oferta = item.ofertas.find(
               (o: any) => o.ronda === ronda && o.proveedorId === prov.id
             );
-            ofertas[prov.id] = oferta?.precioUnitario ?? null;
+            // La marca se resuelve AQUÍ, donde todavía se tienen los flags: a
+            // la matriz solo baja un número si la oferta compite de verdad.
+            // Así el 0 de un "no dispongo" se aplana a null (celda vacía) y el
+            // 0 legítimo de un "no aplica" baja como 0 y puede ser el mínimo
+            // de su ronda. Antes bajaba el precio crudo y la vista tenía que
+            // adivinar con un `p > 0` que descartaba ambos por igual.
+            ofertas[prov.id] =
+              oferta && esOfertaValida(oferta) ? oferta.precioUnitario : null;
           }
           return { ronda, ofertas };
         });

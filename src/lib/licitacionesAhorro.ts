@@ -3,7 +3,7 @@
 // ambas vistas usen exactamente las mismas fórmulas.
 
 import { convertirAMoneda, MONEDA_BASE, type TiposCambio } from "./conversionMoneda";
-import { soloOfertasValidas } from "./ofertaValida";
+import { entraALineaBase, soloOfertasValidas } from "./ofertaValida";
 import {
   calcularLineaBasePartida,
   type LineaBasePartida,
@@ -27,8 +27,19 @@ export type OfertaParaAhorro = {
   proveedorId: string;
   ronda: number;
   precioUnitario: number;
-  /** Ver ofertaValida.ts. Opcional: ausente equivale a false. */
-  noDisponible?: boolean | null;
+  /**
+   * REQUERIDOS, por la misma razón que `proveedorId` de arriba y con más
+   * motivo: de estos dos flags depende que una oferta compita y que cuente
+   * para la línea base. Si fueran opcionales, un call site que los olvidara en
+   * el mapeo los dejaría en `undefined` y el cálculo los leería como `false`
+   * —en silencio—: un "no aplica" perdería su $0 legítimo y el ahorro saldría
+   * subestimado sin que nadie lo note. Obligatorios, el compilador lo caza.
+   *
+   * `| null` porque es lo que devuelve Prisma para columnas nullable y evita
+   * un mapeo defensivo en cada call site.
+   */
+  noDisponible: boolean | null;
+  noAplica: boolean | null;
 };
 
 export type AnalisisItemAhorro = {
@@ -58,6 +69,13 @@ export type ResumenAhorroCalculado = {
   primeraRondaTotal: number;
   mejorPrecioActualTotal: number;
   adherenciaPct: number;
+  /**
+   * false cuando no hay contra qué medir la adherencia (nada que pagar: todas
+   * las partidas quedaron en $0 por "no aplica"). En ese caso `adherenciaPct`
+   * vale 0 y NO debe leerse como una medición. La UI lo usará en la Entrega 2
+   * para pintar "—" en vez de un porcentaje.
+   */
+  adherenciaMedible: boolean;
   ahorroTotal: number;
   ahorroPct: number | null;
   variacionPct: number | null;
@@ -91,24 +109,35 @@ export function calcularAnalisisPorItem(
   ofertas: OfertaParaAhorro[]
 ): AnalisisItemAhorro[] {
   return items.map((item) => {
-    // Se filtra ANTES de cualquier min: una oferta en 0 (o marcada "no
-    // dispongo") no compite por el precio más bajo. Sin esto, un solo 0 se
-    // llevaba el mínimo de todas las rondas y hundía el total del material.
-    // Y como el filtro se aplica sobre TODAS las rondas, un 0 corregido en una
-    // ronda posterior queda descartado y gana el precio real corregido.
-    const itemOfertas = soloOfertasValidas(
-      ofertas.filter((o) => o.licitacionItemId === item.id)
-    );
-    const precios = itemOfertas.map((o) => o.precioUnitario);
+    const ofertasDelItem = ofertas.filter((o) => o.licitacionItemId === item.id);
+
+    // DOS conjuntos, porque aquí se responden dos preguntas distintas y "no
+    // aplica" ($0 legítimo) las separa: compite por ganar, pero no cuenta como
+    // referencia de lo que costaba el material.
+    //
+    //   · ofertasQueCompiten → el MEJOR precio (ranking). Incluye "no aplica".
+    //   · ofertasQueMarcanBase → la PRIMERA RONDA (base del modelo viejo).
+    //     Excluye "no aplica": si entrara, `primeraRondaUnitario` podría quedar
+    //     en 0 y el ahorro viejo saldría NEGATIVO — y el Tablero de Indicadores
+    //     todavía pinta ese modelo.
+    //
+    // Se filtra ANTES de cualquier min: sin esto, un solo 0 se llevaba el
+    // mínimo de todas las rondas y hundía el total del material. Y como el
+    // filtro se aplica sobre TODAS las rondas, un 0 corregido en una ronda
+    // posterior queda descartado y gana el precio real corregido.
+    const ofertasQueCompiten = soloOfertasValidas(ofertasDelItem);
+    const ofertasQueMarcanBase = ofertasDelItem.filter(entraALineaBase);
+
+    const precios = ofertasQueCompiten.map((o) => o.precioUnitario);
     const mejorActualUnitario = precios.length > 0 ? Math.min(...precios) : null;
 
     let primeraRondaUnitario: number | null = null;
-    // "Primera ronda con puja" se calcula sobre las ofertas ya filtradas: si en
-    // la ronda 1 todos pusieron 0, esa no fue una ronda con precios reales y la
+    // "Primera ronda con puja" se calcula sobre las que marcan base: si en la
+    // ronda 1 todos pusieron 0, esa no fue una ronda con precios reales y la
     // base de comparación del ahorro debe ser la primera que sí los tuvo.
-    const primeraRondaConPuja = primeraRondaConOferta(itemOfertas);
+    const primeraRondaConPuja = primeraRondaConOferta(ofertasQueMarcanBase);
     if (primeraRondaConPuja != null) {
-      const preciosPrimeraRondaValida = itemOfertas
+      const preciosPrimeraRondaValida = ofertasQueMarcanBase
         .filter((o) => o.ronda === primeraRondaConPuja)
         .map((o) => o.precioUnitario);
       primeraRondaUnitario = Math.min(...preciosPrimeraRondaValida);
@@ -199,12 +228,25 @@ export function calcularResumenAhorro(
   );
 
   // Fallback a 1 para evitar división por cero al calcular porcentajes.
-  const presupuestoObjetivoSafe = presupuestoObjetivoTotal || 1;
   const primeraRondaSafe = primeraRondaTotal || 1;
   const mejorPrecioActualSafe = mejorPrecioActualTotal || 1;
 
-  // Adherencia de precio: qué tan cerca está el mejor precio actual del objetivo.
-  const adherenciaPct = (presupuestoObjetivoTotal / mejorPrecioActualSafe) * 100;
+  // ── Adherencia de precio: qué tan cerca está el mejor precio actual del
+  // objetivo (objetivo / pagado; más alto = mejor).
+  //
+  // Con "no aplica" el denominador puede llegar a 0 de forma legítima: una
+  // licitación cuyas partidas quedaron TODAS sin costo. Ahí el cociente no
+  // existe, y el `|| 1` de arriba lo convertía en `objetivo × 100` — un número
+  // arbitrario que se pinta como si fuera una medición.
+  //
+  // El valor se deja en 0 y la verdad viaja en `adherenciaMedible`. Se resolvió
+  // así, y no con `number | null`, para no arrastrar el cambio a los cuatro
+  // renderizadores que hoy hacen `.toFixed(1)` — eso es de la Entrega 2, que es
+  // la que toca UI. Hasta entonces ese caso extremo se vería como 0.0 %.
+  const adherenciaMedible = mejorPrecioActualTotal > 0;
+  const adherenciaPct = adherenciaMedible
+    ? (presupuestoObjetivoTotal / mejorPrecioActualSafe) * 100
+    : 0;
 
   // Ahorro vs. la primera ronda con puja (no vs. el objetivo).
   const ahorroTotal = primeraRondaTotal - mejorPrecioActualTotal;
@@ -236,6 +278,7 @@ export function calcularResumenAhorro(
     primeraRondaTotal,
     mejorPrecioActualTotal,
     adherenciaPct,
+    adherenciaMedible,
     ahorroTotal,
     ahorroPct,
     variacionPct,

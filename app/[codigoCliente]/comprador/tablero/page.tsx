@@ -54,7 +54,7 @@ import {
   type LicitacionItemTablero,
   type OrdenTablero,
 } from "@/src/lib/tableroQueries";
-import { soloOfertasValidas } from "@/src/lib/ofertaValida";
+import { mejorOfertaValida, soloOfertasValidas } from "@/src/lib/ofertaValida";
 import TableroView from "./_components/TableroView";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
 import type { TableroData } from "./_components/types";
@@ -195,6 +195,8 @@ export default async function TableroIndicadoresPage({
         proveedorId: o.proveedorId,
         ronda: o.ronda,
         precioUnitario: o.precioUnitario,
+        noDisponible: o.noDisponible,
+        noAplica: o.noAplica,
       }))
     );
 
@@ -552,6 +554,8 @@ export default async function TableroIndicadoresPage({
           proveedorId: o.proveedorId,
           ronda: o.ronda,
           precioUnitario: o.precioUnitario,
+          noDisponible: o.noDisponible,
+          noAplica: o.noAplica,
         }))
       );
       for (const a of calcularAnalisisPorItem(itemsAhorro, ofertasAhorro)) {
@@ -666,18 +670,30 @@ export default async function TableroIndicadoresPage({
     if (productoTop3 && dentroDe(fecha, ventanaTop3)) {
       for (const it of items) {
         if (it.productoId !== productoTop3) continue;
+        // Una entrada por proveedor con SU mejor precio. Se agrupa primero y se
+        // pide el mínimo al helper: recorrer `it.ofertas` comparando a mano era
+        // lo que dejaba entrar el 0 de un "no dispongo" y coronaba como más
+        // barato a un proveedor que no había cotizado.
+        const ofertasPorProveedor = new Map<string, typeof it.ofertas>();
+        for (const oferta of it.ofertas) {
+          const previas = ofertasPorProveedor.get(oferta.proveedorId);
+          if (previas) previas.push(oferta);
+          else ofertasPorProveedor.set(oferta.proveedorId, [oferta]);
+        }
+
         const mejorPorProveedor = new Map<
           string,
           { nombre: string; precio: number }
         >();
-        for (const oferta of it.ofertas) {
-          const previo = mejorPorProveedor.get(oferta.proveedorId);
-          if (!previo || oferta.precioUnitario < previo.precio) {
-            mejorPorProveedor.set(oferta.proveedorId, {
-              nombre: oferta.proveedor.razonSocial,
-              precio: oferta.precioUnitario,
-            });
-          }
+        for (const [proveedorId, ofertasDelProveedor] of ofertasPorProveedor) {
+          const mejor = mejorOfertaValida(ofertasDelProveedor);
+          // Sin oferta válida el proveedor NO entra al ranking. Antes entraba
+          // con precio 0 y se llevaba el primer puesto.
+          if (!mejor) continue;
+          mejorPorProveedor.set(proveedorId, {
+            nombre: mejor.proveedor.razonSocial,
+            precio: mejor.precioUnitario,
+          });
         }
         for (const [proveedorId, mejor] of mejorPorProveedor) {
           // La moneda es la del ITEM. OfertaItem.moneda no se escribe nunca.

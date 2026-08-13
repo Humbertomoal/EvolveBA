@@ -130,7 +130,7 @@ export const LICITACION_TABLERO_INCLUDE = {
           eliminado: true,
         },
       },
-      ofertas: { select: { precioUnitario: true, ronda: true, proveedorId: true, noDisponible: true } },
+      ofertas: { select: { precioUnitario: true, ronda: true, proveedorId: true, noDisponible: true, noAplica: true } },
     },
   },
 } satisfies Prisma.LicitacionInclude;
@@ -317,6 +317,12 @@ export const LICITACION_HISTORICO_SELECT = {
           precioUnitario: true,
           ronda: true,
           proveedorId: true,
+          // OBLIGATORIO. Sin este campo, esOfertaValida recibe `undefined` y su
+          // guarda del flag no hace nada: solo quedaría la de precio > 0. El
+          // top-3 de proveedores leía estas ofertas y coronaba a quien había
+          // marcado "no dispongo" con un precio de 0.
+          noDisponible: true,
+          noAplica: true,
           proveedor: { select: { razonSocial: true } },
         },
       },

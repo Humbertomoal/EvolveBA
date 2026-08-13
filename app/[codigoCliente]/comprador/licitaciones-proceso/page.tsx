@@ -2,6 +2,7 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { getLicitacionesByEstado, type MejorOfertaItem } from "@/src/lib/licitaciones";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { getCompradorSession } from "@/src/lib/compradorSession";
+import { mejorOfertaValida } from "@/src/lib/ofertaValida";
 import { prisma } from "@/src/lib/prisma";
 import EnProcesoTabs from "./_components/EnProcesoTabs";
 import { PageTitle } from "@/app/_components/PageHeaderContext";
@@ -55,22 +56,32 @@ export default async function LicitacionesEnProcesoPage({
       select: {
         id: true,
         producto: { select: { nombre: true } },
+        // `include` trae todos los escalares, `noDisponible` incluido — que es
+        // lo que mejorOfertaValida necesita para descartar los "no dispongo".
         ofertas: {
           include: { proveedor: { select: { razonSocial: true } } },
-          orderBy: { precioUnitario: "asc" },
         },
       },
     });
 
+    // El mínimo NO se calcula aquí. Antes esto era `orderBy: precioUnitario asc`
+    // + `ofertas[0]`, y un proveedor que marcó "no dispongo" (precio 0) salía
+    // primero y se anunciaba como ganador a $0 en todas las partidas.
+    // Sin anotar los callbacks como `any`: el tipo que infiere Prisma es lo que
+    // deja a mejorOfertaValida devolver la oferta COMPLETA (con ronda y
+    // proveedor) en vez de degradarse a la forma mínima OfertaEvaluable.
     mejoresOfertas[lic.id] = items
-      .filter((item: any) => item.ofertas.length > 0)
-      .map((item: any) => {
-        const best = item.ofertas[0];
+      .filter((item) => item.ofertas.length > 0)
+      .map((item) => {
+        const best = mejorOfertaValida(item.ofertas);
         return {
           productoNombre: item.producto.nombre,
-          ronda: best.ronda,
-          precioUnitario: best.precioUnitario,
-          proveedorNombre: best.proveedor.razonSocial,
+          // La partida se sigue listando aunque no haya ganador: que nadie
+          // cotizara de verdad es información que el comprador necesita ANTES
+          // de decidir, no algo que deba desaparecer de la lista.
+          ronda: best?.ronda ?? null,
+          precioUnitario: best?.precioUnitario ?? null,
+          proveedorNombre: best?.proveedor.razonSocial ?? null,
         };
       });
   }

@@ -236,11 +236,12 @@ function HistorialPujasTab({
         // Compute minimum price per ronda
         const minPorRonda: Record<number, number> = {};
         for (const fila of item.filas) {
-          // `> 0` además de `!== null`: aquí las ofertas ya vienen aplanadas a
-          // precio por proveedor, sin el flag noDisponible, así que la guarda de
-          // precio es la que impide que un 0 se lleve el mínimo de la ronda.
+          // Basta con `!== null`. La página ya decidió qué compite —tiene los
+          // flags, esta vista no— y aplanó a null todo lo que no compite. El
+          // `p > 0` que había aquí ya no sirve: descartaría el 0 legítimo de un
+          // "no aplica", que SÍ puede ser el mínimo de su ronda.
           const precios = Object.values(fila.ofertas).filter(
-            (p): p is number => typeof p === "number" && p > 0
+            (p): p is number => typeof p === "number"
           );
           if (precios.length > 0) {
             minPorRonda[fila.ronda] = Math.min(...precios);

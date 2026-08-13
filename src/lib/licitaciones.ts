@@ -18,11 +18,21 @@ export type LicitacionRow = {
   esperandoDecision: boolean;
 };
 
+/**
+ * Mejor oferta de una partida para el panel de decisión.
+ *
+ * Los tres campos del ganador son nullables A PROPÓSITO: cuando una partida
+ * recibió respuestas pero NINGUNA válida —el caso real de la licitación 0015,
+ * donde el único proveedor que contestó marcó "no dispongo" en las 5 partidas—
+ * no hay ganador que mostrar. Antes se tomaba la oferta más barata en crudo y
+ * el panel anunciaba un ganador a $0.
+ */
 export type MejorOfertaItem = {
   productoNombre: string;
-  ronda: number;
-  precioUnitario: number;
-  proveedorNombre: string;
+  /** null = ninguna oferta de la partida compite (todas "no dispongo"/precio 0). */
+  ronda: number | null;
+  precioUnitario: number | null;
+  proveedorNombre: string | null;
 };
 
 export async function getLicitacionesByEstado(

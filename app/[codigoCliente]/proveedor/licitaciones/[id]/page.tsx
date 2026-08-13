@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
+import { mejorOfertaValida } from "@/src/lib/ofertaValida";
 import { prisma } from "@/src/lib/prisma";
 import { filtrarItemsPorMaterialesProveedor } from "@/src/lib/proveedorMateriales";
 import { getMaterialesProveedor } from "@/src/lib/proveedorMaterialesData";
@@ -122,6 +123,7 @@ export default async function DetalleLicitacionPage({
             puedeCumplirFecha: true,
             fechaEstimadaEntrega: true,
             noDisponible: true,
+            noAplica: true,
           },
           orderBy: [{ licitacionItemId: "asc" }, { ronda: "asc" }],
         })
@@ -139,8 +141,11 @@ export default async function DetalleLicitacionPage({
     // Construir resumen por item (mejor oferta = precio más bajo de todas las rondas)
     const resumen: MejorOfertaItem[] = itemsFiltrados.map((item: any) => {
       const ofertas = ofertasByItem.get(item.id) ?? [];
-      const porPrecio = [...ofertas].sort((a: any, b: any) => a.precioUnitario - b.precioUnitario);
-      const mejor = porPrecio[0] ?? null;
+      // Ordenar por precio y tomar el [0] hacía que una partida marcada "no
+      // dispongo" (precio 0) le mostrara al proveedor "mi mejor precio: $0".
+      // Con el helper esa partida queda en null y se pinta como sin cotizar,
+      // que es lo que de verdad pasó.
+      const mejor = mejorOfertaValida(ofertas);
       const historial = [...ofertas]
         .sort((a: any, b: any) => a.ronda - b.ronda)
         .map((o: any) => ({

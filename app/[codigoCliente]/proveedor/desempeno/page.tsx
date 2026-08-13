@@ -135,6 +135,8 @@ export default async function MiDesempenoPage({
         proveedorId: o.proveedorId,
         ronda: o.ronda,
         precioUnitario: o.precioUnitario,
+        noDisponible: o.noDisponible,
+        noAplica: o.noAplica,
       }))
     );
     const analisis = calcularAnalisisPorItem(itemsAhorro, misOfertas);

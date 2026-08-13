@@ -96,7 +96,7 @@ export async function buscarSeleccionAction(
             cantidadSolicitada: true,
             precioObjetivo: true,
             moneda: true,
-            ofertas: { select: { ronda: true, precioUnitario: true, proveedorId: true, noDisponible: true } },
+            ofertas: { select: { ronda: true, precioUnitario: true, proveedorId: true, noDisponible: true, noAplica: true } },
           },
         })
       : [];
@@ -117,6 +117,8 @@ export async function buscarSeleccionAction(
         proveedorId: o.proveedorId,
         ronda: o.ronda,
         precioUnitario: o.precioUnitario,
+        noDisponible: o.noDisponible,
+        noAplica: o.noAplica,
       }))
     );
     const tiposCambio = parseTiposCambio(l.tiposCambio);

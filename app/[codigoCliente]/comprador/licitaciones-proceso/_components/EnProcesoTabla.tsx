@@ -514,20 +514,29 @@ export default function EnProcesoTabla({
                       <p className="text-sm font-medium text-zinc-800">
                         {o.productoNombre}
                       </p>
-                      <p className="mt-0.5 text-xs text-zinc-500">
-                        Mejor oferta en{" "}
-                        <span className="font-medium text-zinc-700">
-                          Ronda {o.ronda}
-                        </span>
-                        {" — "}
-                        <span className="font-semibold text-emerald-700">
-                          ${o.precioUnitario.toLocaleString("es-MX", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </span>
-                        {" por "}{o.proveedorNombre}
-                      </p>
+                      {/* Sin ganador ≠ ganador a $0. Cuando la partida recibió
+                          respuestas pero ninguna compite (todas "no dispongo"),
+                          se dice explícitamente en vez de inventar un mínimo. */}
+                      {o.precioUnitario === null ? (
+                        <p className="mt-0.5 text-xs font-medium text-amber-700">
+                          Sin ofertas válidas — ningún proveedor cotizó esta partida
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                          Mejor oferta en{" "}
+                          <span className="font-medium text-zinc-700">
+                            Ronda {o.ronda}
+                          </span>
+                          {" — "}
+                          <span className="font-semibold text-emerald-700">
+                            ${o.precioUnitario.toLocaleString("es-MX", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                          {" por "}{o.proveedorNombre}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -4,6 +4,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/src/lib/prisma";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { calcularAnalisisPorItem, calcularResumenAhorro } from "@/src/lib/licitacionesAhorro";
+import { mejorOfertaValida } from "@/src/lib/ofertaValida";
 import {
   convertirAMoneda,
   notaTipoCambio,
@@ -277,13 +278,21 @@ export async function descargarComparativoOfertasPdfAction(
   } = await cargarLicitacionParaPdf(licitacionId);
 
   // Proveedor con el mejor precio actual por material (para "Proveedor ganador").
+  //
+  // Antes esto era un `reduce` con `<` sobre las ofertas CRUDAS, así que un
+  // proveedor que marcó "no dispongo" (precio 0) ganaba todas las partidas. El
+  // PDF quedaba contradiciéndose solo: la columna de precio unitario sale de
+  // `calcularAnalisisPorItem` —que sí filtra— y era correcta, mientras la de
+  // ganador, en la misma fila, nombraba a quien no había cotizado.
+  //
+  // Las partidas sin ninguna oferta válida simplemente no entran al mapa, y
+  // `proveedorGanador` queda en null: el PDF ya pinta "—" para ese caso.
   const proveedorGanadorPorItem = new Map<string, string>();
   for (const item of licitacion.items) {
-    const itemOfertas = ofertas.filter((o) => o.licitacionItemId === item.id);
-    if (itemOfertas.length === 0) continue;
-    const mejor = itemOfertas.reduce((min, o) =>
-      o.precioUnitario < min.precioUnitario ? o : min
+    const mejor = mejorOfertaValida(
+      ofertas.filter((o) => o.licitacionItemId === item.id)
     );
+    if (!mejor) continue;
     proveedorGanadorPorItem.set(item.id, mejor.proveedor.razonSocial);
   }
 

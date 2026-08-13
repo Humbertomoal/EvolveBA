@@ -17,7 +17,7 @@
 // final, cada RONDA pesa lo mismo sin importar cuántos proveedores la poblaron.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { esOfertaValida } from "./ofertaValida";
+import { entraALineaBase, esOfertaValida } from "./ofertaValida";
 
 /** Factor de corte de outliers: fuera si precio > K×mediana o < mediana/K. */
 export const K_OUTLIER = 4;
@@ -28,6 +28,11 @@ export type RegistroPuja = {
   precioUnitario: number;
   /** Ver ofertaValida.ts. Ausente equivale a false. */
   noDisponible?: boolean | null;
+  /**
+   * "No aplica" ($0 legítimo). Ausente equivale a false. NO entra a la línea
+   * base aunque sí compita por ganar — ver `entraALineaBase`.
+   */
+  noAplica?: boolean | null;
 };
 
 export type ProveedorExcluido = {
@@ -120,8 +125,10 @@ export function medianaReferencia(
  * Línea base de una partida.
  *
  * Orden de operaciones:
- *   1. Se descartan los registros no válidos (precio ≤ 0 o "no dispongo"):
- *      quien no cotizó no entra.
+ *   1. Se dejan SOLO los registros que cuentan para la base: los que de verdad
+ *      cobran. Quedan fuera "no dispongo" (no cotizó), los precios ≤ 0 sin
+ *      marca (basura) y también "no aplica" — este último aunque SÍ compita
+ *      por ganar la partida. Ver `entraALineaBase` en ofertaValida.ts.
  *   2. Se agrupa por proveedor y se ordena por ronda.
  *   3. Mediana de referencia con el primer registro de cada uno (ver arriba).
  *   4. Se marca outlier CADA REGISTRO fuera de [mediana/K, mediana×K]. Es por
@@ -150,8 +157,11 @@ export function calcularLineaBasePartida(
     registrosDescartados: 0,
   };
 
-  // (1) Solo pujas reales. `esOfertaValida` ya cubre precio ≤ 0 y "no dispongo".
-  const validos = registros.filter(esOfertaValida);
+  // (1) Solo lo que cuenta para la base. El filtro va AQUÍ, antes de la mediana
+  // del paso (3), y no después: un $0 de "no aplica" metido en la mediana
+  // correría hacia abajo la ventana [mediana/K, mediana×K] del paso (4) y
+  // podría expulsar ofertas bajas legítimas de proveedores que sí cobran.
+  const validos = registros.filter(entraALineaBase);
   if (validos.length === 0) return vacio;
 
   // (2) y (3)

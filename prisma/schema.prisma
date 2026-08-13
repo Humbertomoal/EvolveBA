@@ -212,6 +212,24 @@ model OfertaItem {
   // ver esOfertaValida() en src/lib/ofertaValida.ts, por donde pasan todos los
   // cálculos de mínimo.
   noDisponible         Boolean        @default(false)
+  // TERCER estado: "no aplica". El proveedor SÍ ofrece la partida, pero en este
+  // caso no corresponde cobrarla (da el flete, pero la obra está donde él vive).
+  // Es un $0 REAL y competitivo, y ahí está la diferencia con noDisponible:
+  //
+  //   estado         ¿compite/gana?   ¿entra a la línea base?
+  //   precio normal  sí               sí
+  //   noDisponible   NO               no
+  //   noAplica       SÍ (con $0)      NO   ← el $0 no debe jalar el promedio
+  //
+  // Por eso hay DOS predicados en ofertaValida.ts y no uno: `esOfertaValida`
+  // (¿compite?) y `entraALineaBase` (¿cuenta para el promedio?). Con los dos
+  // estados anteriores las respuestas siempre coincidían; este es el primero
+  // que las separa.
+  //
+  // La base la protege un CHECK (`oferta_estado_excluyente`) que impide
+  // noDisponible AND noAplica a la vez. Aun así el helper aplica precedencia:
+  // noDisponible manda, para que cualquier fila anómala falle del lado seguro.
+  noAplica             Boolean        @default(false)
   puedeCumplirFecha    Boolean        @default(true)
   fechaEstimadaEntrega DateTime?
   moneda               String         @default("MXN") // NO CONFIAR — ver nota arriba; la buena es LicitacionItem.moneda
