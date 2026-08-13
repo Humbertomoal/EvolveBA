@@ -376,7 +376,7 @@ export default function MisLicitacionesTabla({
             <Vacio mensaje="No tienes licitaciones programadas" />
           ) : (
             <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="tabla-scroll-sombra overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
@@ -411,7 +411,7 @@ export default function MisLicitacionesTabla({
             <Vacio mensaje="No tienes licitaciones en proceso" />
           ) : (
             <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="tabla-scroll-sombra overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
@@ -559,7 +559,7 @@ export default function MisLicitacionesTabla({
             />
           ) : (
             <div className="mt-4 rounded-card border border-border bg-white shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="tabla-scroll-sombra overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">

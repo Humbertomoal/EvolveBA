@@ -58,8 +58,19 @@ type SectionKey =
   | "histVariacion"
   | "histCosto";
 
+// Los cuatro selects con opciones que vienen de datos (proveedor, criticidad,
+// familia, producto). Un <select> nativo se dimensiona por su <option> MÁS
+// LARGA, no por la seleccionada: con "CÓDIGO — Nombre del producto" el de
+// productos llegaba a 667px y el de proveedores a 387px, más anchos que el área
+// de contenido en móvil y tablet (512px a 768px de viewport), y desbordaban la
+// página aunque la barra de filtros tenga flex-wrap — un solo ítem más ancho
+// que su contenedor no se arregla envolviendo.
+//
+// El tope se levanta en lg, que es justo donde el ancho disponible (768px) ya
+// admite el select completo: de lg hacia arriba el render es idéntico al de
+// antes de este arreglo.
 const selectClass =
-  "rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
+  "min-w-0 max-w-[160px] truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30 sm:max-w-[220px] lg:max-w-none";
 
 export default function TableroView({
   data,
@@ -1081,7 +1092,14 @@ function ChartSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-5">
+    // min-w-0: esta tarjeta es un ítem de `grid lg:grid-cols-2`, y un ítem de
+    // grid tiene `min-width: auto`, así que no puede encoger por debajo del
+    // min-content de su contenido. Chart.js fija un ancho INLINE en su <canvas>
+    // y solo lo reduce si el contenedor se reduce primero — con la columna
+    // anclada al canvas y el canvas anclado a la columna, al achicar la ventana
+    // ninguno cedía y la página quedaba con scroll horizontal permanente (no se
+    // recuperaba ni esperando). Con min-w-0 la columna manda y el canvas la sigue.
+    <div className="min-w-0 bg-white border border-[#ede8e8] rounded-[10px] shadow-[0_1px_6px_rgba(0,0,0,0.07)] p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>

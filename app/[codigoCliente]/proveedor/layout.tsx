@@ -92,7 +92,15 @@ export default async function ProveedorLayout({
           initialNoLeidos={noLeidosInicial}
         />
         <PageHeaderProvider>
-          <main className="flex flex-1 flex-col bg-[#FEFBFB]">
+          {/* min-w-0 es lo que hace que los `overflow-x-auto` de las tablas
+              funcionen de verdad. Sin él, este <main> es un ítem flex con
+              `min-width: auto`, así que NO puede encoger por debajo del
+              min-content de su contenido: la tabla de licitaciones (~1067px de
+              columnas) lo estiraba, y con él a la página entera y al TopBar
+              sticky. El resultado era scroll horizontal de TODO en vez de
+              scroll solo dentro de la tabla.
+              El layout del comprador ya lo tenía; este se había quedado atrás. */}
+          <main className="flex min-w-0 flex-1 flex-col bg-[#FEFBFB]">
             {usuarioActual && (
               <TopBar
                 esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}

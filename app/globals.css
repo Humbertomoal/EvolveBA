@@ -66,6 +66,33 @@
   }
 }
 
+/* ── Sombras de scroll para tablas anchas ───────────────────────────────────
+   Se aplica JUNTO a overflow-x-auto en el contenedor de una tabla. Pinta una
+   sombra en el borde por el que queda contenido fuera de vista, y la quita al
+   llegar al extremo — así el usuario ve que la tabla se desliza sin necesidad
+   de un cartel que lo diga.
+
+   El truco está en `background-attachment`: las capas de degradado blanco van
+   en `local` (viajan CON el contenido al hacer scroll) y las de sombra en
+   `scroll` (quedan fijas al contenedor). Al estar arriba del todo, el
+   degradado blanco tapa la sombra mientras el contenido está en su extremo, y
+   se desplaza al hacer scroll dejándola ver. Es CSS puro: sin JS, sin
+   listeners de scroll y sin estado que se desincronice.
+
+   Ojo al editar: el orden de las capas y el de `background-attachment` tienen
+   que corresponderse una a una. */
+.tabla-scroll-sombra {
+  background-image:
+    linear-gradient(to right, #ffffff 30%, rgba(255, 255, 255, 0)),
+    linear-gradient(to left, #ffffff 30%, rgba(255, 255, 255, 0)),
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.09), rgba(0, 0, 0, 0)),
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.09), rgba(0, 0, 0, 0));
+  background-position: left center, right center, left center, right center;
+  background-repeat: no-repeat;
+  background-size: 32px 100%, 32px 100%, 12px 100%, 12px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
 /* ── Landing comercial (Evolve BA) — app/page.tsx ───────────────────────────
    Recreadas de la referencia del diseñador: flotación de tarjetas del hero,
    entrada del hero y punto pulsante del badge. */
