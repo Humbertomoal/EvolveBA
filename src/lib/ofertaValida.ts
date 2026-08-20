@@ -177,6 +177,59 @@ export function mejorOfertaValida<T extends OfertaEvaluable>(
  * servidor, para que no puedan discrepar.
  */
 export function esCapturaValida(oferta: OfertaEvaluable): boolean {
+  // Los dos estados "sin costo" son respuestas completas por sí solas: no
+  // llevan precio y no hay nada que validar. Lo que sigue sin ser aceptable es
+  // un 0 o un vacío SIN marca, que era la forma implícita —y ambigua— de decir
+  // cualquiera de las dos cosas.
   if (oferta.noDisponible) return true;
+  if (oferta.noAplica) return true;
   return Number.isFinite(oferta.precioUnitario) && oferta.precioUnitario > 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El estado de una partida como UN valor
+//
+// En la base son dos booleanos (fue lo menos invasivo: columna aditiva, sin
+// backfill, y un `select` que olvide el flag falla del lado seguro). Pero los
+// formularios necesitan lo contrario: un solo valor excluyente que alimente un
+// grupo de radios. Estos dos conversores son el puente, y viven aquí para que
+// el formulario del proveedor y el de captura manual no inventen cada uno el
+// suyo y acaben discrepando.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Los tres estados posibles de una partida, como valor único y excluyente. */
+export type EstadoPartida = "cotizo" | "no_dispongo" | "no_aplica";
+
+/**
+ * Flags → estado. `noDisponible` gana si por lo que sea llegaran los dos: es la
+ * misma precedencia que aplica `esOfertaValida`, para que la UI y el cálculo no
+ * puedan contar historias distintas sobre la misma fila.
+ */
+export function estadoDePartida(oferta: {
+  noDisponible?: boolean | null;
+  noAplica?: boolean | null;
+}): EstadoPartida {
+  if (oferta.noDisponible) return "no_dispongo";
+  if (oferta.noAplica) return "no_aplica";
+  return "cotizo";
+}
+
+/**
+ * Estado → flags. Por construcción nunca produce los dos en true, que es lo que
+ * el CHECK `oferta_estado_excluyente` de la base exige. Cualquier escritura
+ * debería pasar por aquí en vez de armar los booleanos a mano.
+ */
+export function flagsDeEstado(estado: EstadoPartida): {
+  noDisponible: boolean;
+  noAplica: boolean;
+} {
+  return {
+    noDisponible: estado === "no_dispongo",
+    noAplica: estado === "no_aplica",
+  };
+}
+
+/** ¿Este estado se guarda con precio 0 y sin cantidad? */
+export function estadoSinCosto(estado: EstadoPartida): boolean {
+  return estado !== "cotizo";
 }

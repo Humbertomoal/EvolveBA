@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { exigirProveedorSesion } from "@/src/lib/proveedorSessionSegura";
-import { esCapturaValida } from "@/src/lib/ofertaValida";
+import {
+  esCapturaValida,
+  estadoSinCosto,
+  flagsDeEstado,
+  type EstadoPartida,
+} from "@/src/lib/ofertaValida";
 
 type OfertaItemInput = {
   licitacionItemId: string;
@@ -11,8 +16,13 @@ type OfertaItemInput = {
   cantidadDisponible: number;
   puedeCumplirFecha: boolean;
   fechaEstimadaEntrega: string | null;
-  /** true = "no dispongo de esta partida". Ver ofertaValida.ts. */
-  noDisponible: boolean;
+  /**
+   * Estado de la partida como valor único y excluyente. Llega así —y no como
+   * dos booleanos— para que sea IMPOSIBLE mandar noDisponible y noAplica a la
+   * vez, que es justo lo que el CHECK `oferta_estado_excluyente` rechaza en la
+   * base. Los flags se derivan de aquí con `flagsDeEstado`.
+   */
+  estado: EstadoPartida;
 };
 
 export type MotivoRechazoOferta =
@@ -173,31 +183,42 @@ export async function enviarOfertaAction(
     };
   }
 
-  // Un precio debe ser un número REAL y positivo, salvo que la partida venga
-  // marcada como "no dispongo". Se valida AQUÍ y no solo en el formulario:
-  // la validación del cliente es comodidad, esta es la que manda. Sin ella,
-  // cualquiera puede llamar la acción a mano y volver a meter ceros —y un 0
-  // llega a preseleccionar al proveedor como ganador a $0 en la asignación.
-  if (!items.every(esCapturaValida)) {
+  // Un precio debe ser un número REAL y positivo, salvo que la partida venga en
+  // uno de los dos estados sin costo. Se valida AQUÍ y no solo en el
+  // formulario: la validación del cliente es comodidad, esta es la que manda.
+  // Sin ella, cualquiera puede llamar la acción a mano y volver a meter ceros
+  // —y un 0 llega a preseleccionar al proveedor como ganador a $0.
+  if (!items.every((item) => esCapturaValida({ ...item, ...flagsDeEstado(item.estado) }))) {
     return {
       ok: false,
       motivo: "precio_invalido",
       mensaje:
-        "Cada partida necesita un precio mayor que cero, o quedar marcada como “No dispongo de esta partida”.",
+        "Cada partida necesita un precio mayor que cero, o quedar marcada como “No dispongo de esta partida” o “Sin costo en este caso”.",
     };
   }
 
   for (const item of items) {
-    // Con "no dispongo" el precio y la cantidad se NORMALIZAN a 0: así el dato
-    // queda inequívoco y no sobrevive un precio viejo de una ronda anterior que
-    // luego alguien pudiera leer sin mirar el flag.
+    // El PRECIO se normaliza a 0 en los dos estados sin costo, para que el dato
+    // quede inequívoco y no sobreviva un precio viejo de una ronda anterior.
+    //
+    // La CANTIDAD y la FECHA no: solo se anulan en "no dispongo". Es la
+    // diferencia que define al tercer estado — quien marca "no aplica" SÍ va a
+    // surtir la partida, solo que sin cobrarla. Si se le forzara la cantidad a
+    // 0, al ganar se le asignaría `min(0, solicitada) = 0` unidades y el
+    // "puede ganar" quedaría en nada.
+    //
+    // Ojo con el significado del 0 guardado, que es todo el punto del tercer
+    // estado: en "no dispongo" es relleno (la partida no compite); en "no
+    // aplica" es el precio REAL con el que compite y puede ganar. El mismo
+    // número, dos negocios distintos — por eso manda la marca y no el importe.
+    const noDispone = item.estado === "no_dispongo";
     const datos = {
-      precioUnitario: item.noDisponible ? 0 : item.precioUnitario,
-      cantidadDisponible: item.noDisponible ? 0 : item.cantidadDisponible,
-      noDisponible: item.noDisponible,
+      precioUnitario: estadoSinCosto(item.estado) ? 0 : item.precioUnitario,
+      cantidadDisponible: noDispone ? 0 : item.cantidadDisponible,
+      ...flagsDeEstado(item.estado),
       puedeCumplirFecha: item.puedeCumplirFecha,
       fechaEstimadaEntrega:
-        item.noDisponible || !item.fechaEstimadaEntrega
+        noDispone || !item.fechaEstimadaEntrega
           ? null
           : new Date(item.fechaEstimadaEntrega),
     };

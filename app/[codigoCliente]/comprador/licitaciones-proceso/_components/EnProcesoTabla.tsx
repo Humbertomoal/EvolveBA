@@ -20,6 +20,7 @@ import {
   forzarAvanceRondaAction,
 } from "@/src/lib/rondasActions";
 import CountdownTimer from "@/src/components/CountdownTimer";
+import { textoPrecioGanador } from "@/src/lib/monedas";
 import PanelFiltros from "@/app/_components/PanelFiltros";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -528,11 +529,15 @@ export default function EnProcesoTabla({
                             Ronda {o.ronda}
                           </span>
                           {" — "}
+                          {/* 0 = el ganador ofrece la partida sin costo. Se dice
+                              con palabra, no con "$0.00", que se lee como error. */}
                           <span className="font-semibold text-emerald-700">
-                            ${o.precioUnitario.toLocaleString("es-MX", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {textoPrecioGanador(o.precioUnitario, (v) =>
+                              `$${v.toLocaleString("es-MX", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`
+                            )}
                           </span>
                           {" por "}{o.proveedorNombre}
                         </p>

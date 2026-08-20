@@ -81,6 +81,10 @@ export default async function CapturaManualPage({
     precioUnitario: o.precioUnitario,
     cantidadDisponible: o.cantidadDisponible,
     fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
+    // Los dos flags viajan para que el formulario pueda reconstruir el estado
+    // de una captura previa en vez de mostrarla siempre como "cotiza".
+    noDisponible: o.noDisponible,
+    noAplica: o.noAplica,
   }));
 
   return (

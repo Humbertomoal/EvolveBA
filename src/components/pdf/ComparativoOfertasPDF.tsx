@@ -1,6 +1,6 @@
 import { Document, Text, View } from "@react-pdf/renderer";
 import type { Cliente } from "@/src/config/clientes";
-import { formatImporte } from "@/src/lib/monedas";
+import { formatImporte, textoPrecioGanador } from "@/src/lib/monedas";
 import PDFLayout from "./PDFLayout";
 import { pdfStyles } from "./pdfStyles";
 import { formatFechaPdf, nd } from "./pdfHelpers";
@@ -20,6 +20,8 @@ export type ComparativoOfertasPdfData = {
     primeraRondaTotal: number;
     mejorPrecioActualTotal: number;
     adherenciaPct: number;
+    /** false = no hay contra qué medir (todo sin costo). Ver licitacionesAhorro. */
+    adherenciaMedible?: boolean;
     ahorroTotal: number;
     ahorroPct: number | null;
   };
@@ -94,7 +96,16 @@ export default function ComparativoOfertasPDF({
             label="Mejor Precio Actual"
             valor={formatImporte(indicadores.mejorPrecioActualTotal, moneda)}
           />
-          <Kpi label="Adherencia de Precio" valor={`${indicadores.adherenciaPct.toFixed(1)}%`} />
+          {/* Sin nada que pagar (todas las partidas sin costo) la adherencia
+              no existe: se pinta "—" en vez de un porcentaje inventado. */}
+          <Kpi
+            label="Adherencia de Precio"
+            valor={
+              indicadores.adherenciaMedible === false
+                ? "—"
+                : `${indicadores.adherenciaPct.toFixed(1)}%`
+            }
+          />
           <Kpi
             label="Ahorro"
             valor={`${formatImporte(indicadores.ahorroTotal, moneda)} (${formatPct(
@@ -142,9 +153,11 @@ export default function ComparativoOfertasPDF({
                     : "N/A"}
                 </Text>
                 <Text style={[pdfStyles.tablaCell, { width: "13%", textAlign: "right" }]}>
-                  {m.mejorActualUnitario != null
-                    ? formatImporte(m.mejorActualUnitario, m.moneda)
-                    : "N/A"}
+                  {textoPrecioGanador(
+                    m.mejorActualUnitario,
+                    (v) => formatImporte(v, m.moneda),
+                    { sinGanador: "N/A" }
+                  )}
                 </Text>
                 <Text style={[pdfStyles.tablaCell, { width: "10%", textAlign: "right" }]}>
                   {formatPct(m.variacionPct)}

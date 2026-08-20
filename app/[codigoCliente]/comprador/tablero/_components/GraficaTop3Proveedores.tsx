@@ -1,5 +1,6 @@
 "use client";
 
+import { textoPrecioGanador } from "@/src/lib/monedas";
 import {
   BarElement,
   CategoryScale,
@@ -55,7 +56,12 @@ export default function GraficaTop3Proveedores({
               callbacks: {
                 label: (ctx) => {
                   const fila = data[ctx.dataIndex];
-                  return `$${fmt(fila.precioPromedio)} MXN · ${fila.cantidad.toLocaleString("es-MX")} unidades cotizadas`;
+                  // 0 = lo ofrece sin costo. Se nombra, no se pinta "$0.00",
+                  // que en una columna de precios se lee como dato faltante.
+                  return `${textoPrecioGanador(
+                    fila.precioPromedio,
+                    (v) => `$${fmt(v)} MXN`
+                  )} · ${fila.cantidad.toLocaleString("es-MX")} unidades cotizadas`;
                 },
               },
             },

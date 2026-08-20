@@ -747,10 +747,14 @@ export default async function TableroIndicadoresPage({
       .map(([proveedorId, acc]) => ({
         proveedorId,
         proveedorNombre: acc.nombre,
-        precioPromedio: promedioPonderado([acc]) ?? 0,
+        // El null se conserva para distinguirlo del 0: null es "no se pudo
+        // promediar" y 0 es "lo ofrece sin costo".
+        precioPromedio: promedioPonderado([acc]),
         cantidad: acc.cantidad,
       }))
-      .filter((p) => p.precioPromedio > 0)
+      // `!== null` y no `> 0`: con `> 0` un proveedor que ofrece la partida SIN
+      // COSTO quedaba fuera del ranking, justo el que debería encabezarlo.
+      .filter((p): p is typeof p & { precioPromedio: number } => p.precioPromedio !== null)
       .sort((a, b) => a.precioPromedio - b.precioPromedio) // MEJOR precio = más bajo
       .slice(0, 3),
     costoUnitario: [...costoProd.entries()]

@@ -16,6 +16,12 @@ import {
   type FechaRequeridaManual,
   type OfertaManual,
 } from "@/src/lib/capturaManualActions";
+// Módulo PURO (0 imports): seguro de importar desde un componente "use client".
+import {
+  estadoDePartida,
+  estadoSinCosto,
+  type EstadoPartida,
+} from "@/src/lib/ofertaValida";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -36,6 +42,8 @@ type OfertaExistente = {
   precioUnitario: number;
   cantidadDisponible: number;
   fechaEstimadaEntrega: string | null;
+  noDisponible: boolean;
+  noAplica: boolean;
 };
 
 type LicitacionInfo = {
@@ -50,7 +58,33 @@ type CeldaState = {
   precioUnitario: string;
   cantidadDisponible: string;
   fechaEstimadaEntrega: string;
+  /**
+   * Los tres estados, igual que en el formulario del proveedor. Hasta ahora la
+   * captura manual solo sabía de precios: quien capturaba por teléfono no tenía
+   * forma de registrar "no dispongo" ni "no aplica".
+   */
+  estado: EstadoPartida;
 };
+
+/** Mismas etiquetas y consecuencias que ve el proveedor, para que el comprador
+ *  capture exactamente lo que el proveedor le dijo por teléfono. */
+const OPCIONES_ESTADO: {
+  valor: EstadoPartida;
+  etiqueta: string;
+  consecuencia: string;
+}[] = [
+  { valor: "cotizo", etiqueta: "Cotiza", consecuencia: "Con precio y cantidad." },
+  {
+    valor: "no_dispongo",
+    etiqueta: "No dispone",
+    consecuencia: "No la vende o no puede surtirla. No participa.",
+  },
+  {
+    valor: "no_aplica",
+    etiqueta: "Sin costo ($0)",
+    consecuencia: "La ofrece sin cobrarla. Compite con $0 y puede ganar.",
+  },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,9 +115,12 @@ function initEstado(
         (o: any) => o.proveedorId === p.id && o.licitacionItemId === item.licitacionItemId
       );
       s[p.id][item.licitacionItemId] = {
-        precioUnitario: ex ? String(ex.precioUnitario) : "",
+        // Un precio 0 heredado no se precarga: en los estados sin costo el 0 lo
+        // pone el servidor, y mostrarlo aquí invitaría a reintroducirlo a mano.
+        precioUnitario: ex && ex.precioUnitario > 0 ? String(ex.precioUnitario) : "",
         cantidadDisponible: ex ? String(ex.cantidadDisponible) : "",
         fechaEstimadaEntrega: isoAInputDate(ex?.fechaEstimadaEntrega ?? null),
+        estado: ex ? estadoDePartida(ex) : "cotizo",
       };
     }
   }
@@ -110,13 +147,18 @@ function buildOfertas(
       if (!celda) continue;
       const precio = parseFloat(celda.precioUnitario);
       const cantidad = parseFloat(celda.cantidadDisponible);
-      if (precio > 0 || cantidad > 0) {
+      // Los dos estados sin costo se mandan SIEMPRE, aunque no lleven números:
+      // son una respuesta del proveedor, no una celda vacía. El servidor vuelve
+      // a validar y normaliza el precio.
+      const sinCosto = estadoSinCosto(celda.estado);
+      if (sinCosto || precio > 0 || cantidad > 0) {
         ofertas.push({
           licitacionItemId: item.licitacionItemId,
           proveedorId: p.id,
           precioUnitario: precio || 0,
           cantidadDisponible: cantidad || 0,
           fechaEstimadaEntrega: celda.fechaEstimadaEntrega || null,
+          estado: celda.estado,
         });
       }
     }
@@ -141,7 +183,12 @@ function proveedorTieneOfertas(
 ): boolean {
   return items.some((item) => {
     const celda = estado[proveedorId]?.[item.licitacionItemId];
-    return celda && (celda.precioUnitario !== "" || celda.cantidadDisponible !== "");
+    return (
+      celda &&
+      (celda.precioUnitario !== "" ||
+        celda.cantidadDisponible !== "" ||
+        estadoSinCosto(celda.estado))
+    );
   });
 }
 
@@ -290,6 +337,7 @@ export default function CapturaManualForm({
                         </th>
                         <th className="w-20 px-2 py-2.5">Unidad</th>
                         <th className="w-36 px-2 py-2.5">Fecha requerida</th>
+                        <th className="w-44 px-2 py-2.5">Respuesta</th>
                         <th className="w-32 px-2 py-2.5">Precio unitario</th>
                         <th className="w-28 px-2 py-2.5">Cant. disponible</th>
                         <th className="w-40 px-2 py-2.5">Fecha estimada proveedor</th>
@@ -301,6 +349,7 @@ export default function CapturaManualForm({
                           precioUnitario: "",
                           cantidadDisponible: "",
                           fechaEstimadaEntrega: "",
+                          estado: "cotizo" as EstadoPartida,
                         };
                         const precio = parseFloat(celda.precioUnitario) || 0;
                         const fechaRequerida = fechasRequeridas[item.licitacionItemId] ?? "";
@@ -332,29 +381,87 @@ export default function CapturaManualForm({
                                 className={`${INPUT} w-36`}
                               />
                             </td>
-                            <td className="px-2 py-2.5">
-                              <div className="relative w-28">
-                                <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-zinc-400 text-xs">
-                                  $
+                            {/* Respuesta: los tres estados, excluyentes. Cada
+                                uno con su consecuencia, igual que en el
+                                formulario del proveedor — el comprador captura
+                                lo que le dijeron por teléfono y necesita las
+                                mismas palabras para no traducirlo mal. */}
+                            <td className="px-2 py-2.5 align-top">
+                              <fieldset className="space-y-0.5">
+                                <legend className="sr-only">Respuesta del proveedor</legend>
+                                {OPCIONES_ESTADO.map((opcion) => (
+                                  <label
+                                    key={opcion.valor}
+                                    title={opcion.consecuencia}
+                                    className="flex cursor-pointer items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-700"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`estado-${proveedor.id}-${item.licitacionItemId}`}
+                                      checked={celda.estado === opcion.valor}
+                                      onChange={() =>
+                                        setCelda(
+                                          proveedor.id,
+                                          item.licitacionItemId,
+                                          "estado",
+                                          opcion.valor
+                                        )
+                                      }
+                                      className="h-3.5 w-3.5 shrink-0 border-zinc-300 accent-[var(--color-primario)]"
+                                    />
+                                    <span className="font-medium text-zinc-700">
+                                      {opcion.etiqueta}
+                                    </span>
+                                  </label>
+                                ))}
+                              </fieldset>
+                            </td>
+                            <td className="px-2 py-2.5 align-top">
+                              {celda.estado === "no_aplica" ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs font-semibold text-emerald-700">
+                                  $0.00
+                                  <span className="font-normal text-emerald-600">Gratis</span>
                                 </span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={celda.precioUnitario}
-                                  onChange={(e) =>
-                                    setCelda(
-                                      proveedor.id,
-                                      item.licitacionItemId,
-                                      "precioUnitario",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="0.00"
-                                  className={`${INPUT} w-28 pl-5`}
-                                />
-                              </div>
-                              {precio > 0 && (
+                              ) : (
+                                <div className="relative w-28">
+                                  <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-zinc-400 text-xs">
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    disabled={celda.estado === "no_dispongo"}
+                                    value={
+                                      celda.estado === "no_dispongo"
+                                        ? ""
+                                        : celda.precioUnitario
+                                    }
+                                    onChange={(e) =>
+                                      setCelda(
+                                        proveedor.id,
+                                        item.licitacionItemId,
+                                        "precioUnitario",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder={
+                                      celda.estado === "no_dispongo" ? "—" : "0.00"
+                                    }
+                                    className={`${INPUT} w-28 pl-5 ${
+                                      celda.estado === "no_dispongo"
+                                        ? "cursor-not-allowed opacity-40"
+                                        : ""
+                                    }`}
+                                  />
+                                </div>
+                              )}
+                              {/* El total solo tiene sentido cuando se cotiza.
+                                  En los estados sin costo el precio guardado es
+                                  0, y seguir mostrando el importe que quedó
+                                  escrito antes decía justo lo contrario de lo
+                                  que se va a enviar. */}
+                              {celda.estado === "cotizo" && precio > 0 && (
                                 <p className="mt-0.5 text-xs text-zinc-400">
                                   Total: {formatPeso(precio * item.cantidadSolicitada)}
                                 </p>

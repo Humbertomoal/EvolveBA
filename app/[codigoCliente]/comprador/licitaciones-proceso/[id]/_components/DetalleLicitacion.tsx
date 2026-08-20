@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
+import { ETIQUETA_GRATIS, textoPrecioGanador } from "@/src/lib/monedas";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
 import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
@@ -92,6 +93,8 @@ export type ResumenAhorro = {
   primeraRondaTotal: number;
   mejorPrecioActualTotal: number;
   adherenciaPct: number;
+  /** false = no hay contra qué medir (todo sin costo). */
+  adherenciaMedible?: boolean;
   ahorroTotal: number;
   ahorroPct: number | null;
   variacionPct: number | null;
@@ -702,7 +705,9 @@ export default function DetalleLicitacion({
               </KpiCard>
               <KpiCard label="Adherencia de Precio" hayOfertas={resumenAhorro.hayOfertas}>
                 <p className={`mt-1 text-xl font-semibold ${adherenciaColorClass(resumenAhorro.adherenciaPct)}`}>
-                  {resumenAhorro.adherenciaPct.toFixed(1)}%
+                  {resumenAhorro.adherenciaMedible === false
+                    ? "—"
+                    : `${resumenAhorro.adherenciaPct.toFixed(1)}%`}
                 </p>
               </KpiCard>
               <KpiCard label="Ahorro" hayOfertas={resumenAhorro.hayOfertas}>
@@ -759,10 +764,14 @@ export default function DetalleLicitacion({
                             : "—"}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-zinc-800">
-                          {a.mejorActualTotal != null ? (
-                            formatMoneda(a.mejorActualTotal, a.moneda)
-                          ) : (
+                          {/* Tres desenlaces distintos: sin ofertas válidas,
+                              ganador sin costo, o precio normal. */}
+                          {a.mejorActualTotal === null ? (
                             <span className="text-zinc-300">Sin ofertas aún</span>
+                          ) : a.mejorActualTotal === 0 ? (
+                            <span className="text-emerald-700">{ETIQUETA_GRATIS}</span>
+                          ) : (
+                            formatMoneda(a.mejorActualTotal, a.moneda)
                           )}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${varColorClass(a.variacionPct)}`}>
@@ -853,7 +862,7 @@ export default function DetalleLicitacion({
                       <td className="px-4 py-3 text-right">
                         {item.mejor ? (
                           <span className="font-semibold text-emerald-700">
-                            {formatPeso(item.mejor.precioUnitario)}
+                            {textoPrecioGanador(item.mejor.precioUnitario, formatPeso)}
                           </span>
                         ) : (
                           <span className="text-zinc-300">Sin ofertas aún</span>
@@ -899,7 +908,7 @@ export default function DetalleLicitacion({
                           {item.unidadMedida}
                         </td>
                         <td className="px-4 py-2 text-right text-xs font-medium text-zinc-700">
-                          {formatPeso(item.segundo.precioUnitario)}
+                          {textoPrecioGanador(item.segundo.precioUnitario, formatPeso)}
                         </td>
                         <td className="px-4 py-2 text-xs text-zinc-600">
                           {item.segundo.proveedorNombre}

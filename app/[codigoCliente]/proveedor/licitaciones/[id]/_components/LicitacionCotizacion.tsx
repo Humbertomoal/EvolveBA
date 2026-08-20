@@ -17,6 +17,13 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import { enviarOfertaAction } from "@/src/lib/ofertasActions";
+// ofertaValida.ts es un módulo PURO (0 imports): se puede importar desde un
+// componente "use client" sin arrastrar Prisma/pg al bundle.
+import {
+  estadoDePartida,
+  estadoSinCosto,
+  type EstadoPartida,
+} from "@/src/lib/ofertaValida";
 import { formatImporte } from "@/src/lib/monedas";
 import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { textoAvisoRonda } from "@/src/lib/plantillasChat";
@@ -41,6 +48,7 @@ export type ItemDetalle = {
     puedeCumplirFecha: boolean;
     fechaEstimadaEntrega: string | null;
     noDisponible: boolean;
+    noAplica: boolean;
   } | null;
   // Oferta del mismo proveedor en la ronda inmediatamente anterior — solo se
   // usa para pre-llenar los campos cuando aún no ha cotizado en la ronda actual.
@@ -50,6 +58,7 @@ export type ItemDetalle = {
     puedeCumplirFecha: boolean;
     fechaEstimadaEntrega: string | null;
     noDisponible: boolean;
+    noAplica: boolean;
   } | null;
 };
 
@@ -58,11 +67,49 @@ type FilaState = {
   precioUnitario: string;
   puedeCumplirFecha: boolean;
   fechaEstimadaEntrega: string;
-  /** "No dispongo de esta partida": la vía explícita que reemplaza al precio 0. */
-  noDisponible: boolean;
+  /**
+   * Los tres estados excluyentes de la partida. Antes era un booleano
+   * `noDisponible`; se convirtió en un valor único porque el tercer estado no
+   * cabe en un checkbox y porque dos casillas dejarían marcar a la vez dos
+   * cosas que en la base son mutuamente excluyentes (CHECK
+   * `oferta_estado_excluyente`).
+   */
+  estado: EstadoPartida;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
+
+/**
+ * Las tres respuestas posibles a una partida.
+ *
+ * Cada una lleva su CONSECUENCIA, no solo su nombre, y ese es el punto: los dos
+ * estados sin costo se parecen ("no cobro") y se distinguen justo en lo que
+ * pasa después —uno se queda fuera del comparativo y el otro puede ganarlo—.
+ * Sin esa línea, un proveedor que regala el flete marcaría "No dispongo" y se
+ * autoexcluiría de una partida que quería ganar.
+ */
+const OPCIONES_ESTADO: {
+  valor: EstadoPartida;
+  etiqueta: string;
+  consecuencia: string;
+}[] = [
+  {
+    valor: "cotizo",
+    etiqueta: "Cotizo esta partida",
+    consecuencia: "Captura precio y cantidad.",
+  },
+  {
+    valor: "no_dispongo",
+    etiqueta: "No dispongo de esta partida",
+    consecuencia: "No la vendo o no puedo surtirla. No participa.",
+  },
+  {
+    valor: "no_aplica",
+    etiqueta: "Sin costo en este caso ($0)",
+    consecuencia:
+      "Sí la ofrezco, pero aquí no tiene costo. Compite con $0 y puedes ganarla.",
+  },
+];
 
 const INPUT =
   "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -194,7 +241,7 @@ export default function LicitacionCotizacion({
         // elimina. Se muestra vacío para que el proveedor lo capture bien o
         // marque "No dispongo".
         precioUnitario: base && base.precioUnitario > 0 ? String(base.precioUnitario) : "",
-        noDisponible: base?.noDisponible ?? false,
+        estado: base ? estadoDePartida(base) : "cotizo",
         puedeCumplirFecha: base ? base.puedeCumplirFecha : true,
         fechaEstimadaEntrega: base?.fechaEstimadaEntrega
           ? new Date(base.fechaEstimadaEntrega).toISOString().split("T")[0]
@@ -373,11 +420,12 @@ export default function LicitacionCotizacion({
   const [enviando, setEnviando] = useState(false);
 
   // ── Validación por fila ───────────────────────────────────────────────────
-  // Una partida marcada "No dispongo" no se valida: no lleva precio ni cantidad
-  // y ese es justamente su propósito.
+  // "No dispongo" no se valida: no lleva precio ni cantidad y ese es justamente
+  // su propósito. "No aplica" SÍ valida cantidad —va a surtir la partida— pero
+  // no precio.
   const rowErrors = items.map((item, idx) => {
     const fila = filas[idx];
-    if (fila.noDisponible) return null;
+    if (fila.estado === "no_dispongo") return null;
     const val = parseFloat(fila.cantidadDisponible);
     return fila.cantidadDisponible !== "" && !isNaN(val) && val > item.cantidadSolicitada
       ? `La cantidad no puede superar la solicitada (${item.cantidadSolicitada} ${item.unidadMedida})`
@@ -388,12 +436,15 @@ export default function LicitacionCotizacion({
   // que un campo vacío o un 0 pasaban derecho y llegaban a la base.
   const rowErroresPrecio = items.map((_item, idx) => {
     const fila = filas[idx];
-    if (fila.noDisponible) return null;
+    // Los dos estados sin costo no llevan precio que validar. En "no aplica" el
+    // 0 es una respuesta legítima —no un campo sin llenar—, así que exigirle un
+    // precio positivo sería justo al revés de lo que significa.
+    if (estadoSinCosto(fila.estado)) return null;
     if (fila.precioUnitario.trim() === "") return "Captura un precio unitario";
     const precio = parseFloat(fila.precioUnitario);
     if (!Number.isFinite(precio)) return "El precio no es un número válido";
     if (precio <= 0) {
-      return "El precio debe ser mayor que cero. Si no puedes surtir esta partida, marca “No dispongo”.";
+      return "El precio debe ser mayor que cero. Si no puedes surtir esta partida marca “No dispongo”; si la ofreces sin costo, marca “Sin costo en este caso”.";
     }
     return null;
   });
@@ -453,17 +504,21 @@ export default function LicitacionCotizacion({
           // cero en silencio, que era la vía principal por la que entraban los
           // ceros que envenenaban los comparativos. Ahora un vacío produce NaN,
           // que la validación de abajo y la del servidor rechazan.
-          precioUnitario: filas[idx].noDisponible
+          precioUnitario: estadoSinCosto(filas[idx].estado)
             ? 0
             : parseFloat(filas[idx].precioUnitario),
-          cantidadDisponible: filas[idx].noDisponible
-            ? 0
-            : parseFloat(filas[idx].cantidadDisponible) || 0,
+          // La cantidad solo se anula en "no dispongo": quien marca "no
+          // aplica" sí va a surtir la partida, y necesita cantidad para poder
+          // ganarla.
+          cantidadDisponible:
+            filas[idx].estado === "no_dispongo"
+              ? 0
+              : parseFloat(filas[idx].cantidadDisponible) || 0,
           puedeCumplirFecha: filas[idx].puedeCumplirFecha,
           fechaEstimadaEntrega: filas[idx].puedeCumplirFecha
             ? null
             : filas[idx].fechaEstimadaEntrega || null,
-          noDisponible: filas[idx].noDisponible,
+          estado: filas[idx].estado,
         }))
       );
 
@@ -782,13 +837,17 @@ export default function LicitacionCotizacion({
                               min="0"
                               max={item.cantidadSolicitada}
                               step="any"
-                              disabled={fila.noDisponible}
-                              value={fila.noDisponible ? "" : fila.cantidadDisponible}
+                              disabled={fila.estado === "no_dispongo"}
+                              value={
+                                fila.estado === "no_dispongo"
+                                  ? ""
+                                  : fila.cantidadDisponible
+                              }
                               onChange={(e) =>
                                 setFila(idx, "cantidadDisponible", e.target.value)
                               }
                               className={
-                                fila.noDisponible
+                                fila.estado === "no_dispongo"
                                   ? `${INPUT} cursor-not-allowed opacity-40`
                                   : rowError
                                     ? INPUT_ERR
@@ -815,37 +874,58 @@ export default function LicitacionCotizacion({
                         {/* Precio unitario */}
                         <td className="px-3 py-2.5">
                           {rondaAbierta ? (
-                            <div className="space-y-1.5">
-                              <div className="relative">
-                                <span
-                                  className={`pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400 ${
-                                    fila.noDisponible ? "opacity-40" : ""
-                                  }`}
-                                >
-                                  $
-                                </span>
-                                <input
-                                  type="number"
-                                  // `min` pasa de "0" a un positivo: antes el
-                                  // propio formulario declaraba que 0 era un
-                                  // precio aceptable.
-                                  min="0.01"
-                                  step="0.01"
-                                  disabled={fila.noDisponible}
-                                  value={fila.noDisponible ? "" : fila.precioUnitario}
-                                  onChange={(e) =>
-                                    setFila(idx, "precioUnitario", e.target.value)
-                                  }
-                                  className={`${INPUT} pl-7 ${
-                                    fila.noDisponible
-                                      ? "cursor-not-allowed opacity-40"
-                                      : rowErroresPrecio[idx]
-                                        ? "border-red-400 focus:border-red-400 focus:ring-red-200"
-                                        : ""
-                                  }`}
-                                  placeholder={fila.noDisponible ? "—" : "0.00"}
-                                />
-                              </div>
+                            <div className="space-y-2">
+                              {fila.estado === "no_aplica" ? (
+                                /* Chip en lugar del campo: el proveedor ve el
+                                   importe al que se compromete ANTES de enviar,
+                                   en vez de un input deshabilitado en blanco
+                                   que no explica nada. */
+                                <div className="flex h-[38px] items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3">
+                                  <span className="text-sm font-semibold text-emerald-700">
+                                    $0.00
+                                  </span>
+                                  <span className="text-[11px] text-emerald-600">
+                                    Gratis · compite y puede ganar
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="relative">
+                                  <span
+                                    className={`pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400 ${
+                                      fila.estado === "no_dispongo" ? "opacity-40" : ""
+                                    }`}
+                                  >
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    // `min` pasa de "0" a un positivo: antes el
+                                    // propio formulario declaraba que 0 era un
+                                    // precio aceptable.
+                                    min="0.01"
+                                    step="0.01"
+                                    disabled={fila.estado === "no_dispongo"}
+                                    value={
+                                      fila.estado === "no_dispongo"
+                                        ? ""
+                                        : fila.precioUnitario
+                                    }
+                                    onChange={(e) =>
+                                      setFila(idx, "precioUnitario", e.target.value)
+                                    }
+                                    className={`${INPUT} pl-7 ${
+                                      fila.estado === "no_dispongo"
+                                        ? "cursor-not-allowed opacity-40"
+                                        : rowErroresPrecio[idx]
+                                          ? "border-red-400 focus:border-red-400 focus:ring-red-200"
+                                          : ""
+                                    }`}
+                                    placeholder={
+                                      fila.estado === "no_dispongo" ? "—" : "0.00"
+                                    }
+                                  />
+                                </div>
+                              )}
 
                               {rowErroresPrecio[idx] && (
                                 <p className="text-[11px] leading-tight text-red-600">
@@ -853,20 +933,43 @@ export default function LicitacionCotizacion({
                                 </p>
                               )}
 
-                              {/* La vía EXPLÍCITA para no cotizar, que sustituye
-                                  al 0. Sin esto, bloquear el 0 dejaría sin salida
-                                  a quien de verdad no puede surtir la partida. */}
-                              <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-700">
-                                <input
-                                  type="checkbox"
-                                  checked={fila.noDisponible}
-                                  onChange={(e) =>
-                                    setFila(idx, "noDisponible", e.target.checked)
-                                  }
-                                  className="h-3.5 w-3.5 rounded border-zinc-300 accent-[var(--color-primario)]"
-                                />
-                                No dispongo de esta partida
-                              </label>
+                              {/* Tres estados EXCLUYENTES. Van como radios y no
+                                  como casillas por dos razones: en la base son
+                                  mutuamente excluyentes (CHECK
+                                  oferta_estado_excluyente), y porque lo que
+                                  evita que el proveedor los confunda no es el
+                                  nombre sino la CONSECUENCIA escrita al lado
+                                  —"no participa" frente a "compite con $0 y
+                                  puedes ganarla"—. */}
+                              <fieldset className="space-y-1 border-t border-zinc-100 pt-2">
+                                <legend className="sr-only">
+                                  ¿Cómo respondes esta partida?
+                                </legend>
+                                {OPCIONES_ESTADO.map((opcion) => (
+                                  <label
+                                    key={opcion.valor}
+                                    className="flex cursor-pointer items-start gap-1.5 text-[11px] leading-tight text-zinc-500 hover:text-zinc-700"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`estado-${item.licitacionItemId}`}
+                                      checked={fila.estado === opcion.valor}
+                                      onChange={() =>
+                                        setFila(idx, "estado", opcion.valor)
+                                      }
+                                      className="mt-0.5 h-3.5 w-3.5 shrink-0 border-zinc-300 accent-[var(--color-primario)]"
+                                    />
+                                    <span className="min-w-0">
+                                      <span className="font-medium text-zinc-700">
+                                        {opcion.etiqueta}
+                                      </span>
+                                      <span className="block text-zinc-400">
+                                        {opcion.consecuencia}
+                                      </span>
+                                    </span>
+                                  </label>
+                                ))}
+                              </fieldset>
                             </div>
                           ) : rondaActual === 0 ? (
                             <div className="relative">

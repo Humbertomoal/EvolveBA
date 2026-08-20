@@ -260,6 +260,7 @@ export default async function DetalleLicitacionPage({
             puedeCumplirFecha: oferta.puedeCumplirFecha,
             fechaEstimadaEntrega: oferta.fechaEstimadaEntrega?.toISOString() ?? null,
             noDisponible: oferta.noDisponible,
+            noAplica: oferta.noAplica,
           }
         : null,
       ofertaAnterior: ofertaAnterior
@@ -270,6 +271,7 @@ export default async function DetalleLicitacionPage({
             fechaEstimadaEntrega:
               ofertaAnterior.fechaEstimadaEntrega?.toISOString() ?? null,
             noDisponible: ofertaAnterior.noDisponible,
+            noAplica: ofertaAnterior.noAplica,
           }
         : null,
     };

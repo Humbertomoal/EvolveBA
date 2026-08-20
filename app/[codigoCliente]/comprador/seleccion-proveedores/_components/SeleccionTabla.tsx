@@ -347,7 +347,9 @@ export default function SeleccionTabla({
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${adherenciaBadgeClass(r.adherenciaPct)}`}
                           >
-                            {r.adherenciaPct.toFixed(1)}%
+                            {r.adherenciaMedible === false
+                              ? "—"
+                              : `${r.adherenciaPct.toFixed(1)}%`}
                           </span>
                         </td>
                         <td className={`px-3 py-3 text-right font-medium ${ahorroColorClass(r.ahorroTotal)}`}>
