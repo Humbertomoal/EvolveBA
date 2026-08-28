@@ -58,11 +58,14 @@ export function inicioRonda1(): string {
 /** Se abre la ronda 2. */
 export function segundaRonda(): string {
   return (
-    "La primera ronda ha concluido y uno de los participantes mejoró el mejor " +
-    "precio ofrecido. Se generará una segunda ronda para darle la oportunidad " +
-    "a todos de volver a competir. En caso de que desees mejorar tu oferta de " +
-    "precios de la primera ronda, registra tu oferta de precios unitarios por " +
-    "partida en los campos de la licitación de esta segunda ronda."
+    "Estimado Proveedor, la primera ronda ha concluido. Uno de los proveedores " +
+    "participantes ha ofrecido un precio más eficiente que los demás. En unos " +
+    "segundos iniciará una segunda ronda, en esta segunda ronda tienen la " +
+    "oportunidad de mejorar su oferta de precios anterior. En caso de que " +
+    "alguno de los participantes mejore, en esta segunda ronda, el mejor " +
+    "precio ofrecido en la primera ronda, se generará una tercera ronda. Para " +
+    "hacer tu oferta de precios en esta segunda ronda registra tu oferta de " +
+    "precios unitarios por partida en los campos de la licitación."
   );
 }
 
