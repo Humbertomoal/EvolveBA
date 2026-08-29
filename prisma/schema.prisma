@@ -105,6 +105,23 @@ model Licitacion {
   fechaCerrada            DateTime?
   fechaFinalizada         DateTime?
   fechaCancelada          DateTime?
+  // Cuándo salió el LOTE COMPLETO de invitaciones a los proveedores.
+  //
+  // Existe para que "ya se notificó" sea un dato propio y no se infiera de
+  // `estado`: el disparo del correo dependía de estadoPrevio "Borrador" +
+  // estado "Programada", y como el servidor promovía Borrador → Programada
+  // por su cuenta al guardar con fecha futura, un guardado de borrador
+  // consumía el único disparo en silencio (licitación 0016).
+  //
+  // null = SIN REGISTRO de envío, que no es lo mismo que "no se enviaron":
+  // las licitaciones anteriores a esta columna quedan en null a propósito
+  // (no existe el dato real y rellenarlo sería inventarlo). La UI debe
+  // decir "sin registro", no "nunca se enviaron".
+  //
+  // Se sella solo cuando TODOS los destinatarios salieron bien: ModalCorreo
+  // llama `onEnviado` únicamente si ningún envío falló, así que un lote
+  // parcial deja esto en null y la licitación sigue marcada como pendiente.
+  invitacionesEnviadasEn  DateTime?
   eliminado               Boolean   @default(false)
   eliminadoEn             DateTime?
   compradorId             String
