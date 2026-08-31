@@ -3,14 +3,8 @@ import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
-import { getUsuarioActual } from "@/src/lib/usuarioActual";
-import {
-  fichasDeProveedor,
-  filtrarItemsPorMaterialesProveedor,
-} from "@/src/lib/proveedorMateriales";
-import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
+import { getDatosInvitacion } from "@/src/lib/datosInvitacion";
 import { soloOfertasValidas } from "@/src/lib/ofertaValida";
-import { soloCorreoProveedor } from "@/src/lib/correoProveedor";
 import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,
@@ -29,18 +23,7 @@ import type {
   AnalisisProductoItem,
   ResumenAhorro,
   RondaHistorial,
-  DatosInvitacionLicitacion,
 } from "./_components/DetalleLicitacion";
-
-function parsearArchivosAdjuntos(json: string | null): string[] {
-  if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 export default async function DetalleLicitacionProcesoPage({
   params,
@@ -58,31 +41,16 @@ export default async function DetalleLicitacionProcesoPage({
     include: {
       items: {
         include: {
-          producto: {
-            select: {
-              nombre: true,
-              unidadMedida: true,
-              // Fichas técnicas: se adjuntan al correo de invitación/reenvío,
-              // filtradas por los materiales que cada proveedor puede cotizar.
-              archivosEspecificaciones: true,
-            },
-          },
+          producto: { select: { nombre: true, unidadMedida: true } },
         },
         orderBy: { createdAt: "asc" },
       },
       proveedoresInvitados: {
         include: {
-          // vendedorCorreo es OBLIGATORIO en este select: correoDeProveedor()
-          // lo prefiere sobre el administrativo, y si no viene en el payload
-          // caería al respaldo SIEMPRE sin que nada lo delate.
-          proveedor: {
-            select: {
-              id: true,
-              razonSocial: true,
-              vendedorCorreo: true,
-              contactoAdminCorreo: true,
-            },
-          },
+          // Los correos de contacto NO se piden aquí: el payload de invitación
+          // los resuelve por su cuenta en datosInvitacion.ts, que sí sabe que
+          // vendedorCorreo manda sobre el administrativo.
+          proveedor: { select: { id: true, razonSocial: true } },
         },
         orderBy: { invitadoEn: "asc" },
       },
@@ -378,65 +346,12 @@ export default async function DetalleLicitacionProcesoPage({
     }
   } catch {}
 
-  // ── Datos para el reenvío del correo de invitación ─────────────────────────
-  const usuarioActual = await getUsuarioActual();
-  const correosProveedoresInvitados = licitacion.proveedoresInvitados
-    .map((lp: any) => soloCorreoProveedor(lp.proveedor))
-    .filter((c: string): c is string => !!c);
-
-  const itemsConProductoId = licitacion.items.map((item: any) => ({
-    productoId: item.productoId,
-    producto: item.producto.nombre,
-    cantidad: item.cantidadSolicitada,
-    unidad: item.producto.unidadMedida,
-    fechaRequerida: item.fechaEntrega?.toISOString() ?? null,
-  }));
-
-  // Items filtrados al catálogo de cada proveedor invitado (misma lógica que
-  // ve el proveedor en su portal), para personalizar tablaMateriales por
-  // destinatario en el correo de invitación/reenvío.
-  const mapaMaterialesProveedores = await getMapaProveedorMateriales();
-
-  // productoId → JSON crudo de sus fichas técnicas, para fichasDeProveedor.
-  const fichasPorProducto: Record<string, string | null | undefined> = {};
-  for (const item of licitacion.items as any[]) {
-    if (item.productoId in fichasPorProducto) continue;
-    fichasPorProducto[item.productoId] = item.producto.archivosEspecificaciones;
-  }
-
-  const itemsPorProveedor: Record<string, DatosInvitacionLicitacion["items"]> = {};
-  const nombrePorDestinatario: Record<string, string> = {};
-  const fichasPorDestinatario: Record<string, string[]> = {};
-  for (const lp of licitacion.proveedoresInvitados) {
-    const correo = soloCorreoProveedor((lp as any).proveedor);
-    if (!correo) continue;
-    const materialesIds = mapaMaterialesProveedores[(lp as any).proveedor.id] ?? [];
-    const itemsFiltrados = filtrarItemsPorMaterialesProveedor(itemsConProductoId, materialesIds);
-    itemsPorProveedor[correo] = itemsFiltrados.map(({ productoId: _productoId, ...resto }) => resto);
-    nombrePorDestinatario[correo] = (lp as any).proveedor.razonSocial;
-    // Mismo filtro por catálogo que la tabla de materiales, para que los
-    // adjuntos y la tabla del correo hablen de los mismos materiales.
-    fichasPorDestinatario[correo] = fichasDeProveedor(
-      itemsConProductoId,
-      materialesIds,
-      fichasPorProducto
-    );
-  }
-
-  const datosInvitacion: DatosInvitacionLicitacion = {
-    fechaInicio: licitacion.fechaEjecucion?.toISOString() ?? null,
-    fechaFin: licitacion.fechaFinLicitacion?.toISOString() ?? null,
-    instrucciones: licitacion.instrucciones ?? "",
-    archivosAdjuntos: parsearArchivosAdjuntos(licitacion.archivosAdjuntos),
-    items: itemsConProductoId.map(({ productoId: _productoId, ...resto }) => resto),
-    itemsPorProveedor,
-    nombrePorDestinatario,
-    fichasPorDestinatario,
-    destinatarios: [...new Set(correosProveedoresInvitados)],
-    excluidos: licitacion.proveedoresInvitados.length - correosProveedoresInvitados.length,
-    nombreComprador: usuarioActual?.nombre ?? "",
-    correoComprador: usuarioActual?.email ?? "",
-  };
+  // Payload del correo de invitación. Vivía inline aquí (~60 líneas), pero la
+  // pantalla de lanzamiento necesita EL MISMO payload para notificar a una
+  // licitación Programada, así que se mudó a src/lib/datosInvitacion.ts.
+  // null solo si la licitación desapareció entre esta consulta y la de arriba.
+  // No tumba la pantalla: DetalleLicitacion simplemente no ofrece el reenvío.
+  const datosInvitacion = await getDatosInvitacion(id);
 
   return (
     <DetalleLicitacion

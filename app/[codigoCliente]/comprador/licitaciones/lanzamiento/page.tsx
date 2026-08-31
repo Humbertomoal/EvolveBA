@@ -48,7 +48,11 @@ export default async function LanzamientoLicitacionesPage({
         </Link>
       </div>
 
-      <LanzamientoTabla licitaciones={licitaciones} basePath={basePath} />
+      <LanzamientoTabla
+        licitaciones={licitaciones}
+        basePath={basePath}
+        codigoCliente={codigoCliente}
+      />
     </div>
   );
 }

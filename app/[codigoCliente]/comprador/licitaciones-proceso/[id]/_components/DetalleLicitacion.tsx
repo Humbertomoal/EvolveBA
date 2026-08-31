@@ -26,16 +26,11 @@ import {
   descargarResumenLicitacionPdfAction,
 } from "@/src/lib/pdfActions";
 import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
+import toast from "react-hot-toast";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
-import ModalCorreo from "@/src/components/ModalCorreo";
-import { prepararAdjuntosInvitacionAction } from "@/src/lib/adjuntosCorreoActions";
-import {
-  generarEnlacesFichas,
-  generarTablaMateriales,
-} from "@/src/lib/plantillasCorreo";
-import { getConfigEmpresa } from "@/src/config/empresa";
+import ModalInvitacionLicitacion from "@/src/components/ModalInvitacionLicitacion";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
-import type { AdjuntoCorreo } from "@/src/lib/emailService";
+import type { DatosInvitacionLicitacion } from "@/src/lib/datosInvitacionTypes";
 
 // ── Types (exported for use in server page) ───────────────────────────────────
 
@@ -121,30 +116,10 @@ export type MejorPrecioItem = {
   } | null;
 };
 
-export type DatosInvitacionLicitacion = {
-  fechaInicio: string | null;
-  fechaFin: string | null;
-  instrucciones: string;
-  archivosAdjuntos: string[];
-  items: { producto: string; cantidad: number; unidad: string; fechaRequerida: string | null }[];
-  /** Items filtrados al catálogo de cada proveedor invitado, por correo — para personalizar la tabla de materiales del correo. */
-  itemsPorProveedor: Record<
-    string,
-    { producto: string; cantidad: number; unidad: string; fechaRequerida: string | null }[]
-  >;
-  /** Razón social del proveedor, por correo — para la nota de vista previa personalizada. */
-  nombrePorDestinatario: Record<string, string>;
-  /**
-   * URLs de fichas técnicas por correo: solo las de los materiales que ese
-   * proveedor puede cotizar, deduplicadas y en orden de aparición. Se resuelven
-   * en el server component (necesitan Producto.archivosEspecificaciones).
-   */
-  fichasPorDestinatario: Record<string, string[]>;
-  destinatarios: string[];
-  excluidos: number;
-  nombreComprador: string;
-  correoComprador: string;
-};
+// `DatosInvitacionLicitacion` vive ahora en src/lib/datosInvitacionTypes.ts.
+// Estaba declarado AQUÍ y el Server Component lo importaba desde este
+// "use client" — la dirección equivocada (blindaje pg/util-types).
+export type { DatosInvitacionLicitacion };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -161,25 +136,6 @@ function fmtFechaHoraCorreo(iso: string | null): string {
 
 function formatPeso(n: number): string {
   return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-}
-
-/** Variables {tablaMateriales, cantidadMateriales} personalizadas por destinatario. */
-function variablesInvitacionPorDestinatario(
-  datos: DatosInvitacionLicitacion,
-  enlacesPorDestinatario: Record<string, string[]> = {}
-): Record<string, Record<string, string>> {
-  const mapa: Record<string, Record<string, string>> = {};
-  for (const correo of datos.destinatarios) {
-    const itemsProveedor = datos.itemsPorProveedor[correo] ?? datos.items;
-    mapa[correo] = {
-      tablaMateriales: generarTablaMateriales(itemsProveedor),
-      cantidadMateriales: String(itemsProveedor.length),
-      // Fichas que no cupieron como adjunto para ESTE proveedor; vacío si
-      // todas se adjuntaron → la línea de la plantilla se colapsa.
-      enlacesFichas: generarEnlacesFichas(enlacesPorDestinatario[correo] ?? []),
-    };
-  }
-  return mapa;
 }
 
 function formatFechaHora(iso: string): string {
@@ -299,7 +255,8 @@ export default function DetalleLicitacion({
   resumenAhorro: ResumenAhorro;
   basePath: string;
   codigoCliente: string;
-  datosInvitacion: DatosInvitacionLicitacion;
+  /** null si el payload no se pudo armar; entonces no se ofrece el reenvío. */
+  datosInvitacion: DatosInvitacionLicitacion | null;
   noLeidosPorProveedor?: Record<string, number>;
   // Nota discreta del TC usado ("Totales en MXN · TC USD 17.20") o null si todo MXN.
   notaTipoCambio?: string | null;
@@ -323,35 +280,19 @@ export default function DetalleLicitacion({
     useState<ProveedorParticipante | null>(null);
   const [chatProveedorId, setChatProveedorId] = useState<string | null>(null);
   const [forzando, setForzando] = useState(false);
-  const [preparandoReenvio, setPreparandoReenvio] = useState(false);
-  const [modalReenvio, setModalReenvio] = useState<{
-    adjuntos: AdjuntoCorreo[];
-    adjuntosPorDestinatario: Record<string, AdjuntoCorreo[]>;
-    enlacesPorDestinatario: Record<string, string[]>;
-    omitidoPorTamano: boolean;
-  } | null>(null);
+  const [reenvioAbierto, setReenvioAbierto] = useState(false);
 
-  // Mismo comportamiento que el envío inicial en LicitacionForm: documentos de
-  // la licitación para todos + fichas técnicas de los materiales que cada
-  // proveedor puede cotizar, y enlaces para lo que no cupo.
-  async function handleAbrirReenvioInvitacion() {
-    setPreparandoReenvio(true);
-    const {
-      adjuntosComunes,
-      adjuntosPorDestinatario,
-      enlacesPorDestinatario,
-      documentosOmitidos,
-    } = await prepararAdjuntosInvitacionAction({
-      documentosLicitacion: datosInvitacion.archivosAdjuntos,
-      fichasPorDestinatario: datosInvitacion.fichasPorDestinatario,
-    });
-    setPreparandoReenvio(false);
-    setModalReenvio({
-      adjuntos: adjuntosComunes,
-      adjuntosPorDestinatario,
-      enlacesPorDestinatario,
-      omitidoPorTamano: documentosOmitidos.length > 0,
-    });
+  // La preparación de adjuntos, las variables del correo y el sello del envío
+  // viven en ModalInvitacionLicitacion — el mismo componente que usa la
+  // pantalla de lanzamiento. Aquí solo se decide cuándo abrirlo.
+  function handleAbrirReenvioInvitacion() {
+    if (!datosInvitacion || datosInvitacion.destinatarios.length === 0) {
+      toast.error(
+        "Ningún proveedor invitado tiene correo de contacto. Completa su ficha para poder notificarlos."
+      );
+      return;
+    }
+    setReenvioAbierto(true);
   }
 
   const cotizaron = participantes.filter((p: any) => p.cotizó).length;
@@ -505,11 +446,10 @@ export default function DetalleLicitacion({
           <button
             type="button"
             onClick={handleAbrirReenvioInvitacion}
-            disabled={preparandoReenvio}
             className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <IconMail className="h-4 w-4" />
-            {preparandoReenvio ? "Preparando…" : "Reenviar invitación"}
+            Reenviar invitación
           </button>
 
           <DescargarPdfButton
@@ -1160,60 +1100,18 @@ export default function DetalleLicitacion({
       )}
 
       {/* ── Modal: reenviar invitación a la licitación ─────────────────────── */}
-      {modalReenvio && (
-        <ModalCorreo
-          abierto
-          onCerrar={() => setModalReenvio(null)}
-          onEnviado={() => setModalReenvio(null)}
-          tipo="INVITACION_LICITACION"
+      {/* Antes aquí vivía una COPIA completa del <ModalCorreo> de invitación,
+          cuyo `onEnviado` solo cerraba el modal: un reenvío desde el detalle
+          no dejaba rastro en `invitacionesEnviadasEn`. Ahora es el mismo
+          componente que usa la pantalla de lanzamiento, y sella siempre. */}
+      {reenvioAbierto && datosInvitacion && (
+        <ModalInvitacionLicitacion
+          licitacionId={id}
+          numero={numero}
+          basePath={basePath}
           codigoCliente={codigoCliente}
-          variables={{
-            numeroLicitacion: numero,
-            fechaInicio: fmtFechaHoraCorreo(datosInvitacion.fechaInicio),
-            fechaFin: fmtFechaHoraCorreo(datosInvitacion.fechaFin),
-            cantidadMateriales: String(
-              (datosInvitacion.itemsPorProveedor[datosInvitacion.destinatarios[0]] ??
-                datosInvitacion.items
-              ).length
-            ),
-            tablaMateriales: generarTablaMateriales(
-              datosInvitacion.itemsPorProveedor[datosInvitacion.destinatarios[0]] ??
-                datosInvitacion.items
-            ),
-            // Vista previa: enlaces del destinatario de referencia. Al enviar,
-            // cada uno recibe los suyos vía variablesPorDestinatario.
-            enlacesFichas: generarEnlacesFichas(
-              modalReenvio.enlacesPorDestinatario[datosInvitacion.destinatarios[0]] ?? []
-            ),
-            instruccionesLicitacion:
-              datosInvitacion.instrucciones +
-              (modalReenvio.omitidoPorTamano
-                ? "\n\nLos archivos adjuntos están disponibles en el portal."
-                : ""),
-            nombreComprador: datosInvitacion.nombreComprador,
-            correoComprador: datosInvitacion.correoComprador,
-            telefonoComprador: getConfigEmpresa(codigoCliente).telefonoContacto,
-          }}
-          destinatarios={datosInvitacion.destinatarios}
-          adjuntos={modalReenvio.adjuntos}
-          adjuntosPorDestinatario={modalReenvio.adjuntosPorDestinatario}
-          aviso={
-            datosInvitacion.excluidos > 0
-              ? `${datosInvitacion.excluidos} proveedor${datosInvitacion.excluidos === 1 ? "" : "es"} sin correo de contacto ${datosInvitacion.excluidos === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
-              : undefined
-          }
-          variablesPorDestinatario={variablesInvitacionPorDestinatario(
-            datosInvitacion,
-            modalReenvio.enlacesPorDestinatario
-          )}
-          notaPersonalizacion={
-            datosInvitacion.destinatarios[0]
-              ? `Vista previa para ${
-                  datosInvitacion.nombrePorDestinatario[datosInvitacion.destinatarios[0]] ??
-                  "el proveedor"
-                }. La lista de materiales se personaliza automáticamente para cada proveedor según su catálogo.`
-              : undefined
-          }
+          datos={datosInvitacion}
+          onCerrar={() => setReenvioAbierto(false)}
         />
       )}
     </div>

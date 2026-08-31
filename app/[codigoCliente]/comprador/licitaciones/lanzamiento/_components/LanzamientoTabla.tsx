@@ -2,6 +2,8 @@
 
 import {
   IconClock,
+  IconMail,
+  IconMailForward,
   IconPencil,
   IconFlag,
   IconTrash,
@@ -11,6 +13,9 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import type { LicitacionRow } from "@/src/lib/licitaciones";
 import { eliminarLicitacionAction } from "@/src/lib/licitacionesActions";
+import { getDatosInvitacionAction } from "@/src/lib/datosInvitacionActions";
+import ModalInvitacionLicitacion from "@/src/components/ModalInvitacionLicitacion";
+import type { DatosInvitacionLicitacion } from "@/src/lib/datosInvitacionTypes";
 import PanelFiltros from "@/app/_components/PanelFiltros";
 import EmptyState from "@/src/components/EmptyState";
 
@@ -49,6 +54,43 @@ function formatPeso(valor: number | null): string {
   })}`;
 }
 
+/**
+ * "31/08 12:43" — corto a propósito: es una columna, no una ficha. Fecha y
+ * hora se formatean por separado porque `toLocaleString` mete una coma entre
+ * ambas ("31/08, 12:43") que en una celda estrecha solo estorba. La fecha
+ * completa va en el `title` del botón.
+ */
+function formatEnviadas(fechaISO: string): string {
+  const d = new Date(fechaISO);
+  const fecha = d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit" });
+  const hora = d.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${fecha} ${hora}`;
+}
+
+/**
+ * "31/08/2026 13:04" para tooltips y confirmaciones. Sin segundos y sin la
+ * coma/punto final que mete `toLocaleString`: el texto del confirm ya termina
+ * en punto y salía "1:04:16 p.m..".
+ */
+function formatEnviadasLargo(fechaISO: string): string {
+  const d = new Date(fechaISO);
+  const fecha = d.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const hora = d.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${fecha} ${hora}`;
+}
+
 const BADGE_CLASS: Record<string, string> = {
   Borrador: "bg-zinc-100 text-zinc-600",
   Programada: "bg-blue-100 text-blue-700",
@@ -63,11 +105,15 @@ function LicitacionFila({
   basePath,
   onEliminar,
   eliminando,
+  onNotificar,
+  notificando,
 }: {
   l: LicitacionRow;
   basePath: string;
   onEliminar: (id: string) => void;
   eliminando: boolean;
+  onNotificar: (l: LicitacionRow) => void;
+  notificando: boolean;
 }) {
   const targetMs = l.fechaEjecucion ? new Date(l.fechaEjecucion).getTime() : null;
   const [ms, setMs] = useState(() =>
@@ -169,8 +215,41 @@ function LicitacionFila({
           {l.estado}
         </span>
       </td>
+      {/* Invitación: lo único que distingue una Programada ya notificada de
+          una que ningún proveedor recibió — el estado dice "Programada" en
+          ambos casos. */}
+      <td className="px-3 py-3 text-zinc-600">
+        {l.invitacionesEnviadasEn ? (
+          <span title={`Invitaciones enviadas el ${formatEnviadasLargo(l.invitacionesEnviadasEn)}`}>
+            Enviadas {formatEnviadas(l.invitacionesEnviadasEn)}
+          </span>
+        ) : (
+          <span className="text-zinc-300">—</span>
+        )}
+      </td>
       <td className="col-acciones-sticky px-3 py-3">
         <div className="flex items-center gap-1">
+          {/* Solo en Programada: una Borrador todavía se lanza desde el
+              formulario, y una Manual no notifica por portal. */}
+          {l.estado === "Programada" && l.modoLicitacion !== "Manual" && (
+            <button
+              type="button"
+              onClick={() => onNotificar(l)}
+              disabled={notificando}
+              className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-[var(--color-primario)] disabled:opacity-40"
+              title={
+                l.invitacionesEnviadasEn
+                  ? `Reenviar invitación — enviadas el ${formatEnviadasLargo(l.invitacionesEnviadasEn)}`
+                  : "Notificar participantes — aún no se ha enviado la invitación"
+              }
+            >
+              {l.invitacionesEnviadasEn ? (
+                <IconMailForward className="h-4 w-4" />
+              ) : (
+                <IconMail className="h-4 w-4" />
+              )}
+            </button>
+          )}
           <Link
             href={`${basePath}/comprador/licitaciones/${l.id}/editar`}
             className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
@@ -198,13 +277,25 @@ function LicitacionFila({
 export default function LanzamientoTabla({
   licitaciones,
   basePath,
+  codigoCliente,
 }: {
   licitaciones: LicitacionRow[];
   basePath: string;
+  /** Necesario para resolver la plantilla y los datos de empresa del correo. */
+  codigoCliente: string;
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [filtrosEstado, setFiltrosEstado] = useState<string[]>([]);
   const [eliminando, setEliminando] = useState<string | null>(null);
+  // El payload de invitación se pide AL PULSAR, no al render: son items,
+  // productos, fichas técnicas y correos de proveedores por licitación, y en
+  // una lista de N filas se tiraría a la basura todo menos uno.
+  const [notificando, setNotificando] = useState<string | null>(null);
+  const [invitacion, setInvitacion] = useState<{
+    licitacionId: string;
+    numero: string;
+    datos: DatosInvitacionLicitacion;
+  } | null>(null);
 
   const filtradas = licitaciones.filter((l) => {
     const q = busqueda.toLowerCase();
@@ -216,6 +307,42 @@ export default function LanzamientoTabla({
       filtrosEstado.length === 0 || filtrosEstado.includes(l.estado);
     return matchQ && matchEstado;
   });
+
+  async function handleNotificar(l: LicitacionRow) {
+    // Reenviar duplica correos en la bandeja del proveedor: se pregunta antes.
+    // El primer envío no pregunta — ahí no hay nada que duplicar.
+    if (l.invitacionesEnviadasEn) {
+      const cuando = formatEnviadasLargo(l.invitacionesEnviadasEn);
+      if (
+        !window.confirm(
+          `Ya se enviaron invitaciones el ${cuando}. ¿Enviar de nuevo? Los proveedores recibirán un segundo correo.`
+        )
+      )
+        return;
+    }
+
+    setNotificando(l.id);
+    try {
+      const datos = await getDatosInvitacionAction(l.id);
+      // null = no existe o no es de este comprador. La acción no distingue a
+      // propósito, para no confirmar la existencia de licitaciones ajenas.
+      if (!datos) {
+        toast.error("No se pudo cargar la información de la licitación.");
+        return;
+      }
+      if (datos.destinatarios.length === 0) {
+        toast.error(
+          "Ningún proveedor invitado tiene correo de contacto. Completa su ficha para poder notificarlos."
+        );
+        return;
+      }
+      setInvitacion({ licitacionId: l.id, numero: l.numero, datos });
+    } catch {
+      toast.error("No se pudo preparar la invitación. Intenta de nuevo.");
+    } finally {
+      setNotificando(null);
+    }
+  }
 
   async function handleEliminar(id: string) {
     if (
@@ -302,6 +429,7 @@ export default function LanzamientoTabla({
                   Tiempo para Inicio
                 </th>
                 <th className="min-w-[110px] px-3 py-3">Estatus</th>
+                <th className="min-w-[130px] px-3 py-3">Invitación</th>
                 <th className="col-acciones-sticky px-3 py-3" />
               </tr>
             </thead>
@@ -313,12 +441,30 @@ export default function LanzamientoTabla({
                   basePath={basePath}
                   onEliminar={handleEliminar}
                   eliminando={eliminando === l.id}
+                  onNotificar={handleNotificar}
+                  notificando={notificando === l.id}
                 />
               ))}
             </tbody>
           </table>
           </div>
         </div>
+      )}
+
+      {/* Mismo componente que usa DetalleLicitacion: prepara adjuntos, arma el
+          correo y —si el lote sale completo— sella `invitacionesEnviadasEn`
+          vía lanzarLicitacionAction. Una Programada NO se re-promueve (el
+          compare-and-set exige "Borrador") y un reenvío conserva la fecha del
+          envío original (el sello exige que esté en null). */}
+      {invitacion && (
+        <ModalInvitacionLicitacion
+          licitacionId={invitacion.licitacionId}
+          numero={invitacion.numero}
+          basePath={basePath}
+          codigoCliente={codigoCliente}
+          datos={invitacion.datos}
+          onCerrar={() => setInvitacion(null)}
+        />
       )}
     </div>
   );

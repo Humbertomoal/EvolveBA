@@ -16,6 +16,14 @@ export type LicitacionRow = {
   duracionRondaMinutos: number;
   inicioRondaActual: string | null;
   esperandoDecision: boolean;
+  /**
+   * Cuándo salió el lote COMPLETO de invitaciones, o null si nunca se notificó.
+   * La pantalla de lanzamiento lo usa para decidir entre "Notificar
+   * participantes" y "Reenviar invitación" — y para mostrar la columna
+   * "Invitación", que es lo único que distingue una Programada notificada de
+   * una que nadie recibió (el estado no lo dice: ambas son "Programada").
+   */
+  invitacionesEnviadasEn: string | null;
 };
 
 /**
@@ -61,6 +69,7 @@ export async function getLicitacionesByEstado(
       duracionRondaMinutos: true,
       inicioRondaActual: true,
       esperandoDecision: true,
+      invitacionesEnviadasEn: true,
       _count: { select: { proveedoresInvitados: true } },
     },
   });
@@ -71,6 +80,7 @@ export async function getLicitacionesByEstado(
     fechaEjecucion: r.fechaEjecucion?.toISOString() ?? null,
     fechaInicioLicitacion: r.fechaInicioLicitacion?.toISOString() ?? null,
     inicioRondaActual: r.inicioRondaActual?.toISOString() ?? null,
+    invitacionesEnviadasEn: r.invitacionesEnviadasEn?.toISOString() ?? null,
     numProveedores: r._count.proveedoresInvitados,
   }));
 }
