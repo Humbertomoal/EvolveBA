@@ -22,8 +22,10 @@ import { soloCorreoProveedor } from "@/src/lib/correoProveedor";
 import {
   actualizarLicitacionAction,
   crearLicitacionAction,
+  lanzarLicitacionAction,
   type ResultadoGuardarLicitacion,
 } from "@/src/lib/licitacionesActions";
+import type { IntencionGuardado } from "@/src/lib/licitacionesIntencion";
 import { getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { MONEDAS } from "@/src/lib/monedas";
@@ -237,6 +239,15 @@ export default function LicitacionForm({
   usuarioActual?: UsuarioActual | null;
 }) {
   const modoEdicion = inicial !== undefined;
+  // Id de la licitación creada EN ESTA SESIÓN del formulario (camino de
+  // creación). Existe por el reintento: si el comprador crea, se abre el modal
+  // de correo y cancela, se queda en el formulario — y el segundo intento
+  // tiene que ACTUALIZAR la licitación que ya se creó, no crear otra. Sin
+  // esto, el reintento chocaba contra el @unique de `numero` y el comprador
+  // recibía "El número de licitación ya existe" en vez de su modal de correo.
+  const [idCreado, setIdCreado] = useState<string | null>(null);
+  // Id sobre el que opera el guardado: el de edición, o el recién creado.
+  const idExistente = inicial?.id ?? idCreado;
   usePageTitle(modoEdicion ? `Editar Licitación ${inicial!.numero}` : "Nueva Licitación");
   const router = useRouter();
   const nombreEmpresa =
@@ -338,6 +349,12 @@ export default function LicitacionForm({
   const esManual = modoLicitacion === "Manual";
   const [guardando, setGuardando] = useState<"borrador" | "programada" | "proceso" | "edicion" | null>(null);
   const [modalConfirmarFecha, setModalConfirmarFecha] = useState(false);
+  // Intención del botón que abrió el modal de confirmar fecha. Sin esto, al
+  // confirmar se llamaba a ejecutarGuardar() SIN argumento y se perdía qué
+  // había apretado el comprador — el mismo defecto de fondo que el bug de las
+  // invitaciones: la intención se diluía en el camino.
+  const [intencionPendienteFecha, setIntencionPendienteFecha] =
+    useState<IntencionGuardado | null>(null);
   const [modalInstruccionesAbierto, setModalInstruccionesAbierto] = useState(false);
   const [instrucciones, setInstrucciones] = useState(inicial?.instrucciones ?? "");
   const [instruccionesTemp, setInstruccionesTemp] = useState("");
@@ -350,7 +367,35 @@ export default function LicitacionForm({
   const [correoPendiente, setCorreoPendiente] = useState<
     "INVITACION_LICITACION" | "CAMBIO_FECHA" | null
   >(null);
+  // Solo para el correo de CAMBIO_FECHA. El de invitación YA NO lo usa: tras
+  // el lanzamiento el destino cambia (la licitación pasó a Programada), así
+  // que el que se calculó al guardar está obsoleto y lo recalcula
+  // `lanzarLicitacionAction`.
   const [destinoTrasCorreo, setDestinoTrasCorreo] = useState<string | null>(null);
+  // Licitación a la que hay que APLICARLE EL LANZAMIENTO si el lote de
+  // invitaciones sale completo. Se guarda aparte de `inicial` porque al crear,
+  // el id nace en el mismo guardado que abre el modal.
+  const [licitacionParaLanzar, setLicitacionParaLanzar] = useState<string | null>(null);
+  // Estado que la licitación tiene MIENTRAS el modal está abierto (el guardado
+  // no lo movió). Sirve para que el aviso de cancelación diga la verdad:
+  // "sigue en Borrador" en un lanzamiento, "no cambió" en un relanzamiento.
+  const [estadoAlAbrirCorreo, setEstadoAlAbrirCorreo] = useState("Borrador");
+  // ModalCorreo llama `onCerrar()` TAMBIÉN después de un envío exitoso
+  // (handleEnviar hace `onEnviado?.(); onCerrar();`), así que onCerrar por sí
+  // solo no distingue "cancelé" de "se envió". Esta bandera sí. Es un ref y no
+  // un state porque onEnviado no se espera: se lee en el mismo tick.
+  const envioInvitacionOkRef = useRef(false);
+  // ── Caso F: los correos SALIERON pero el lanzamiento falló (red/BD) ────────
+  // No se puede tragar en silencio: quedaría una licitación en Borrador con
+  // proveedores ya invitados. Se muestra banner con "Reintentar", que reintenta
+  // SOLO el lanzamiento — los correos no se reenvían, y el sello idempotente
+  // del servidor hace que reintentar sea seguro.
+  const [lanzamientoFallido, setLanzamientoFallido] = useState<{
+    licitacionId: string;
+    mensaje: string;
+  } | null>(null);
+  const [reintentandoLanzamiento, setReintentandoLanzamiento] = useState(false);
+  const bannerLanzamientoRef = useRef<HTMLDivElement>(null);
   const [adjuntosInvitacion, setAdjuntosInvitacion] = useState<AdjuntoCorreo[]>([]);
   const [adjuntosOmitidos, setAdjuntosOmitidos] = useState(false);
   // Fichas técnicas por proveedor: las que cupieron van como adjunto propio de
@@ -691,7 +736,7 @@ Asistente de Inteligencia Artificial`;
     return mapa;
   }
 
-  async function abrirCorreoInvitacion(destino: string) {
+  async function abrirCorreoInvitacion(licitacionId: string, estadoActual: string) {
     // Fichas de SOLO los materiales que cada proveedor puede cotizar, ya
     // deduplicadas y en orden de aparición (ese orden manda al recortar).
     const mapaFichas = fichasPorProducto();
@@ -719,7 +764,12 @@ Asistente de Inteligencia Artificial`;
     setFichasPorDestinatario(adjuntosPorDestinatario);
     setEnlacesFichasPorDestinatario(enlacesPorDestinatario);
     setAdjuntosOmitidos(documentosOmitidos.length > 0);
-    setDestinoTrasCorreo(destino);
+    // A qué licitación aplicarle el lanzamiento si el lote de correos sale
+    // completo. En creación este id recién existe (lo devuelve
+    // crearLicitacionAction), así que no se puede sacar de `inicial`.
+    setLicitacionParaLanzar(licitacionId);
+    setEstadoAlAbrirCorreo(estadoActual);
+    envioInvitacionOkRef.current = false;
     setCorreoPendiente("INVITACION_LICITACION");
   }
 
@@ -731,8 +781,18 @@ Asistente de Inteligencia Artificial`;
 
   // ── Submit helpers ───────────────────────────────────────────────────────────
 
-  function buildDatos(estado: string) {
+  /**
+   * Payload de guardado. NO lleva `estado`: el servidor lo resuelve con
+   * `resolverEstado(estadoPrevio, intencion, …)`, tanto al crear como al
+   * editar. Antes el cliente mandaba un `estado` calculado a partir de la
+   * intención y `crearLicitacionAction` lo escribía verbatim — por esa
+   * rendija la creación con intención de lanzar nacía ya "Programada",
+   * saltándose la máquina de estados y promoviendo antes de que saliera un
+   * solo correo.
+   */
+  function buildDatos(intencion: IntencionGuardado) {
     return {
+      intencion,
       numero,
       jerarquia: jerarquia || null,
       tipoLicitacion: tipoLicitacion || null,
@@ -745,7 +805,6 @@ Asistente de Inteligencia Artificial`;
       maxRondas: parseInt(maxRondas) || 3,
       instrucciones: instrucciones || null,
       archivosAdjuntos: archivosAdjuntos,
-      estado,
       modoLicitacion,
       items: items.map(({ _id, ...rest }) => rest),
       proveedoresInvitados: proveedoresSeleccionados,
@@ -762,19 +821,29 @@ Asistente de Inteligencia Artificial`;
     };
   }
 
-  async function ejecutarGuardar(estado?: "Borrador" | "Programada" | "En Proceso") {
+  async function ejecutarGuardar(intencion: IntencionGuardado) {
     setBannerError(null);
     let resultado: ResultadoGuardarLicitacion;
 
-    if (modoEdicion) {
+    // Se decide por el ID, no por `modoEdicion`: una licitación creada hace un
+    // momento en esta misma pantalla ya existe y se actualiza. Para el modo
+    // Proveedores (el único que manda invitaciones) los botones son los mismos
+    // en creación y en edición, así que el cambio es invisible en pantalla.
+    if (idExistente) {
       setGuardando(
-        estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "edicion"
+        intencion === "guardar_borrador"
+          ? "borrador"
+          : intencion === "preparar_lanzamiento"
+            ? "programada"
+            : intencion === "iniciar_manual"
+              ? "proceso"
+              : "edicion"
       );
       try {
         const r = await actualizarLicitacionAction(
-          inicial!.id,
+          idExistente,
           basePath,
-          buildDatos(estado ?? inicial!.estado)
+          buildDatos(intencion)
         );
         // Fallo esperado (p. ej. número duplicado): viene DEVUELTO, no lanzado,
         // porque Next enmascara el mensaje de los errores lanzados en producción.
@@ -803,10 +872,15 @@ Asistente de Inteligencia Artificial`;
       }
     } else {
       setGuardando(
-        estado === "Borrador" ? "borrador" : estado === "Programada" ? "programada" : "proceso"
+        intencion === "guardar_borrador"
+          ? "borrador"
+          : intencion === "preparar_lanzamiento"
+            ? "programada"
+            : "proceso"
       );
       try {
-        const r = await crearLicitacionAction(basePath, buildDatos(estado!));
+        const r = await crearLicitacionAction(basePath, buildDatos(intencion));
+        if (r.ok) setIdCreado(r.licitacionId);
         if (!r.ok) {
           setGuardando(null);
           setBannerError(r.error);
@@ -833,42 +907,98 @@ Asistente de Inteligencia Artificial`;
     }
 
     // ── Tras guardar con éxito: ¿corresponde abrir el correo de invitación o
-    // de cambio de fecha antes de navegar? El correo nunca bloquea el guardado
-    // en sí (ya se guardó arriba) — solo pospone la navegación mientras el
-    // comprador decide si lo envía o lo cancela.
+    // de cambio de fecha antes de navegar?
     //
-    // estadoPrevio viene de la BD (leído en el Server Action ANTES del
-    // update), no del cliente — es la fuente de verdad de si esta
-    // licitación ya había sido notificada a proveedores alguna vez:
-    // "Borrador" = nunca notificada; "Programada"/"En Proceso" = ya se
-    // lanzó al menos una vez.
+    // OJO con la diferencia entre los dos correos:
+    //
+    // - CAMBIO_FECHA es un AVISO sobre algo que ya pasó (la fecha ya se
+    //   guardó arriba). Enviarlo o no, no cambia la licitación.
+    //
+    // - INVITACION es la MITAD DE UNA OPERACIÓN. El guardado dejó la
+    //   licitación EXACTAMENTE como estaba (intención "preparar_lanzamiento"
+    //   no promueve); la otra mitad — pasar a Programada y sellar el envío —
+    //   la aplica `lanzarLicitacionAction` cuando los correos salen. Si el
+    //   comprador cancela, no se aplica nada y la licitación queda intacta,
+    //   reintentable.
     setGuardando(null);
-    const { destino, estadoPrevio, fechaAnteriorISO, fechaCambio } = resultado;
+    const { destino, licitacionId, estadoPrevio, fechaAnteriorISO, fechaCambio } =
+      resultado;
     const esProveedores = modoLicitacion === "Proveedores";
     const hayProveedores = proveedoresSeleccionados.length > 0;
-    const yaNotificada = estadoPrevio === "Programada" || estadoPrevio === "En Proceso";
-    const esPrimerLanzamiento = !yaNotificada && estado === "Programada";
 
-    console.log(
-      "Fecha anterior:",
-      fechaAnteriorISO,
-      "Fecha nueva:",
-      fechaEjecucion,
-      "Cambió:",
-      fechaCambio,
-      "Ya notificada:",
-      yaNotificada
-    );
+    // Se invita únicamente si el comprador APRETÓ el botón de lanzar. Nada
+    // más entra en esta decisión: ni la fecha, ni el estado, ni si ya se había
+    // notificado antes — relanzar tras editar DEBE reabrir el modal para que
+    // los proveedores reciban los cambios. Que un reenvío no pise la fecha del
+    // envío original es problema del sello idempotente, en el servidor.
+    const debeInvitar =
+      esProveedores && hayProveedores && intencion === "preparar_lanzamiento";
 
-    if (esProveedores && esPrimerLanzamiento && hayProveedores) {
-      await abrirCorreoInvitacion(destino);
+    // El aviso de cambio de fecha sí depende del estado: solo tiene sentido
+    // para una licitación que ya salió de Borrador, porque avisa de un cambio
+    // a quienes ya la tenían agendada.
+    const yaLanzada = estadoPrevio === "Programada" || estadoPrevio === "En Proceso";
+
+    if (debeInvitar) {
+      // `estadoPrevio` es el estado ACTUAL: el guardado no lo movió.
+      await abrirCorreoInvitacion(licitacionId, estadoPrevio);
       return;
     }
-    if (esProveedores && yaNotificada && fechaCambio && hayProveedores) {
+    if (esProveedores && hayProveedores && yaLanzada && fechaCambio) {
       abrirCorreoCambioFecha(destino, fechaAnteriorISO);
       return;
     }
     router.push(destino);
+  }
+
+  /**
+   * Segunda mitad del lanzamiento: los correos YA SALIERON, ahora se aplica el
+   * cambio de estado. Se llama desde el `onEnviado` del modal (que ModalCorreo
+   * solo dispara si NINGÚN destinatario falló) y desde el botón "Reintentar"
+   * del banner del caso F.
+   *
+   * Si falla, NO se traga el error: quedaría una licitación en Borrador con
+   * proveedores ya invitados, que es justo la incoherencia que este arreglo
+   * viene a eliminar. Se muestra el banner y se ofrece reintentar — sin
+   * reenviar correos, porque el servidor es idempotente (compare-and-set en la
+   * promoción, `invitacionesEnviadasEn: null` en el sello).
+   */
+  async function aplicarLanzamiento(licitacionId: string) {
+    setLanzamientoFallido(null);
+    setReintentandoLanzamiento(true);
+    try {
+      const resultado = await lanzarLicitacionAction(licitacionId, basePath);
+      if (!resultado.ok) {
+        setReintentandoLanzamiento(false);
+        setLanzamientoFallido({ licitacionId, mensaje: resultado.error });
+        toast.error("Correos enviados, pero el lanzamiento quedó pendiente.");
+        setTimeout(
+          () => bannerLanzamientoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          50
+        );
+        return;
+      }
+      toast.success(
+        resultado.promovida
+          ? "Licitación lanzada y proveedores notificados."
+          : "Invitaciones reenviadas a los proveedores."
+      );
+      router.push(resultado.destino);
+    } catch (err) {
+      setReintentandoLanzamiento(false);
+      const msg = err instanceof Error ? err.message : String(err);
+      setLanzamientoFallido({
+        licitacionId,
+        mensaje:
+          "Los correos de invitación SÍ se enviaron, pero no se pudo aplicar el " +
+          `lanzamiento: ${msg}`,
+      });
+      toast.error("Correos enviados, pero el lanzamiento quedó pendiente.");
+      setTimeout(
+        () => bannerLanzamientoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        50
+      );
+    }
   }
 
   async function handleIniciarCotizacion() {
@@ -894,7 +1024,7 @@ Asistente de Inteligencia Artificial`;
       const resultado = await actualizarLicitacionAction(
         inicial!.id,
         basePath,
-        buildDatos("En Proceso")
+        buildDatos("iniciar_manual")
       );
       if (!resultado.ok) {
         setGuardando(null);
@@ -919,7 +1049,7 @@ Asistente de Inteligencia Artificial`;
     }
   }
 
-  async function guardar(estado?: "Borrador" | "Programada" | "En Proceso") {
+  async function guardar(intencion: IntencionGuardado) {
     if (hayErrores) {
       setIntentoGuardar(true);
       setTimeout(
@@ -934,10 +1064,13 @@ Asistente de Inteligencia Artificial`;
       fechaEjecucion &&
       new Date(fechaEjecucion) > new Date()
     ) {
+      // La intención se guarda para dársela a ejecutarGuardar al confirmar:
+      // el modal es una pausa en el camino, no un botón distinto.
+      setIntencionPendienteFecha(intencion);
       setModalConfirmarFecha(true);
       return;
     }
-    await ejecutarGuardar(estado);
+    await ejecutarGuardar(intencion);
   }
 
   // ── Derived ──────────────────────────────────────────────────────────────────
@@ -1211,6 +1344,39 @@ Asistente de Inteligencia Artificial`;
               type="button"
               onClick={() => setBannerError(null)}
               className="shrink-0 rounded p-0.5 text-red-400 hover:text-red-700"
+            >
+              <IconX className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Caso F: correos enviados pero el lanzamiento no se aplicó */}
+      {lanzamientoFallido && (
+        <div
+          ref={bannerLanzamientoRef}
+          className="rounded-lg border border-amber-300 bg-amber-50 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-900">
+                Lanzamiento pendiente — los correos ya se enviaron
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800">{lanzamientoFallido.mensaje}</p>
+              <button
+                type="button"
+                disabled={reintentandoLanzamiento}
+                onClick={() => aplicarLanzamiento(lanzamientoFallido.licitacionId)}
+                className={`${BTN_PRIMARIO} mt-3 disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {reintentandoLanzamiento ? "Reintentando…" : "Reintentar lanzamiento"}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLanzamientoFallido(null)}
+              className="shrink-0 rounded p-0.5 text-amber-500 hover:text-amber-800"
             >
               <IconX className="h-4 w-4" />
             </button>
@@ -1889,7 +2055,7 @@ Asistente de Inteligencia Artificial`;
             {esManual ? (
               <button
                 type="button"
-                onClick={() => guardar()}
+                onClick={() => guardar("editar")}
                 disabled={guardando !== null}
                 className={`${BTN_PRIMARIO} disabled:cursor-not-allowed disabled:opacity-60 ${
                   hayErrores ? "cursor-not-allowed opacity-50" : ""
@@ -1901,7 +2067,7 @@ Asistente de Inteligencia Artificial`;
               <>
                 <button
                   type="button"
-                  onClick={() => guardar("Borrador")}
+                  onClick={() => guardar("guardar_borrador")}
                   disabled={guardando !== null}
                   className={`${BTN_PRIMARIO} disabled:cursor-not-allowed disabled:opacity-60 ${
                     hayErrores ? "cursor-not-allowed opacity-50" : ""
@@ -1911,7 +2077,7 @@ Asistente de Inteligencia Artificial`;
                 </button>
                 <button
                   type="button"
-                  onClick={() => guardar("Programada")}
+                  onClick={() => guardar("preparar_lanzamiento")}
                   disabled={guardando !== null}
                   className={`rounded-md border border-[var(--color-primario)] px-4 py-2 text-sm font-medium text-[var(--color-primario)] transition-colors hover:bg-[var(--color-primario)]/5 disabled:cursor-not-allowed disabled:opacity-60 ${
                     hayErrores ? "cursor-not-allowed opacity-50" : ""
@@ -1937,7 +2103,7 @@ Asistente de Inteligencia Artificial`;
           <>
             <button
               type="button"
-              onClick={() => guardar("Borrador")}
+              onClick={() => guardar("guardar_borrador")}
               disabled={guardando !== null}
               className={`${BTN_PRIMARIO} disabled:cursor-not-allowed disabled:opacity-60 ${
                 hayErrores ? "cursor-not-allowed opacity-50" : ""
@@ -1948,7 +2114,7 @@ Asistente de Inteligencia Artificial`;
             {esManual ? (
               <button
                 type="button"
-                onClick={() => guardar("En Proceso")}
+                onClick={() => guardar("iniciar_manual")}
                 disabled={guardando !== null}
                 className={`rounded-md border border-[var(--color-primario)] px-4 py-2 text-sm font-medium text-[var(--color-primario)] transition-colors hover:bg-[var(--color-primario)]/5 disabled:cursor-not-allowed disabled:opacity-60 ${
                   hayErrores ? "cursor-not-allowed opacity-50" : ""
@@ -1959,7 +2125,7 @@ Asistente de Inteligencia Artificial`;
             ) : (
               <button
                 type="button"
-                onClick={() => guardar("Programada")}
+                onClick={() => guardar("preparar_lanzamiento")}
                 disabled={guardando !== null}
                 className={`rounded-md border border-[var(--color-primario)] px-4 py-2 text-sm font-medium text-[var(--color-primario)] transition-colors hover:bg-[var(--color-primario)]/5 disabled:cursor-not-allowed disabled:opacity-60 ${
                   hayErrores ? "cursor-not-allowed opacity-50" : ""
@@ -2334,7 +2500,10 @@ Asistente de Inteligencia Artificial`;
               <h2 className="text-base font-semibold text-zinc-900">Cambiar fecha de inicio</h2>
               <button
                 type="button"
-                onClick={() => setModalConfirmarFecha(false)}
+                onClick={() => {
+                  setModalConfirmarFecha(false);
+                  setIntencionPendienteFecha(null);
+                }}
                 className="rounded-md p-1 text-zinc-400 hover:text-zinc-700"
               >
                 <IconX className="h-5 w-5" />
@@ -2352,7 +2521,10 @@ Asistente de Inteligencia Artificial`;
             <div className="flex justify-end gap-3 border-t border-zinc-200 px-5 py-4">
               <button
                 type="button"
-                onClick={() => setModalConfirmarFecha(false)}
+                onClick={() => {
+                  setModalConfirmarFecha(false);
+                  setIntencionPendienteFecha(null);
+                }}
                 className={BTN_SECUNDARIO}
               >
                 Cancelar
@@ -2362,7 +2534,12 @@ Asistente de Inteligencia Artificial`;
                 disabled={guardando !== null}
                 onClick={async () => {
                   setModalConfirmarFecha(false);
-                  await ejecutarGuardar();
+                  // Se retoma la intención del botón que abrió el modal. El
+                  // fallback a "editar" es el caso que este modal describe
+                  // (mover la fecha de una licitación en curso), no un
+                  // comodín: sin él se perdía qué se había apretado.
+                  await ejecutarGuardar(intencionPendienteFecha ?? "editar");
+                  setIntencionPendienteFecha(null);
                 }}
                 className={`${BTN_PRIMARIO} disabled:opacity-60`}
               >
@@ -2374,16 +2551,46 @@ Asistente de Inteligencia Artificial`;
       )}
 
       {/* ── Correo: invitación a la licitación ──────────────────────────────── */}
-      {correoPendiente === "INVITACION_LICITACION" && destinoTrasCorreo && (
+      {correoPendiente === "INVITACION_LICITACION" && licitacionParaLanzar && (
         <ModalCorreo
           abierto
           onCerrar={() => {
             setCorreoPendiente(null);
-            router.push(destinoTrasCorreo);
+            // ModalCorreo llama onCerrar TAMBIÉN tras un envío exitoso
+            // (handleEnviar: `onEnviado?.(); onCerrar();`), así que onCerrar
+            // por sí solo no distingue cancelar de enviar. Si se envió, el
+            // lanzamiento ya va en camino y navega él: aquí, nada que hacer.
+            if (envioInvitacionOkRef.current) {
+              envioInvitacionOkRef.current = false;
+              return;
+            }
+            // Cancelar de verdad (la X o el botón Cancelar). NO salieron
+            // correos ⇒ NO se aplica el lanzamiento ⇒ la licitación queda
+            // EXACTAMENTE como estaba. Y NO se navega: mandarlo al listado lo
+            // obligaría a buscar la licitación otra vez para reintentar. Se
+            // queda en el formulario, con el botón de lanzar donde estaba.
+            setLicitacionParaLanzar(null);
+            toast(
+              estadoAlAbrirCorreo === "Borrador"
+                ? "No se enviaron los correos. La licitación sigue en Borrador; puedes volver a intentarlo."
+                : "No se enviaron los correos. La licitación no cambió; puedes volver a intentarlo."
+            );
           }}
           onEnviado={() => {
+            // ModalCorreo llama onEnviado SOLO si NINGÚN destinatario falló
+            // (ver handleEnviar: con un solo error sale por la rama de error).
+            // Por eso lanzar aquí significa "el lote completo salió". Un envío
+            // parcial no llega nunca a esta línea: se comporta igual que
+            // cancelar, la licitación no se mueve y se puede reintentar. NO
+            // mover el lanzamiento a un punto anterior del envío.
+            //
+            // La bandera se marca ANTES de cualquier await: onEnviado no se
+            // espera y onCerrar corre en el mismo tick, justo después.
+            envioInvitacionOkRef.current = true;
+            const licitacionId = licitacionParaLanzar;
+            setLicitacionParaLanzar(null);
             setCorreoPendiente(null);
-            router.push(destinoTrasCorreo);
+            void aplicarLanzamiento(licitacionId);
           }}
           tipo="INVITACION_LICITACION"
           codigoCliente={codigoCliente}
