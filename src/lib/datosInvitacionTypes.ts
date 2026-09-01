@@ -41,6 +41,14 @@ export type DatosInvitacionLicitacion = {
   fichasPorDestinatario: Record<string, string[]>;
   destinatarios: string[];
   excluidos: number;
+  /**
+   * Cuándo salió el lote completo de invitaciones, o null si nunca se notificó.
+   *
+   * Decide la REDACCIÓN del correo: a quien ya recibió la invitación no se le
+   * vuelve a decir "has sido invitado a participar" —lleva rondas cotizando—,
+   * se le manda el texto de AJUSTE. Ver `ModalInvitacionLicitacion`.
+   */
+  invitacionesEnviadasEn: string | null;
   nombreComprador: string;
   correoComprador: string;
 };

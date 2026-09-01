@@ -53,6 +53,7 @@ export async function getDatosInvitacion(
       fechaFinLicitacion: true,
       instrucciones: true,
       archivosAdjuntos: true,
+      invitacionesEnviadasEn: true,
       items: {
         select: {
           productoId: true,
@@ -144,6 +145,7 @@ export async function getDatosInvitacion(
     itemsPorProveedor,
     nombrePorDestinatario,
     fichasPorDestinatario,
+    invitacionesEnviadasEn: licitacion.invitacionesEnviadasEn?.toISOString() ?? null,
     destinatarios: [...new Set(correosProveedoresInvitados)],
     excluidos: licitacion.proveedoresInvitados.length - correosProveedoresInvitados.length,
     nombreComprador: usuarioActual?.nombre ?? "",

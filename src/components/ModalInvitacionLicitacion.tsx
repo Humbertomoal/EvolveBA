@@ -1,9 +1,13 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El correo de invitación a una licitación, de principio a fin: prepara los
-// adjuntos, arma las variables, muestra el ModalCorreo y — si el lote sale
-// completo — aplica el lanzamiento.
+// El correo de la licitación, de principio a fin: prepara los adjuntos, arma
+// las variables, muestra el ModalCorreo y — si el lote sale completo — aplica
+// el lanzamiento.
+//
+// Cubre las DOS redacciones, que comparten cuerpo y difieren en el primer
+// párrafo: la INVITACIÓN (primera vez) y el AJUSTE (la licitación ya está en
+// marcha y se le cambió algo). Ver `esAjuste` más abajo.
 //
 // ── Por qué este componente existe ──────────────────────────────────────────
 // Este bloque estaba COPIADO en dos sitios (LicitacionForm, DetalleLicitacion)
@@ -86,6 +90,7 @@ export default function ModalInvitacionLicitacion({
   basePath,
   codigoCliente,
   datos,
+  variante,
   onCerrar,
   onLanzado,
 }: {
@@ -94,12 +99,38 @@ export default function ModalInvitacionLicitacion({
   basePath: string;
   codigoCliente: string;
   datos: DatosInvitacionLicitacion;
+  /**
+   * Qué redacción usar. Por omisión se deduce del payload y casi nunca hace
+   * falta pasarla: sirve para forzar el texto en algún flujo particular.
+   */
+  variante?: "invitacion" | "ajuste";
   /** Se cierra el modal sin enviar nada (la X, Cancelar) o ya se terminó. */
   onCerrar: () => void;
   /** El lote salió completo y el lanzamiento quedó aplicado. */
   onLanzado?: () => void;
 }) {
   const router = useRouter();
+  // ── Invitación o ajuste ──────────────────────────────────────────────────
+  // Las dos redacciones comparten TODO el cuerpo (fechas, comprador, tabla de
+  // materiales, adjuntos) y difieren solo en el primer párrafo — ver
+  // CUERPO_LICITACION en config/plantillasCorreo.ts.
+  //
+  // La regla: si ya salió el lote de invitaciones, este proveedor YA conoce la
+  // licitación, así que un nuevo correo es un ajuste. Decirle "has sido
+  // invitado a participar" a quien lleva dos rondas cotizando desconcierta, y
+  // es justo el correo que sale al editar en proceso.
+  //
+  // La info de la licitación siempre es la ACTUAL: `datos` se arma leyendo la
+  // base en el momento de abrir el modal, ya con los cambios aplicados.
+  //
+  // Se calcula ARRIBA DEL TODO, antes de los early returns: `aplicarLanzamiento`
+  // lo usa para su toast y también se llama desde el botón "Reintentar" del
+  // caso F, que sale por un return anterior. Declararlo más abajo lo dejaba en
+  // zona muerta en ese render — ReferenceError al reintentar.
+  const esAjuste =
+    (variante ?? (datos.invitacionesEnviadasEn !== null ? "ajuste" : "invitacion")) ===
+    "ajuste";
+
   const [adjuntos, setAdjuntos] = useState<Adjuntos | null>(null);
   // Caso F: los correos SALIERON pero el sello/lanzamiento falló. No se puede
   // tragar en silencio — quedarían proveedores invitados sin que la licitación
@@ -171,7 +202,9 @@ export default function ModalInvitacionLicitacion({
       toast.success(
         resultado.promovida
           ? "Licitación lanzada y proveedores notificados."
-          : "Invitaciones enviadas a los proveedores."
+          : esAjuste
+            ? "Aviso de ajuste enviado a los proveedores."
+            : "Invitaciones enviadas a los proveedores."
       );
       // Para que la fila/pantalla muestre "Enviadas el …" sin recargar a mano.
       router.refresh();
@@ -266,7 +299,7 @@ export default function ModalInvitacionLicitacion({
         envioOkRef.current = true;
         void aplicarLanzamiento();
       }}
-      tipo="INVITACION_LICITACION"
+      tipo={esAjuste ? "AJUSTE_LICITACION" : "INVITACION_LICITACION"}
       codigoCliente={codigoCliente}
       variables={{
         numeroLicitacion: numero,

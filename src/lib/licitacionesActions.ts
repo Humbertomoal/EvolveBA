@@ -6,20 +6,10 @@ import { prisma } from "@/src/lib/prisma";
 import { parsearFechaMexico } from "@/src/lib/dateUtils";
 import { getTiposCambioActuales } from "@/src/lib/getCatalogos";
 import { registrarCambioEstado, getUsuarioIdActual } from "@/src/lib/estadoLog";
-import {
-  resolverEstado,
-  type IntencionGuardado,
-} from "@/src/lib/licitacionesIntencion";
-
-type ItemInput = {
-  productoId: string;
-  unidadMedida: string;
-  especificacion: string;
-  fechaEntrega: string;
-  cantidadSolicitada: string;
-  precioObjetivo: string;
-  moneda: string;
-};
+import { resolverEstado } from "@/src/lib/licitacionesIntencion";
+import { exigirCompradorSesion } from "@/src/lib/compradorSessionSegura";
+import { publicarAvisoRonda } from "@/src/lib/avisosRonda";
+import type { ItemInput, LicitacionInput } from "@/src/lib/licitacionInputTypes";
 
 export type ResultadoGuardarLicitacion = {
   destino: string;
@@ -75,34 +65,8 @@ function esNumeroDuplicado(error: unknown): boolean {
   return target === undefined || String(target).includes("numero");
 }
 
-export type LicitacionInput = {
-  numero: string;
-  jerarquia: string | null;
-  tipoLicitacion: string | null;
-  costoObjetivo: number | null;
-  fechaEjecucion: string | null;
-  fechaFinLicitacion: string | null;
-  fechaInicioRangoEntrega: string | null;
-  fechaFinRangoEntrega: string | null;
-  duracionRondaMinutos: number;
-  maxRondas: number;
-  instrucciones: string | null;
-  archivosAdjuntos: string[];
-  // Qué botón se apretó. El servidor decide el estado a partir de ESTO y del
-  // estado que la licitación ya tenía en la base — nunca infiriéndolo de la
-  // fecha (causa del bug de invitaciones de la 0016) ni aceptándolo del
-  // cliente. AQUÍ NO VA UN CAMPO `estado`: lo había, `crearLicitacionAction`
-  // lo escribía verbatim, y por esa rendija se colaba la promoción silenciosa
-  // a "Programada" en el camino de CREACIÓN, esquivando `resolverEstado`.
-  intencion: IntencionGuardado;
-  modoLicitacion: string;
-  items: ItemInput[];
-  proveedoresInvitados: string[];
-  // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
-  tiposCambio?: Record<string, number>;
-  // Moneda de consolidación de los totales (default MXN).
-  monedaConsolidacion?: string;
-};
+// `LicitacionInput` e `ItemInput` viven ahora en licitacionInputTypes.ts (ver
+// la nota de allí sobre por qué un "use server" no debe exportar tipos).
 
 // Normaliza el mapa de tipos de cambio: descarta MXN y tasas no positivas.
 // Devuelve null cuando no hay ninguna tasa válida (columna Json? = null).
@@ -158,10 +122,167 @@ function destinoParaEstado(
   return `${basePath}/comprador/licitaciones/lanzamiento`;
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reconciliación incremental de partidas
+//
+// Sustituye al `deleteMany` + `createMany` que había. Aquel borraba TODAS las
+// partidas en cada guardado y las recreaba; funcionaba solo mientras nadie
+// hubiera cotizado, porque `OfertaItem_licitacionItemId_fkey` es RESTRICT y
+// rechaza el borrado en cuanto existe una oferta. Ese es el error que salió al
+// editar la 0016. Ahora también son RESTRICT las FK de AsignacionMaterial y
+// SeleccionPrecioComprador (esta última era CASCADE, así que cada guardado se
+// llevaba en silencio el borrador de negociación del comprador).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Estados de la licitación en los que se admite editar. */
+const ESTADOS_EDITABLES = new Set(["Borrador", "Programada", "En Proceso"]);
+
+/**
+ * Qué cambió en una edición. Ya NO viaja al texto del aviso —el mensaje de
+ * chat es fijo (ver `cambioLicitacion`)—: sirve solo para decidir si hay algo
+ * que avisar. Local a este archivo por eso mismo.
+ */
+type CambiosLicitacion = {
+  agregadas: number;
+  /** Partidas cuya cantidad cambió — las que conviene volver a cotizar. */
+  cantidadCambiada: number;
+  /** Otros cambios de la partida: descripción, fecha de entrega, moneda. */
+  modificadas: number;
+  fechaCambiada: boolean;
+};
+
+type ItemEnBase = {
+  id: string;
+  productoId: string;
+  especificacion: string | null;
+  fechaEntrega: Date | null;
+  cantidadSolicitada: number;
+  precioObjetivo: number | null;
+  moneda: string;
+  producto: { nombre: string };
+  _count: { ofertas: number; asignaciones: number; seleccionesPrecio: number };
+};
+
+/** Valores del payload normalizados a como se guardan, para poder comparar. */
+function normalizarItem(item: ItemInput) {
+  return {
+    productoId: item.productoId,
+    especificacion: item.especificacion || null,
+    fechaEntrega: item.fechaEntrega ? new Date(item.fechaEntrega) : null,
+    cantidadSolicitada: parseFloat(item.cantidadSolicitada) || 0,
+    precioObjetivo: item.precioObjetivo ? parseFloat(item.precioObjetivo) : null,
+    moneda: item.moneda || "MXN",
+  };
+}
+
+/** ¿Esta partida tiene algo colgando que impida borrarla o cambiarle el producto? */
+function tieneDependencias(fila: ItemEnBase): boolean {
+  return (
+    fila._count.ofertas > 0 ||
+    fila._count.asignaciones > 0 ||
+    fila._count.seleccionesPrecio > 0
+  );
+}
+
+type Reconciliacion = {
+  aCrear: ItemInput[];
+  aActualizar: { id: string; datos: ReturnType<typeof normalizarItem> }[];
+  aBorrar: string[];
+  /** Motivos por los que el guardado NO puede aplicarse tal cual. */
+  bloqueos: string[];
+  cambios: CambiosLicitacion;
+};
+
+/**
+ * Decide qué hacer con cada partida, SIN escribir nada.
+ *
+ * Separar el cálculo de la escritura es deliberado: si algo está bloqueado, el
+ * guardado se rechaza entero y la licitación queda intacta. Un rechazo a medio
+ * aplicar sería peor que el bug que estamos arreglando.
+ */
+function reconciliarItems(
+  itemsEnBase: ItemEnBase[],
+  itemsPayload: ItemInput[],
+  fechaCambiada: boolean
+): Reconciliacion {
+  const porId = new Map(itemsEnBase.map((i) => [i.id, i]));
+  const aCrear: ItemInput[] = [];
+  const aActualizar: Reconciliacion["aActualizar"] = [];
+  const bloqueos: string[] = [];
+  const cambios: CambiosLicitacion = {
+    agregadas: 0,
+    cantidadCambiada: 0,
+    modificadas: 0,
+    fechaCambiada,
+  };
+  const vistos = new Set<string>();
+
+  for (const item of itemsPayload) {
+    const fila = item.id ? porId.get(item.id) : undefined;
+
+    // Sin id, o con un id que ya no existe (otra pestaña la borró): es nueva.
+    if (!fila) {
+      aCrear.push(item);
+      cambios.agregadas++;
+      continue;
+    }
+    vistos.add(fila.id);
+    const datos = normalizarItem(item);
+
+    // Cambiar el PRODUCTO de una partida con ofertas dejaría los precios ya
+    // cotizados colgando de un material distinto del que se coticó. No es una
+    // corrección, es una suplantación: se bloquea.
+    if (datos.productoId !== fila.productoId && tieneDependencias(fila)) {
+      bloqueos.push(
+        `“${fila.producto.nombre}” ya tiene ofertas o asignaciones, así que no se le puede cambiar el producto. ` +
+          `Agrega una partida nueva con el producto correcto.`
+      );
+      continue;
+    }
+
+    const cantidadCambio = datos.cantidadSolicitada !== fila.cantidadSolicitada;
+    const otroCambio =
+      datos.productoId !== fila.productoId ||
+      datos.especificacion !== fila.especificacion ||
+      (datos.fechaEntrega?.getTime() ?? null) !== (fila.fechaEntrega?.getTime() ?? null) ||
+      datos.precioObjetivo !== fila.precioObjetivo ||
+      datos.moneda !== fila.moneda;
+
+    if (cantidadCambio) cambios.cantidadCambiada++;
+    else if (otroCambio) cambios.modificadas++;
+
+    // Se escribe solo si de verdad cambió algo: un guardado que no toca la
+    // partida no debe moverle nada (ni disparar avisos).
+    if (cantidadCambio || otroCambio) aActualizar.push({ id: fila.id, datos });
+  }
+
+  // Lo que estaba en la base y no volvió en el payload = el comprador lo quitó.
+  const aBorrar: string[] = [];
+  for (const fila of itemsEnBase) {
+    if (vistos.has(fila.id)) continue;
+    if (tieneDependencias(fila)) {
+      // NO se borra ni se ignora en silencio. Ignorar dejaría al comprador
+      // creyendo que la quitó mientras los proveedores la siguen viendo y
+      // cotizando — la misma divergencia callada que causó la 0016. Ocultarla
+      // (soft delete) es la solución de verdad, y es la fase siguiente.
+      bloqueos.push(
+        `“${fila.producto.nombre}” no se puede quitar porque ya tiene ofertas o asignaciones. ` +
+          `Vuelve a agregarla para poder guardar.`
+      );
+      continue;
+    }
+    aBorrar.push(fila.id);
+  }
+
+  return { aCrear, aActualizar, aBorrar, bloqueos, cambios };
+}
+
 export async function crearLicitacionAction(
   basePath: string,
   datos: LicitacionInput
 ): Promise<ResultadoGuardar> {
+  await exigirCompradorSesion();
   validarFechas(datos);
 
   const cookieStore = await cookies();
@@ -288,22 +409,59 @@ export async function actualizarLicitacionAction(
   basePath: string,
   datos: LicitacionInput
 ): Promise<ResultadoGuardar> {
+  const sesion = await exigirCompradorSesion();
   validarFechas(datos);
 
   // Captura el estado y la fecha ANTES del update — la fuente de verdad es
   // la BD en este momento, no lo que traiga cacheado el cliente.
   const anterior = await prisma.licitacion.findUnique({
     where: { id },
-    select: { estado: true, fechaEjecucion: true, invitacionesEnviadasEn: true },
+    select: {
+      estado: true,
+      fechaEjecucion: true,
+      invitacionesEnviadasEn: true,
+      esperandoDecision: true,
+    },
   });
+  if (!anterior) return { ok: false, error: "La licitación ya no existe." };
+
+  // ── Guardas de ESTADO y PERMISO ──────────────────────────────────────────
+  // Ambas se deciden con el estado LEÍDO DE LA BASE. El cliente no manda
+  // estado (se lo quitamos al payload por esto mismo), y aunque lo mandara no
+  // se le creería: quien decide si esta edición es de las delicadas es la
+  // base, no el formulario.
+  if (!ESTADOS_EDITABLES.has(anterior.estado)) {
+    return {
+      ok: false,
+      error: `Una licitación en estado “${anterior.estado}” ya no se puede editar.`,
+    };
+  }
+  if (anterior.esperandoDecision) {
+    return {
+      ok: false,
+      error:
+        "Las rondas de esta licitación ya cerraron y está en decisión final. " +
+        "Editar sus partidas ahora cambiaría el comparativo sobre el que se está decidiendo.",
+    };
+  }
+  // Editar una licitación YA EN CURSO afecta a proveedores que están cotizando
+  // en este momento. Es una atribución de Gerente de Compras o Administrador;
+  // un comprador sigue editando con normalidad en Borrador y Programada.
+  if (anterior.estado === "En Proceso" && !sesion.esAdmin && !sesion.esSupervisor) {
+    return {
+      ok: false,
+      error:
+        "Solo un Gerente de Compras o un Administrador puede editar una licitación En Proceso.",
+    };
+  }
 
   const nuevaFechaEjecucion = parsearFechaMexico(datos.fechaEjecucion);
   const esFutura = nuevaFechaEjecucion !== null && nuevaFechaEjecucion > new Date();
 
   const fechaCambio =
-    (anterior?.fechaEjecucion?.getTime() ?? null) !==
+    (anterior.fechaEjecucion?.getTime() ?? null) !==
     (nuevaFechaEjecucion?.getTime() ?? null);
-  const estadoPrevio = anterior?.estado ?? "Borrador";
+  const estadoPrevio = anterior.estado;
 
   // El estado sale de la intención del botón + lo que la licitación YA era,
   // resuelto en un solo lugar (licitacionesIntencion.ts). Antes se calculaba
@@ -314,6 +472,38 @@ export async function actualizarLicitacionAction(
     datos.intencion,
     esFutura
   );
+
+  // ── Reconciliación de partidas: se CALCULA aquí, antes de escribir nada ──
+  // Si algo está bloqueado (una partida con ofertas que el comprador quitó, o
+  // un cambio de producto sobre ofertas existentes), el guardado se rechaza
+  // ENTERO y la licitación no se toca. Calcular después de haber escrito la
+  // cabecera dejaría un guardado a medias.
+  const itemsEnBase = await prisma.licitacionItem.findMany({
+    where: { licitacionId: id },
+    select: {
+      id: true,
+      productoId: true,
+      especificacion: true,
+      fechaEntrega: true,
+      cantidadSolicitada: true,
+      precioObjetivo: true,
+      moneda: true,
+      producto: { select: { nombre: true } },
+      _count: { select: { ofertas: true, asignaciones: true, seleccionesPrecio: true } },
+    },
+  });
+  const itemsValidos = datos.items.filter((item) => item.productoId !== "");
+  const plan = reconciliarItems(itemsEnBase, itemsValidos, fechaCambio);
+
+  if (plan.bloqueos.length > 0) {
+    return {
+      ok: false,
+      error: [
+        "No se guardaron los cambios porque hay partidas con ofertas de por medio:",
+        ...plan.bloqueos.map((b) => `• ${b}`),
+      ].join(" "),
+    };
+  }
 
   // Entrar a "En Proceso" marca el inicio real de la licitación. Se sella solo
   // en la TRANSICIÓN: antes bastaba con que el estado enviado fuera "En
@@ -367,22 +557,22 @@ export async function actualizarLicitacionAction(
     throw error;
   }
 
-  await prisma.licitacionItem.deleteMany({ where: { licitacionId: id } });
-  const itemsValidos = datos.items.filter((item) => item.productoId !== "");
-  if (itemsValidos.length > 0) {
+  // ── Aplicar el plan ──────────────────────────────────────────────────────
+  // Actualizar / crear / borrar por separado, conservando el id de las filas
+  // que siguen. Ese id es lo que mantiene vivas las ofertas ya recibidas: con
+  // el borrar-y-recrear anterior, cada guardado les cambiaba la fila debajo.
+  for (const { id: itemId, datos: cambios } of plan.aActualizar) {
+    await prisma.licitacionItem.update({ where: { id: itemId }, data: cambios });
+  }
+  if (plan.aCrear.length > 0) {
     await prisma.licitacionItem.createMany({
-      data: itemsValidos.map((item: any) => ({
-        licitacionId: id,
-        productoId: item.productoId,
-        especificacion: item.especificacion || null,
-        fechaEntrega: item.fechaEntrega ? new Date(item.fechaEntrega) : null,
-        cantidadSolicitada: parseFloat(item.cantidadSolicitada) || 0,
-        precioObjetivo: item.precioObjetivo
-          ? parseFloat(item.precioObjetivo)
-          : null,
-        moneda: item.moneda || "MXN",
-      })),
+      data: plan.aCrear.map((item) => ({ licitacionId: id, ...normalizarItem(item) })),
     });
+  }
+  if (plan.aBorrar.length > 0) {
+    // Solo llegan aquí las partidas sin ofertas, asignaciones ni borrador de
+    // precio: las tres FK son RESTRICT, así que un borrado indebido fallaría.
+    await prisma.licitacionItem.deleteMany({ where: { id: { in: plan.aBorrar } } });
   }
 
   await prisma.licitacionProveedor.deleteMany({ where: { licitacionId: id } });
@@ -404,6 +594,23 @@ export async function actualizarLicitacionAction(
     estadoFinal,
     await getUsuarioIdActual()
   );
+
+  // ── Aviso a los proveedores ──────────────────────────────────────────────
+  // Solo si la licitación YA ESTABA en curso: en Borrador o Programada nadie
+  // está cotizando todavía, y el correo de invitación ya lleva el contenido
+  // final. Modo Manual no tiene proveedores en el portal a quienes avisar.
+  //
+  // Va DESPUÉS de escribir: el aviso describe algo ya ocurrido. Y es
+  // best-effort por dentro (publicarAvisoRonda nunca lanza), así que un fallo
+  // del chat no puede tumbar una edición ya confirmada en la base.
+  const huboCambioAvisable =
+    plan.cambios.agregadas > 0 ||
+    plan.cambios.cantidadCambiada > 0 ||
+    plan.cambios.modificadas > 0 ||
+    plan.cambios.fechaCambiada;
+  if (estadoPrevio === "En Proceso" && datos.modoLicitacion !== "Manual" && huboCambioAvisable) {
+    await publicarAvisoRonda(id, { tipo: "cambio_licitacion" });
+  }
 
   revalidatePath(`${basePath}/comprador/licitaciones`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
@@ -491,6 +698,7 @@ export async function lanzarLicitacionAction(
   id: string,
   basePath: string
 ): Promise<ResultadoLanzar> {
+  await exigirCompradorSesion();
   const usuarioId = await getUsuarioIdActual();
 
   // La lectura va FUERA de la transacción a propósito. No es la que garantiza
@@ -574,6 +782,7 @@ export async function eliminarLicitacionAction(
   id: string,
   basePath: string
 ): Promise<void> {
+  await exigirCompradorSesion();
   await prisma.licitacion.update({
     where: { id },
     data: { eliminado: true, eliminadoEn: new Date() },

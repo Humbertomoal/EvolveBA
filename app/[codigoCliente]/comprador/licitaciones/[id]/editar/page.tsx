@@ -93,7 +93,10 @@ export default async function EditarLicitacionPage({
     estado: licitacion.estado,
     modoLicitacion: licitacion.modoLicitacion,
     items: licitacion.items.map((item: any) => ({
+      // `_id` es la llave de React; `id` es la identidad en la base, que el
+      // guardado necesita para ACTUALIZAR esta partida en vez de recrearla.
       _id: item.id,
+      id: item.id,
       productoId: item.productoId,
       unidadMedida: item.producto.unidadMedida,
       especificacion: item.especificacion ?? "",

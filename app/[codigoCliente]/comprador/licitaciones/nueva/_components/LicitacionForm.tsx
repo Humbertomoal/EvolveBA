@@ -14,7 +14,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
@@ -68,7 +68,21 @@ const TIPOS_ADJUNTOS = [
 export type UnidadDuracion = "minutos" | "horas" | "dias";
 
 export type ItemFila = {
+  /**
+   * Llave de React. SIEMPRE presente, también en filas nuevas. NO sirve como
+   * identidad en la base: para las filas nuevas es un `fila_…` inventado aquí.
+   */
   _id: string;
+  /**
+   * Id REAL en la base. `undefined` = partida que aún no existe.
+   *
+   * Es lo que permite que el servidor ACTUALICE la fila en vez de borrarla y
+   * recrearla. Sin él, el guardado hacía `deleteMany` + `createMany` de todas
+   * las partidas, y eso reventaba contra la FK de OfertaItem en cuanto había
+   * una oferta (el error de la 0016) además de tirar el borrador de precios
+   * del comprador en cada guardado.
+   */
+  id?: string;
   productoId: string;
   unidadMedida: string;
   especificacion: string;
@@ -425,6 +439,7 @@ export default function LicitacionForm({
       ...prev,
       {
         _id: nuevoId(),
+        // Sin `id`: el servidor la reconoce como partida nueva y la CREA.
         productoId: "",
         unidadMedida: "",
         especificacion: "",
@@ -558,6 +573,65 @@ export default function LicitacionForm({
       }))
     );
   }
+
+  // ── Partidas nuevas que algunos invitados NO verán ───────────────────────
+  //
+  // Al agregar una partida a una licitación YA EN CURSO, el proveedor la ve en
+  // su portal solo si sobrevive al filtro por catálogo. Si no la ve, recibe el
+  // aviso de "se agregó una partida" y no encuentra nada: una partida que nadie
+  // puede cotizar y de la que nadie se entera.
+  //
+  // OJO con la semántica del filtro, que NO es la obvia: es INDULGENTE. Un
+  // proveedor sin catálogo ve TODO, y uno cuyo catálogo no coincide con NINGUNA
+  // partida también ve todo (`filtrarItemsPorMaterialesProveedor` devuelve la
+  // lista completa en ambos casos). Así que un chequeo ingenuo del estilo
+  // `!catalogo.includes(productoId)` daría falsas alarmas constantes. Por eso
+  // aquí se corre el filtro DE VERDAD, el mismo que corre el portal, y se mira
+  // si la partida sobrevivió.
+  const partidasNoVisibles = useMemo(() => {
+    if (!modoEdicion || inicial?.estado !== "En Proceso") return [];
+    if (modoLicitacion !== "Proveedores") return [];
+
+    const conProducto = items.filter((i) => i.productoId);
+    // Solo las NUEVAS: las que ya existían llevan tiempo así y el comprador ya
+    // convivió con ellas. Aquí interesa lo que acaba de agregar.
+    const nuevas = conProducto.filter((i) => !i.id);
+    if (nuevas.length === 0 || proveedoresSeleccionados.length === 0) return [];
+
+    const avisos: { producto: string; proveedores: string[] }[] = [];
+    for (const nueva of nuevas) {
+      const ciegos: string[] = [];
+      for (const proveedorId of proveedoresSeleccionados) {
+        const visibles = filtrarItemsPorMaterialesProveedor(
+          conProducto,
+          proveedorMateriales[proveedorId] ?? []
+        );
+        if (visibles.some((v) => v._id === nueva._id)) continue;
+        ciegos.push(
+          proveedores.find((p: any) => p.id === proveedorId)?.razonSocial ??
+            "Proveedor sin nombre"
+        );
+      }
+      if (ciegos.length > 0) {
+        avisos.push({
+          producto:
+            productos.find((p: any) => p.id === nueva.productoId)?.nombre ??
+            "Producto sin nombre",
+          proveedores: ciegos,
+        });
+      }
+    }
+    return avisos;
+  }, [
+    modoEdicion,
+    inicial?.estado,
+    modoLicitacion,
+    items,
+    proveedoresSeleccionados,
+    proveedorMateriales,
+    proveedores,
+    productos,
+  ]);
 
   // ── Proveedores modal helpers ────────────────────────────────────────────────
 
@@ -806,6 +880,9 @@ Asistente de Inteligencia Artificial`;
       instrucciones: instrucciones || null,
       archivosAdjuntos: archivosAdjuntos,
       modoLicitacion,
+      // Se descarta `_id` (llave de React) pero se CONSERVA `id` (identidad en
+      // la base). Antes se tiraban los dos y el servidor se quedaba sin forma
+      // de casar filas — de ahí el borrar-y-recrear.
       items: items.map(({ _id, ...rest }) => rest),
       proveedoresInvitados: proveedoresSeleccionados,
       // Solo tasas válidas de monedas en uso. MXN nunca se incluye (vale 1).
@@ -1943,6 +2020,39 @@ Asistente de Inteligencia Artificial`;
               </span>
             );
           })()}
+
+          {/* Partidas nuevas que algún invitado no verá por su catálogo. Es un
+              aviso, no un bloqueo: agregar la partida puede ser correcto (quizá
+              se quiere invitar a otro proveedor), pero el comprador tiene que
+              enterarse ANTES de guardar, no cuando nadie la cotice. */}
+          {partidasNoVisibles.length > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {partidasNoVisibles.length === 1
+                      ? "Una partida nueva no será visible para todos los invitados"
+                      : `${partidasNoVisibles.length} partidas nuevas no serán visibles para todos los invitados`}
+                  </p>
+                  <ul className="mt-1.5 list-inside list-disc space-y-1 text-xs text-amber-800">
+                    {partidasNoVisibles.map((aviso) => (
+                      <li key={aviso.producto}>
+                        <strong>{aviso.producto}</strong> — no aparecerá en el portal de{" "}
+                        {aviso.proveedores.join(", ")}, porque no tiene ese producto en su
+                        catálogo.
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-amber-700">
+                    Recibirán el aviso de que la licitación cambió, pero no podrán cotizar
+                    esta partida. Agrega el producto a su catálogo o invita a un proveedor
+                    que sí lo maneje.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {items.length > 0 && totalProductos > 0 && (
             <div className="flex flex-wrap items-center gap-3 text-sm">

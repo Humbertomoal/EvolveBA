@@ -14,7 +14,8 @@
 /** Qué ocurrió con la ronda. Lo construye quien detecta la transición. */
 export type EventoAvisoRonda =
   | { tipo: "nueva_ronda"; ronda: number }
-  | { tipo: "cierre"; ultimaRonda: number };
+  | { tipo: "cierre"; ultimaRonda: number }
+  | { tipo: "cambio_licitacion" };
 
 const ORDINALES_FEMENINOS = [
   "primera",
@@ -96,12 +97,33 @@ export function cierre(ultimaRonda: number): string {
 }
 
 /**
+ * La licitación cambió mientras estaba en curso.
+ *
+ * Deliberadamente CORTO y sin detalle de qué cambió. El aviso va al chat de
+ * TODOS los invitados y cada proveedor ve solo las partidas de su catálogo
+ * (ver `filtrarItemsPorMaterialesProveedor`), así que enumerar "se agregó 1
+ * partida" podría referirse a algo que ese proveedor no puede ver. Y el
+ * detalle completo ya está donde importa: en la licitación misma, que es a
+ * donde este mensaje lo manda.
+ *
+ * Es el MISMO primer párrafo que encabeza el correo AJUSTE_LICITACION, para
+ * que chat y correo digan lo mismo con las mismas palabras.
+ */
+export function cambioLicitacion(): string {
+  return (
+    "Estimado Proveedor, se realizó un ajuste en la licitación. " +
+    "Te invitamos a revisarla y actualizar tu oferta de precios si es necesario."
+  );
+}
+
+/**
  * Texto que corresponde a un evento. La selección va por NÚMERO de ronda, no
  * por la acción que disparó la transición: da igual si la ronda 3 la abrió el
  * reloj, el botón de forzar avance o el de ronda extra — al proveedor le llega
  * el mismo mensaje, que es lo que se quiere.
  */
 export function textoAvisoRonda(evento: EventoAvisoRonda): string {
+  if (evento.tipo === "cambio_licitacion") return cambioLicitacion();
   if (evento.tipo === "cierre") return cierre(evento.ultimaRonda);
   if (evento.ronda <= 1) return inicioRonda1();
   if (evento.ronda === 2) return segundaRonda();

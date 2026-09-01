@@ -2,6 +2,9 @@ export type TipoCorreo =
   | "ALTA_PROVEEDOR"
   | "RECORDATORIO_PRODUCTOS"
   | "INVITACION_LICITACION"
+  // Misma licitación, ya conocida por el proveedor: se le avisa de un cambio
+  // hecho sobre la marcha, no se le invita de nuevo.
+  | "AJUSTE_LICITACION"
   | "CAMBIO_FECHA"
   | "RESULTADO_INTERNO"
   // Asignación PRELIMINAR: se manda al confirmar ganadores, cuando la licitación
@@ -20,6 +23,65 @@ export interface PlantillaCorreo {
   cuerpo: string;
   activo: boolean;
 }
+
+/**
+ * El correo de la licitación tiene DOS redacciones que comparten todo el
+ * cuerpo y difieren solo en el primer párrafo:
+ *
+ *   · INVITACION_LICITACION — la primera vez. "Has sido invitado a participar".
+ *   · AJUSTE_LICITACION     — cuando la licitación ya está en marcha y se le
+ *                             corrigió algo (se agregó una partida, cambió una
+ *                             cantidad, se movió la fecha). Decirle "ha sido
+ *                             invitado a participar" a quien lleva dos rondas
+ *                             cotizando es desconcertante.
+ *
+ * El resto —fechas, comprador asignado, instrucciones, tabla de materiales,
+ * adjuntos, firma— es EL MISMO y vive una sola vez en `CUERPO_LICITACION`. Si
+ * se edita el detalle de la licitación, se edita para las dos redacciones.
+ *
+ * OJO al tocar los puntos 1 y 2 de las instrucciones: hablan de ingresar el
+ * día del inicio y del acceso 15 minutos antes. Para un AJUSTE sobre una
+ * licitación ya en curso ese momento ya pasó. Se conservan tal cual porque el
+ * correo de ajuste debe llevar la misma información completa que el original,
+ * pero si algún día se quiere una variante más corta, es aquí.
+ */
+const CUERPO_LICITACION = `La licitación iniciará el {fechaInicio} y finalizará el {fechaFin}. Se le solicita cotizar {cantidadMateriales} material(es) incluidos en esta licitación.
+
+Nuestro comprador asignado a la licitación es: {nombreComprador}
+Teléfono: {telefonoComprador}
+Correo: {correoComprador}
+
+A continuación, te compartimos las instrucciones, con el objetivo de que cuentes con toda la información que necesitas para realizar la mejor propuesta posible:
+
+1. Ingresa a la plataforma en {urlPortal} el día {fechaInicio}, 30 minutos antes de la hora de inicio.
+2. El acceso a la licitación iniciará 15 minutos antes de la hora programada.
+3. La modalidad de la licitación es simultánea y de subasta: habrá varias rondas en las que tendrás la oportunidad de mejorar tu oferta, y todos los participantes ofertan al mismo tiempo para garantizar que compitan de forma correcta y justa.
+4. Cada vez que alguno de los competidores mejore la oferta anterior, se activará una nueva ronda para darles la oportunidad de mejorar de nuevo.
+5. Revisa los materiales y cantidades que se licitarán, así como los archivos adjuntos.
+6. Te recomendamos que llegues preparado teniendo a la mano la lista de productos con sus precios más competitivos, ya que los demás proveedores llegarán listos con sus ofertas para cada ronda. Si no llegas preparado, incrementa la probabilidad de que otro competidor gane la licitación.
+
+Fecha de inicio: {fechaInicio}
+Fecha de cierre: {fechaFin}
+
+Materiales a licitar (los que corresponden a tu catálogo):
+{tablaMateriales}
+{enlacesFichas}
+{instruccionesLicitacion}
+
+Cualquier duda o aclaración, comuníquese con el comprador asignado a esta licitación a través del chat disponible en el portal.
+
+Accede al portal aquí: {urlPortal}
+
+Atentamente,
+{nombreAsistente} - {tituloAsistente}
+{nombreEmpresa}
+{firmaCorreo}`;
+
+const INTRO_INVITACION = `Estimado Proveedor.
+
+Nos da gusto saludarte. Por medio del presente le informamos que ha sido invitado a participar en la Licitación {numeroLicitacion}.`;
+
+const INTRO_AJUSTE = `Estimado Proveedor, se realizó un ajuste en la licitación. Te invitamos a revisarla y actualizar tu oferta de precios si es necesario.`;
 
 export const plantillasCorreo: Record<TipoCorreo, PlantillaCorreo> = {
   ALTA_PROVEEDOR: {
@@ -78,41 +140,18 @@ Que tengas excelente día, agradezco tu tiempo y atención.
   },
   INVITACION_LICITACION: {
     asunto: "Invitación Licitación {numeroLicitacion} - {nombreEmpresa}",
-    cuerpo: `Estimado Proveedor.
+    cuerpo: `${INTRO_INVITACION}
 
-Nos da gusto saludarte. Por medio del presente le informamos que ha sido invitado a participar en la Licitación {numeroLicitacion}.
+${CUERPO_LICITACION}`,
+    activo: true,
+  },
+  // Misma información que la invitación, otra entrada. Ver la nota de
+  // CUERPO_LICITACION sobre por qué comparten cuerpo.
+  AJUSTE_LICITACION: {
+    asunto: "Ajuste Licitación {numeroLicitacion} - {nombreEmpresa}",
+    cuerpo: `${INTRO_AJUSTE}
 
-La licitación iniciará el {fechaInicio} y finalizará el {fechaFin}. Se le solicita cotizar {cantidadMateriales} material(es) incluidos en esta licitación.
-
-Nuestro comprador asignado a la licitación es: {nombreComprador}
-Teléfono: {telefonoComprador}
-Correo: {correoComprador}
-
-A continuación, te compartimos las instrucciones, con el objetivo de que cuentes con toda la información que necesitas para realizar la mejor propuesta posible:
-
-1. Ingresa a la plataforma en {urlPortal} el día {fechaInicio}, 30 minutos antes de la hora de inicio.
-2. El acceso a la licitación iniciará 15 minutos antes de la hora programada.
-3. La modalidad de la licitación es simultánea y de subasta: habrá varias rondas en las que tendrás la oportunidad de mejorar tu oferta, y todos los participantes ofertan al mismo tiempo para garantizar que compitan de forma correcta y justa.
-4. Cada vez que alguno de los competidores mejore la oferta anterior, se activará una nueva ronda para darles la oportunidad de mejorar de nuevo.
-5. Revisa los materiales y cantidades que se licitarán, así como los archivos adjuntos.
-6. Te recomendamos que llegues preparado teniendo a la mano la lista de productos con sus precios más competitivos, ya que los demás proveedores llegarán listos con sus ofertas para cada ronda. Si no llegas preparado, incrementa la probabilidad de que otro competidor gane la licitación.
-
-Fecha de inicio: {fechaInicio}
-Fecha de cierre: {fechaFin}
-
-Materiales a licitar (los que corresponden a tu catálogo):
-{tablaMateriales}
-{enlacesFichas}
-{instruccionesLicitacion}
-
-Cualquier duda o aclaración, comuníquese con el comprador asignado a esta licitación a través del chat disponible en el portal.
-
-Accede al portal aquí: {urlPortal}
-
-Atentamente,
-{nombreAsistente} - {tituloAsistente}
-{nombreEmpresa}
-{firmaCorreo}`,
+${CUERPO_LICITACION}`,
     activo: true,
   },
   CAMBIO_FECHA: {

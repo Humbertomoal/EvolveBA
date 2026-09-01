@@ -36,6 +36,25 @@ export const VARIABLES_COMUNES = [
  * - Resultado:   tablaGanadores, ahorroTotal, presupuestoObjetivo,
  *                totalPrimeraRonda, mejorCostoTotal, adherenciaPrecio
  */
+/**
+ * Variables del correo de licitación. Las comparten INVITACION_LICITACION y
+ * AJUSTE_LICITACION, que son el mismo cuerpo con distinto primer párrafo.
+ */
+const VARIABLES_LICITACION = [
+  "numeroLicitacion",
+  "fechaInicio",
+  "fechaFin",
+  "cantidadMateriales",
+  "tablaMateriales",
+  // Fichas técnicas que no cupieron como adjunto; vacío si todas se
+  // adjuntaron (y entonces la línea de la plantilla se colapsa).
+  "enlacesFichas",
+  "instruccionesLicitacion",
+  "nombreComprador",
+  "telefonoComprador",
+  "correoComprador",
+] as const;
+
 export const VARIABLES_POR_TIPO: Record<TipoCorreo, readonly string[]> = {
   ALTA_PROVEEDOR: ["nombreContacto", "usuarioAcceso", "passwordTemporal"],
   RESPUESTA_PROVEEDOR: [
@@ -49,20 +68,10 @@ export const VARIABLES_POR_TIPO: Record<TipoCorreo, readonly string[]> = {
     "enlaceSeguimiento",
   ],
   RECORDATORIO_PRODUCTOS: ["nombreContacto", "usuarioAcceso", "passwordTemporal"],
-  INVITACION_LICITACION: [
-    "numeroLicitacion",
-    "fechaInicio",
-    "fechaFin",
-    "cantidadMateriales",
-    "tablaMateriales",
-    // Fichas técnicas que no cupieron como adjunto; vacío si todas se
-    // adjuntaron (y entonces la línea de la plantilla se colapsa).
-    "enlacesFichas",
-    "instruccionesLicitacion",
-    "nombreComprador",
-    "telefonoComprador",
-    "correoComprador",
-  ],
+  INVITACION_LICITACION: VARIABLES_LICITACION,
+  // Mismo cuerpo con otra intro ⇒ exactamente las mismas variables. Se
+  // comparte la lista para que no puedan divergir.
+  AJUSTE_LICITACION: VARIABLES_LICITACION,
   CAMBIO_FECHA: [
     "numeroLicitacion",
     "fechaAnterior",
