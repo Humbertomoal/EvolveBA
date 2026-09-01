@@ -42,6 +42,14 @@ export default async function DetalleLicitacionPage({
       where: { id },
       include: {
         items: {
+          // Una partida retirada desaparece del portal del proveedor.
+          where: { eliminado: false },
+          // ORDEN EXPLÍCITO. Sin él Postgres devuelve el orden físico, que
+          // cambia cuando una fila se ACTUALIZA — y ocultar o restaurar una
+          // partida hace justo eso. El proveedor veía sus partidas cambiar de
+          // sitio a media captura. Mismo criterio que el resto de consultas de
+          // partidas.
+          orderBy: { createdAt: "asc" },
           include: {
             producto: {
               select: {
@@ -114,7 +122,7 @@ export default async function DetalleLicitacionPage({
     // Obtener historial de ofertas del proveedor para esta licitación
     const misOfertas = proveedorId
       ? await prisma.ofertaItem.findMany({
-          where: { proveedorId, licitacionItem: { licitacionId: id } },
+          where: { proveedorId, licitacionItem: { licitacionId: id, eliminado: false } },
           select: {
             licitacionItemId: true,
             ronda: true,
@@ -195,14 +203,14 @@ export default async function DetalleLicitacionPage({
     proveedorId && licitacion.rondaActual > 0
       ? licitacion.esperandoDecision
         ? await prisma.ofertaItem.findMany({
-            where: { proveedorId, licitacionItem: { licitacionId: id } },
+            where: { proveedorId, licitacionItem: { licitacionId: id, eliminado: false } },
             orderBy: { ronda: "desc" },
           })
         : await prisma.ofertaItem.findMany({
             where: {
               proveedorId,
               ronda: licitacion.rondaActual,
-              licitacionItem: { licitacionId: id },
+              licitacionItem: { licitacionId: id, eliminado: false },
             },
           })
       : [];
@@ -228,7 +236,7 @@ export default async function DetalleLicitacionPage({
       where: {
         proveedorId,
         ronda: { lt: licitacion.rondaActual },
-        licitacionItem: { licitacionId: id },
+        licitacionItem: { licitacionId: id, eliminado: false },
       },
       orderBy: { ronda: "desc" },
     });

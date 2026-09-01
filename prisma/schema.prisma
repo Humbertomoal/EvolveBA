@@ -166,6 +166,18 @@ model LicitacionItem {
   precioObjetivo     Float?
   moneda             String     @default("MXN")
   createdAt          DateTime   @default(now())
+  // Soft-delete de PARTIDA. Una partida con ofertas, asignaciones o borrador de
+  // precio NO se puede borrar (las tres FK son RESTRICT) y borrarla destruiría
+  // el histórico de lo que los proveedores cotizaron. Se oculta: deja de contar
+  // en todos los cálculos y desaparece del portal del proveedor, pero la fila y
+  // sus ofertas siguen ahí y la operación es reversible.
+  //
+  // OJO: NO hay filtro automático. Cada consulta que lea partidas debe excluir
+  // las ocultas a mano (ver el barrido del grupo A/B). Las validaciones de
+  // "¿este producto/moneda está en uso?" son la excepción deliberada: una
+  // partida oculta SIGUE siendo una referencia real en la base.
+  eliminado          Boolean    @default(false)
+  eliminadoEn        DateTime?
 
   ofertas      OfertaItem[]
   asignaciones AsignacionMaterial[]

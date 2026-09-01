@@ -47,8 +47,18 @@ export default async function EditarLicitacionPage({
   const licitacion = await prisma.licitacion.findUnique({
     where: { id },
     include: {
+      // A DIFERENCIA del resto de la app, aquí NO se filtran las partidas
+      // ocultas: esta es la única pantalla desde donde se restauran, así que
+      // tienen que verse (tachadas). El formulario las manda de vuelta con su
+      // marca para que el servidor no las restaure sin querer.
       items: {
-        include: { producto: { select: { unidadMedida: true } } },
+        include: {
+          producto: { select: { unidadMedida: true } },
+          // Con qué se puede: una partida con ofertas/asignaciones/borrador de
+          // precio se OCULTA al quitarla; una sin nada se borra de verdad.
+          _count: { select: { ofertas: true, asignaciones: true, seleccionesPrecio: true } },
+        },
+        orderBy: { createdAt: "asc" },
       },
       proveedoresInvitados: true,
     },
@@ -97,6 +107,11 @@ export default async function EditarLicitacionPage({
       // guardado necesita para ACTUALIZAR esta partida en vez de recrearla.
       _id: item.id,
       id: item.id,
+      eliminado: item.eliminado,
+      tieneDependencias:
+        item._count.ofertas > 0 ||
+        item._count.asignaciones > 0 ||
+        item._count.seleccionesPrecio > 0,
       productoId: item.productoId,
       unidadMedida: item.producto.unidadMedida,
       especificacion: item.especificacion ?? "",

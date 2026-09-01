@@ -283,6 +283,7 @@ export async function getDashboardData(
         fechaCerrada: true,
         fechaFinalizada: true,
         items: {
+          where: { eliminado: false },
           select: {
             id: true,
             cantidadSolicitada: true,

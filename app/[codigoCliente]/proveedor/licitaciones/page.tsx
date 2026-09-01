@@ -182,7 +182,7 @@ export default async function MisLicitacionesPage({
       ? await prisma.ofertaItem.findMany({
           where: {
             proveedorId,
-            licitacionItem: { licitacionId: { in: enProcesoIds } },
+            licitacionItem: { licitacionId: { in: enProcesoIds }, eliminado: false },
           },
           select: {
             ronda: true,

@@ -89,7 +89,7 @@ export async function buscarSeleccionAction(
   const items =
     batchIds.length > 0
       ? await prisma.licitacionItem.findMany({
-          where: { licitacionId: { in: batchIds } },
+          where: { licitacionId: { in: batchIds }, eliminado: false },
           select: {
             id: true,
             licitacionId: true,

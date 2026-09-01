@@ -40,6 +40,7 @@ export default async function DetalleLicitacionProcesoPage({
     where: { id },
     include: {
       items: {
+        where: { eliminado: false },
         include: {
           producto: { select: { nombre: true, unidadMedida: true } },
         },
@@ -79,7 +80,7 @@ export default async function DetalleLicitacionProcesoPage({
       ? await prisma.ofertaItem.findMany({
           where: {
             ronda: licitacion.rondaActual,
-            licitacionItem: { licitacionId: id },
+            licitacionItem: { licitacionId: id, eliminado: false },
           },
           include: {
             proveedor: { select: { id: true } },
@@ -89,7 +90,7 @@ export default async function DetalleLicitacionProcesoPage({
 
   // ── Todas las ofertas (todas las rondas) — base para participantes y análisis ──
   const todasLasOfertas = await prisma.ofertaItem.findMany({
-    where: { licitacionItem: { licitacionId: id } },
+    where: { licitacionItem: { licitacionId: id, eliminado: false } },
     include: { proveedor: { select: { razonSocial: true } } },
     orderBy: { precioUnitario: "asc" },
   });

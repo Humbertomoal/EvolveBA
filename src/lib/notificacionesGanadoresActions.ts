@@ -86,7 +86,7 @@ export async function prepararNotificacionesGanadoresAction(
 
     // Participantes (cotizaron): proveedorIds distintos con ofertas.
     const ofertas = await prisma.ofertaItem.findMany({
-      where: { licitacionItem: { licitacionId } },
+      where: { licitacionItem: { licitacionId, eliminado: false } },
       select: {
         proveedorId: true,
         proveedor: {

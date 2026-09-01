@@ -145,6 +145,10 @@ const ESTADOS_EDITABLES = new Set(["Borrador", "Programada", "En Proceso"]);
  */
 type CambiosLicitacion = {
   agregadas: number;
+  /** Partidas que pasaron a oculta (soft-delete) en este guardado. */
+  ocultas: number;
+  /** Partidas ocultas que el comprador volvió a poner en juego. */
+  restauradas: number;
   /** Partidas cuya cantidad cambió — las que conviene volver a cotizar. */
   cantidadCambiada: number;
   /** Otros cambios de la partida: descripción, fecha de entrega, moneda. */
@@ -160,6 +164,7 @@ type ItemEnBase = {
   cantidadSolicitada: number;
   precioObjetivo: number | null;
   moneda: string;
+  eliminado: boolean;
   producto: { nombre: string };
   _count: { ofertas: number; asignaciones: number; seleccionesPrecio: number };
 };
@@ -187,7 +192,13 @@ function tieneDependencias(fila: ItemEnBase): boolean {
 
 type Reconciliacion = {
   aCrear: ItemInput[];
-  aActualizar: { id: string; datos: ReturnType<typeof normalizarItem> }[];
+  aActualizar: {
+    id: string;
+    datos: ReturnType<typeof normalizarItem> & { eliminado?: false; eliminadoEn?: null };
+  }[];
+  /** Partidas a OCULTAR: tienen dependencias, así que no se pueden borrar. */
+  aOcultar: string[];
+  /** Partidas a borrar de verdad: no las referencia nada. */
   aBorrar: string[];
   /** Motivos por los que el guardado NO puede aplicarse tal cual. */
   bloqueos: string[];
@@ -209,9 +220,12 @@ function reconciliarItems(
   const porId = new Map(itemsEnBase.map((i) => [i.id, i]));
   const aCrear: ItemInput[] = [];
   const aActualizar: Reconciliacion["aActualizar"] = [];
+  const aOcultar: string[] = [];
   const bloqueos: string[] = [];
   const cambios: CambiosLicitacion = {
     agregadas: 0,
+    ocultas: 0,
+    restauradas: 0,
     cantidadCambiada: 0,
     modificadas: 0,
     fechaCambiada,
@@ -222,12 +236,33 @@ function reconciliarItems(
     const fila = item.id ? porId.get(item.id) : undefined;
 
     // Sin id, o con un id que ya no existe (otra pestaña la borró): es nueva.
+    // Una fila nueva marcada como oculta no llega a existir: no hay nada que
+    // crear ni nada que ocultar.
     if (!fila) {
+      if (item.eliminado) continue;
       aCrear.push(item);
       cambios.agregadas++;
       continue;
     }
     vistos.add(fila.id);
+
+    // ── Ocultar ────────────────────────────────────────────────────────────
+    // El comprador la quitó en pantalla. Como tiene ofertas detrás, no se
+    // borra: se oculta. Deja de contar en todo (ver el filtro `eliminado:
+    // false` de los consumidores) pero la fila y sus ofertas siguen ahí.
+    if (item.eliminado) {
+      if (!fila.eliminado) {
+        aOcultar.push(fila.id);
+        cambios.ocultas++;
+      }
+      // Ya estaba oculta y sigue oculta: no se toca nada.
+      continue;
+    }
+
+    // ── Restaurar ──────────────────────────────────────────────────────────
+    const restaurar = fila.eliminado;
+    if (restaurar) cambios.restauradas++;
+
     const datos = normalizarItem(item);
 
     // Cambiar el PRODUCTO de una partida con ofertas dejaría los precios ya
@@ -254,28 +289,32 @@ function reconciliarItems(
 
     // Se escribe solo si de verdad cambió algo: un guardado que no toca la
     // partida no debe moverle nada (ni disparar avisos).
-    if (cantidadCambio || otroCambio) aActualizar.push({ id: fila.id, datos });
+    if (restaurar || cantidadCambio || otroCambio) {
+      aActualizar.push({
+        id: fila.id,
+        datos: restaurar ? { ...datos, eliminado: false, eliminadoEn: null } : datos,
+      });
+    }
   }
 
-  // Lo que estaba en la base y no volvió en el payload = el comprador lo quitó.
+  // Lo que estaba en la base y no volvió en el payload. Camino secundario: la
+  // UI marca `eliminado` en vez de quitar la fila, así que aquí solo caen las
+  // partidas que desaparecieron por otra vía (una pestaña vieja, un cliente
+  // manipulado). Se aplica el mismo criterio, para no depender de la UI.
   const aBorrar: string[] = [];
   for (const fila of itemsEnBase) {
     if (vistos.has(fila.id)) continue;
+    if (fila.eliminado) continue; // ya estaba oculta: se queda como está
     if (tieneDependencias(fila)) {
-      // NO se borra ni se ignora en silencio. Ignorar dejaría al comprador
-      // creyendo que la quitó mientras los proveedores la siguen viendo y
-      // cotizando — la misma divergencia callada que causó la 0016. Ocultarla
-      // (soft delete) es la solución de verdad, y es la fase siguiente.
-      bloqueos.push(
-        `“${fila.producto.nombre}” no se puede quitar porque ya tiene ofertas o asignaciones. ` +
-          `Vuelve a agregarla para poder guardar.`
-      );
+      aOcultar.push(fila.id);
+      cambios.ocultas++;
       continue;
     }
+    // Sin nada que la referencie: borrado real, como siempre.
     aBorrar.push(fila.id);
   }
 
-  return { aCrear, aActualizar, aBorrar, bloqueos, cambios };
+  return { aCrear, aActualizar, aOcultar, aBorrar, bloqueos, cambios };
 }
 
 export async function crearLicitacionAction(
@@ -488,6 +527,7 @@ export async function actualizarLicitacionAction(
       cantidadSolicitada: true,
       precioObjetivo: true,
       moneda: true,
+      eliminado: true,
       producto: { select: { nombre: true } },
       _count: { select: { ofertas: true, asignaciones: true, seleccionesPrecio: true } },
     },
@@ -569,6 +609,15 @@ export async function actualizarLicitacionAction(
       data: plan.aCrear.map((item) => ({ licitacionId: id, ...normalizarItem(item) })),
     });
   }
+  if (plan.aOcultar.length > 0) {
+    // Soft-delete: la partida deja de contar en TODOS los cálculos (cada
+    // consulta filtra `eliminado: false`) pero conserva sus ofertas y el
+    // histórico, y se puede restaurar. Es lo que P0 rechazaba con un mensaje.
+    await prisma.licitacionItem.updateMany({
+      where: { id: { in: plan.aOcultar } },
+      data: { eliminado: true, eliminadoEn: new Date() },
+    });
+  }
   if (plan.aBorrar.length > 0) {
     // Solo llegan aquí las partidas sin ofertas, asignaciones ni borrador de
     // precio: las tres FK son RESTRICT, así que un borrado indebido fallaría.
@@ -605,6 +654,8 @@ export async function actualizarLicitacionAction(
   // del chat no puede tumbar una edición ya confirmada en la base.
   const huboCambioAvisable =
     plan.cambios.agregadas > 0 ||
+    plan.cambios.ocultas > 0 ||
+    plan.cambios.restauradas > 0 ||
     plan.cambios.cantidadCambiada > 0 ||
     plan.cambios.modificadas > 0 ||
     plan.cambios.fechaCambiada;

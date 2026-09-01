@@ -72,7 +72,7 @@ export function construirWhereLicitacionProveedor(
         OR: [
           { proveedoresInvitados: { some: { proveedorId } } },
           { asignaciones: { some: { proveedorId } } },
-          { items: { some: { ofertas: { some: { proveedorId } } } } },
+          { items: { some: { eliminado: false, ofertas: { some: { proveedorId } } } } },
         ],
       },
     ],
@@ -104,6 +104,7 @@ export function licitacionProveedorSelect(proveedorId: ProveedorAutenticado) {
       select: { proveedorId: true },
     },
     items: {
+      where: { eliminado: false },
       select: {
         id: true,
         productoId: true,
@@ -171,7 +172,7 @@ export async function getOpcionesProveedor(
   );
 
   const items = await prisma.licitacionItem.findMany({
-    where: { licitacion: base, producto: { eliminado: false } },
+    where: { eliminado: false, licitacion: base, producto: { eliminado: false } },
     select: {
       productoId: true,
       producto: { select: { id: true, codigo: true, nombre: true, familia: true } },

@@ -42,6 +42,16 @@ import type { IntencionGuardado } from "@/src/lib/licitacionesIntencion";
 export type ItemInput = {
   /** Id real en la base. `undefined` = partida nueva, aún no persistida. */
   id?: string;
+  /**
+   * true = el comprador quitó esta partida, pero tiene ofertas/asignaciones y
+   * NO puede borrarse (las tres FK son RESTRICT): se OCULTA.
+   *
+   * Viaja explícito en el payload en vez de deducirse de la ausencia de la fila
+   * porque el formulario SIGUE mostrando las partidas ocultas (tachadas, para
+   * poder restaurarlas). Sin este campo, un guardado que no tocara nada las
+   * mandaría de vuelta como presentes y el servidor las restauraría solas.
+   */
+  eliminado?: boolean;
   productoId: string;
   unidadMedida: string;
   especificacion: string;

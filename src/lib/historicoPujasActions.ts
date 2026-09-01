@@ -39,7 +39,9 @@ async function consultarOfertasHistorico(
   // `ronda` directo en la consulta. El filtro de ronda se aplica después,
   // ya con la variación calculada.
   const where = {
-    licitacionItem: { licitacionId },
+    // `eliminado: false`: las ofertas de una partida retirada no entran al
+    // histórico de pujas — la partida ya no compite por nada.
+    licitacionItem: { licitacionId, eliminado: false },
     ...(proveedorId ? { proveedorId } : {}),
     // A diferencia de `ronda`, este filtro SÍ va en la consulta: acotar por
     // partida no rompe el cálculo de variación, que se agrupa por

@@ -52,7 +52,7 @@ export default async function LicitacionesEnProcesoPage({
 
   for (const lic of conDecision) {
     const items = await prisma.licitacionItem.findMany({
-      where: { licitacionId: lic.id },
+      where: { licitacionId: lic.id, eliminado: false },
       select: {
         id: true,
         producto: { select: { nombre: true } },

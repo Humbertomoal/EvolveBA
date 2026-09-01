@@ -22,6 +22,7 @@ export default async function CapturaManualPage({
       estado: true,
       modoLicitacion: true,
       items: {
+        where: { eliminado: false },
         select: {
           id: true,
           cantidadSolicitada: true,
@@ -55,7 +56,7 @@ export default async function CapturaManualPage({
 
   // Load existing offers to pre-fill the form
   const ofertasExistentes = await prisma.ofertaItem.findMany({
-    where: { licitacionItem: { licitacionId: id } },
+    where: { licitacionItem: { licitacionId: id, eliminado: false } },
     select: {
       licitacionItemId: true,
       proveedorId: true,

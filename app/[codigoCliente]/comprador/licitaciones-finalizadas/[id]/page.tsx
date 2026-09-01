@@ -27,6 +27,7 @@ export default async function DetalleFinalizadaPage({
       fechaCreacion: true,
       updatedAt: true,
       items: {
+        where: { eliminado: false },
         orderBy: { createdAt: "asc" },
         select: {
           id: true,

@@ -114,6 +114,7 @@ async function cargarLicitacionParaPdf(licitacionId: string) {
     where: { id: licitacionId },
     include: {
       items: {
+        where: { eliminado: false },
         include: { producto: { select: { nombre: true, unidadMedida: true } } },
         orderBy: { createdAt: "asc" },
       },
@@ -126,7 +127,7 @@ async function cargarLicitacionParaPdf(licitacionId: string) {
   if (!licitacion) throw new Error("No se encontró la licitación.");
 
   const ofertas = await prisma.ofertaItem.findMany({
-    where: { licitacionItem: { licitacionId } },
+    where: { licitacionItem: { licitacionId, eliminado: false } },
     include: { proveedor: { select: { id: true, razonSocial: true } } },
     orderBy: [{ ronda: "asc" }, { precioUnitario: "asc" }],
   });

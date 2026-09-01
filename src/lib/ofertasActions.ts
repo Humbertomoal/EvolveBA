@@ -139,7 +139,11 @@ export async function enviarOfertaAction(
       duracionRondaMinutos: true,
       esperandoDecision: true,
       proveedoresInvitados: { where: { proveedorId }, select: { id: true } },
-      items: { select: { id: true } },
+      // `eliminado: false` es CRÍTICO aquí: de esta lista sale `idsValidos`,
+      // que autoriza qué partidas admite una oferta. Sin el filtro, un
+      // proveedor con la pantalla vieja abierta podría seguir cotizando una
+      // partida ya retirada, y esa oferta entraría al comparativo.
+      items: { where: { eliminado: false }, select: { id: true } },
     },
   });
 

@@ -8,6 +8,7 @@ import {
   IconPencil,
   IconPlus,
   IconRefresh,
+  IconRotateClockwise,
   IconTrash,
   IconUsers,
   IconX,
@@ -83,6 +84,19 @@ export type ItemFila = {
    * del comprador en cada guardado.
    */
   id?: string;
+  /**
+   * true = partida RETIRADA (soft-delete). Sigue en la base con sus ofertas y
+   * su histórico, pero no cuenta para nada: ni totales, ni validación, ni
+   * correo, ni el portal del proveedor. Se muestra tachada para poder
+   * restaurarla, y esta pantalla es la ÚNICA que las carga.
+   */
+  eliminado?: boolean;
+  /**
+   * true si la partida tiene ofertas, asignaciones o borrador de precio. Decide
+   * qué pasa al quitarla: con dependencias se OCULTA (no se puede borrar, las
+   * tres FK son RESTRICT); sin ellas se borra de verdad, como siempre.
+   */
+  tieneDependencias?: boolean;
   productoId: string;
   unidadMedida: string;
   especificacion: string;
@@ -286,6 +300,12 @@ export default function LicitacionForm({
   const [items, setItems] = useState<ItemFila[]>(
     inicial?.items?.map((i) => ({ ...i, moneda: (i as ItemFila & { moneda?: string }).moneda ?? "MXN" })) ?? []
   );
+
+  // Partidas que CUENTAN. `items` es la lista completa (incluye las ocultas,
+  // que se siguen dibujando tachadas para poder restaurarlas); `itemsActivos`
+  // es lo que entra en totales, validación, correo y selección de proveedores.
+  // Toda cuenta debe partir de esta, no de `items`.
+  const itemsActivos = items.filter((i) => !i.eliminado);
 
   // ── Tipos de cambio (por moneda ≠ MXN usada en los materiales) ────────────────
   // Valores como string para los inputs; se persisten como número en buildDatos.
@@ -509,10 +529,27 @@ export default function LicitacionForm({
     }
   }
 
+  /**
+   * Quitar una partida. Con ofertas detrás no se borra: se MARCA como retirada
+   * y se conserva (sus ofertas y su histórico siguen ahí, y la operación es
+   * reversible con `restaurarItem`). Sin nada que la referencie, se borra de
+   * la lista como siempre.
+   */
   function eliminarItem(id: string) {
-    const newItems = items.filter((item) => item._id !== id);
+    const fila = items.find((item) => item._id === id);
+    const newItems = fila?.tieneDependencias
+      ? items.map((item) => (item._id === id ? { ...item, eliminado: true } : item))
+      : items.filter((item) => item._id !== id);
     setItems(newItems);
-    aplicarAutollenado(newItems);
+    aplicarAutollenado(newItems.filter((i) => !i.eliminado));
+  }
+
+  function restaurarItem(id: string) {
+    const newItems = items.map((item) =>
+      item._id === id ? { ...item, eliminado: false } : item
+    );
+    setItems(newItems);
+    aplicarAutollenado(newItems.filter((i) => !i.eliminado));
   }
 
   function handleFechaFinLicitacionChange(valor: string) {
@@ -533,11 +570,11 @@ export default function LicitacionForm({
     const costo = parseFloat(valor);
     if (!costo || costo <= 0) return;
     // One-time auto-distribution: only when ALL product prices are 0 or empty
-    const todosVacios = items.every(
+    const todosVacios = itemsActivos.every(
       (i) => !i.precioObjetivo || parseFloat(i.precioObjetivo) <= 0
     );
     if (!todosVacios) return;
-    const totalUnidades = items.reduce(
+    const totalUnidades = itemsActivos.reduce(
       (sum: any, i: any) => sum + (parseFloat(i.cantidadSolicitada) || 0),
       0
     );
@@ -547,7 +584,7 @@ export default function LicitacionForm({
       prev.map((item: any) => ({
         ...item,
         precioObjetivo:
-          (parseFloat(item.cantidadSolicitada) || 0) > 0
+          !item.eliminado && (parseFloat(item.cantidadSolicitada) || 0) > 0
             ? precioUnit.toFixed(2)
             : item.precioObjetivo,
       }))
@@ -557,7 +594,7 @@ export default function LicitacionForm({
   function redistribuirPrecios() {
     const costo = parseFloat(costoObjetivo);
     if (!costo || costo <= 0) return;
-    const totalUnidades = items.reduce(
+    const totalUnidades = itemsActivos.reduce(
       (sum: any, i: any) => sum + (parseFloat(i.cantidadSolicitada) || 0),
       0
     );
@@ -567,7 +604,7 @@ export default function LicitacionForm({
       prev.map((item: any) => ({
         ...item,
         precioObjetivo:
-          (parseFloat(item.cantidadSolicitada) || 0) > 0
+          !item.eliminado && (parseFloat(item.cantidadSolicitada) || 0) > 0
             ? precioUnit.toFixed(2)
             : item.precioObjetivo,
       }))
@@ -592,7 +629,7 @@ export default function LicitacionForm({
     if (!modoEdicion || inicial?.estado !== "En Proceso") return [];
     if (modoLicitacion !== "Proveedores") return [];
 
-    const conProducto = items.filter((i) => i.productoId);
+    const conProducto = itemsActivos.filter((i) => i.productoId);
     // Solo las NUEVAS: las que ya existían llevan tiempo así y el comprador ya
     // convivió con ellas. Aquí interesa lo que acaba de agregar.
     const nuevas = conProducto.filter((i) => !i.id);
@@ -635,7 +672,7 @@ export default function LicitacionForm({
 
   // ── Proveedores modal helpers ────────────────────────────────────────────────
 
-  const productosEnLicitacion = items.map((i) => i.productoId).filter(Boolean);
+  const productosEnLicitacion = itemsActivos.map((i) => i.productoId).filter(Boolean);
 
   function proveedorTieneMateriales(p: any) {
     return (proveedorMateriales[p.id] ?? []).some((matId) =>
@@ -692,7 +729,7 @@ export default function LicitacionForm({
   // ── Instrucciones modal helpers ──────────────────────────────────────────────
 
   function generarPlantilla(): string {
-    const numMat = items.filter((i: any) => i.productoId !== "").length;
+    const numMat = itemsActivos.filter((i: any) => i.productoId !== "").length;
     const fmtDT = (val: string) => {
       if (!val) return "por definir";
       const [datePart, timePart = "00:00"] = val.split("T");
@@ -758,7 +795,8 @@ Asistente de Inteligencia Artificial`;
   // portal) — con fallback a todos los items si no tiene catálogo asignado
   // o ninguno coincide.
   function itemsParaTablaMateriales(proveedorId?: string): ItemTablaMaterial[] {
-    const itemsValidos = items.filter((i) => i.productoId);
+    // `itemsActivos`: la tabla del correo no lista partidas retiradas.
+    const itemsValidos = itemsActivos.filter((i) => i.productoId);
     const itemsFiltrados = proveedorId
       ? filtrarItemsPorMaterialesProveedor(itemsValidos, proveedorMateriales[proveedorId] ?? [])
       : itemsValidos;
@@ -814,7 +852,7 @@ Asistente de Inteligencia Artificial`;
     // Fichas de SOLO los materiales que cada proveedor puede cotizar, ya
     // deduplicadas y en orden de aparición (ese orden manda al recortar).
     const mapaFichas = fichasPorProducto();
-    const itemsValidos = items.filter((i) => i.productoId);
+    const itemsValidos = itemsActivos.filter((i) => i.productoId);
     const urlsPorDestinatario: Record<string, string[]> = {};
     for (const { proveedorId, correo } of proveedoresConCorreo()) {
       urlsPorDestinatario[correo] = fichasDeProveedor(
@@ -1157,7 +1195,7 @@ Asistente de Inteligencia Artificial`;
   // no mezclar monedas. Misma fórmula que "licitación en proceso" y EXACTAMENTE
   // la misma que autollena el Presupuesto Objetivo (totalMaterialesConvertido).
   const totalProductos = totalMaterialesConvertido(
-    items,
+    itemsActivos,
     tiposCambio,
     monedaConsolidacion
   );
@@ -1201,8 +1239,8 @@ Asistente de Inteligencia Artificial`;
 
   // Validations
   const itemsValidos =
-    items.length > 0 &&
-    items.every(
+    itemsActivos.length > 0 &&
+    itemsActivos.every(
       (i) =>
         i.productoId &&
         i.fechaEntrega &&
@@ -1216,7 +1254,9 @@ Asistente de Inteligencia Artificial`;
   const monedasParaTC = [
     ...new Set(
       [
-        ...items.filter((i) => i.productoId).map((i) => i.moneda),
+        // `itemsActivos`: una partida retirada no debe exigir tipo de cambio —
+        // no entra en ningún total, así que su moneda no hace falta.
+        ...itemsActivos.filter((i) => i.productoId).map((i) => i.moneda),
         monedaConsolidacion,
       ].filter((m) => m && m !== "MXN")
     ),
@@ -1250,7 +1290,7 @@ Asistente de Inteligencia Artificial`;
         ? "Máximo de rondas requerido"
         : null,
     items:
-      items.length === 0
+      itemsActivos.length === 0
         ? "Agrega al menos 1 producto a la licitación"
         : !itemsValidos
           ? "Completa todos los campos de los productos antes de guardar"
@@ -1278,7 +1318,7 @@ Asistente de Inteligencia Artificial`;
     return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
   })();
 
-  const tieneProductos = items.some((i) => i.productoId !== "");
+  const tieneProductos = itemsActivos.some((i) => i.productoId !== "");
   const tieneProveedores = proveedoresSeleccionados.length > 0;
   const tieneInstrucciones = instrucciones.trim().length > 0 || archivosAdjuntos.length > 0;
   const puedeToggleMateriales = productosEnLicitacion.length > 0;
@@ -1872,7 +1912,11 @@ Asistente de Inteligencia Artificial`;
                   const subtotal =
                     (parseFloat(item.cantidadSolicitada) || 0) *
                     (parseFloat(item.precioObjetivo) || 0);
+                  // Una partida retirada no se valida: no cuenta para nada y
+                  // exigirle campos completos impediría guardar.
+                  const retirada = Boolean(item.eliminado);
                   const rowHasError =
+                    !retirada &&
                     intentoGuardar &&
                     (!item.productoId ||
                       !item.fechaEntrega ||
@@ -1880,7 +1924,19 @@ Asistente de Inteligencia Artificial`;
                       item.precioObjetivo === "");
                   const nombreProducto = productos.find((p: any) => p.id === item.productoId)?.nombre;
                   return (
-                    <tr key={item._id} className={`hover:bg-zinc-50/50 transition-colors duration-150 ${rowHasError ? "bg-red-50/40" : ""}`}>
+                    <tr
+                      key={item._id}
+                      className={`transition-colors duration-150 ${
+                        retirada
+                          ? "bg-zinc-50 text-zinc-400 line-through opacity-60"
+                          : `hover:bg-zinc-50/50 ${rowHasError ? "bg-red-50/40" : ""}`
+                      }`}
+                      title={
+                        retirada
+                          ? "Partida retirada: no cuenta para totales, ganador ni el portal del proveedor. Sus ofertas se conservan."
+                          : undefined
+                      }
+                    >
                       <td className="px-2 py-2">
                         <select
                           value={item.productoId}
@@ -1979,14 +2035,31 @@ Asistente de Inteligencia Artificial`;
                           : "—"}
                       </td>
                       <td className="px-2 py-2">
-                        <button
-                          type="button"
-                          onClick={() => eliminarItem(item._id)}
-                          aria-label="Eliminar fila"
-                          className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500"
-                        >
-                          <IconTrash className="h-4 w-4" />
-                        </button>
+                        {retirada ? (
+                          <button
+                            type="button"
+                            onClick={() => restaurarItem(item._id)}
+                            aria-label="Restaurar partida"
+                            title="Restaurar esta partida"
+                            className="rounded-md p-1.5 text-zinc-400 no-underline transition-colors duration-150 hover:bg-emerald-50 hover:text-emerald-600"
+                          >
+                            <IconRotateClockwise className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => eliminarItem(item._id)}
+                            aria-label="Eliminar fila"
+                            title={
+                              item.tieneDependencias
+                                ? "Retirar esta partida (tiene ofertas: se conserva el histórico y se puede restaurar)"
+                                : "Eliminar fila"
+                            }
+                            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500"
+                          >
+                            <IconTrash className="h-4 w-4" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -2551,7 +2624,7 @@ Asistente de Inteligencia Artificial`;
               </div>
 
               <MaterialesResumenTabla
-                materiales={items
+                materiales={itemsActivos
                   .filter((i) => i.productoId)
                   .map((i) => ({
                     id: i._id,

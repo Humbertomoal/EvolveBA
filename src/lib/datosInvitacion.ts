@@ -55,6 +55,7 @@ export async function getDatosInvitacion(
       archivosAdjuntos: true,
       invitacionesEnviadasEn: true,
       items: {
+        where: { eliminado: false },
         select: {
           productoId: true,
           cantidadSolicitada: true,

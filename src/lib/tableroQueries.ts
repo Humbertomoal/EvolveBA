@@ -52,6 +52,10 @@ function whereItems(filtros: FiltrosTablero): Prisma.LicitacionItemWhereInput {
   }
 
   return {
+    // Partida oculta (soft-delete) = no existe para el tablero. Va aquí y no en
+    // cada call site porque este helper alimenta tanto el `items: { some: … }`
+    // del where de licitación como el where del tablero del proveedor.
+    eliminado: false,
     ...(filtros.productoId ? { productoId: filtros.productoId } : {}),
     producto,
   };
@@ -120,6 +124,7 @@ export function construirWhereOrden(
 
 export const LICITACION_TABLERO_INCLUDE = {
   items: {
+    where: { eliminado: false },
     include: {
       producto: {
         select: {
@@ -296,6 +301,7 @@ export const LICITACION_HISTORICO_SELECT = {
   fechaCerrada: true,
   fechaFinalizada: true,
   items: {
+    where: { eliminado: false },
     select: {
       id: true,
       productoId: true,
@@ -426,6 +432,7 @@ export async function getOpcionesFiltros(
     }),
     prisma.licitacionItem.findMany({
       where: {
+        eliminado: false,
         licitacion: whereParaProductos,
         producto: { eliminado: false },
       },

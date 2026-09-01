@@ -63,6 +63,17 @@ export type ItemDetalle = {
 };
 
 type FilaState = {
+  /**
+   * A qué partida pertenece esta fila.
+   *
+   * `filas` (estado local) e `items` (prop del servidor) se recorren EN
+   * PARALELO POR ÍNDICE. Mientras la lista de partidas era inmutable durante
+   * una licitación eso era seguro; con el soft-delete de partidas dejó de
+   * serlo: el comprador puede retirar o restaurar una partida EN PROCESO, la
+   * prop `items` cambia de tamaño y esta pantalla sigue montada. Guardar el id
+   * permite volver a casar las filas con las partidas sin perder lo tecleado.
+   */
+  licitacionItemId: string;
   cantidadDisponible: string;
   precioUnitario: string;
   puedeCumplirFecha: boolean;
@@ -229,26 +240,79 @@ export default function LicitacionCotizacion({
   // (editando lo que ya envió), o si no, la de la ronda anterior (punto de
   // partida editable). En la primera ronda, sin oferta previa, se mantiene
   // el comportamiento original: cantidad = solicitada, precio vacío.
-  const [filas, setFilas] = useState<FilaState[]>(() =>
-    items.map((item: any) => {
-      const base = item.oferta ?? item.ofertaAnterior;
-      return {
-        cantidadDisponible: base
-          ? String(Math.min(base.cantidadDisponible, item.cantidadSolicitada))
-          : String(item.cantidadSolicitada),
-        // Un precio 0 heredado de una oferta previa NO se precarga: dejarlo
-        // reintroduciría por la puerta de atrás el valor que este cambio
-        // elimina. Se muestra vacío para que el proveedor lo capture bien o
-        // marque "No dispongo".
-        precioUnitario: base && base.precioUnitario > 0 ? String(base.precioUnitario) : "",
-        estado: base ? estadoDePartida(base) : "cotizo",
-        puedeCumplirFecha: base ? base.puedeCumplirFecha : true,
-        fechaEstimadaEntrega: base?.fechaEstimadaEntrega
-          ? new Date(base.fechaEstimadaEntrega).toISOString().split("T")[0]
-          : "",
-      };
-    })
-  );
+  // Fila en blanco (o precargada con la oferta previa) de UNA partida. Extraída
+  // para que el estado inicial y la re-sincronización de más abajo construyan
+  // la fila exactamente igual.
+  function filaInicial(item: any): FilaState {
+    const base = item.oferta ?? item.ofertaAnterior;
+    return {
+      licitacionItemId: item.licitacionItemId,
+      cantidadDisponible: base
+        ? String(Math.min(base.cantidadDisponible, item.cantidadSolicitada))
+        : String(item.cantidadSolicitada),
+      // Un precio 0 heredado de una oferta previa NO se precarga: dejarlo
+      // reintroduciría por la puerta de atrás el valor que este cambio
+      // elimina. Se muestra vacío para que el proveedor lo capture bien o
+      // marque "No dispongo".
+      precioUnitario: base && base.precioUnitario > 0 ? String(base.precioUnitario) : "",
+      estado: base ? estadoDePartida(base) : "cotizo",
+      puedeCumplirFecha: base ? base.puedeCumplirFecha : true,
+      fechaEstimadaEntrega: base?.fechaEstimadaEntrega
+        ? new Date(base.fechaEstimadaEntrega).toISOString().split("T")[0]
+        : "",
+    };
+  }
+
+  const [filas, setFilas] = useState<FilaState[]>(() => items.map(filaInicial));
+
+  // ── Re-sincronizar `filas` cuando cambia la lista de partidas ─────────────
+  //
+  // El comprador puede RETIRAR o RESTAURAR una partida con la licitación en
+  // curso (soft-delete). Cuando lo hace, cualquier acción de servidor que
+  // dispare esta pantalla —el sondeo de mensajes no leídos cada 30 s, sin ir
+  // más lejos— revalida el árbol y trae una prop `items` de distinto tamaño,
+  // SIN desmontar este componente. `filas` se inicializaba una sola vez, así
+  // que quedaba descuadrada y todo lo que se recorre por índice apuntaba a la
+  // partida equivocada — o a ninguna:
+  //
+  //   · `items` encoge  → `items[idx]` undefined → "reading 'moneda'"
+  //   · `items` crece   → `filasAlineadas[idx]` undefined → "reading 'estado'"
+  //
+  // Se re-casa POR ID, no por posición: lo que el proveedor ya tecleó en las
+  // partidas que siguen vivas se conserva, las nuevas entran en blanco y las
+  // retiradas se van.
+  const firmaItems = items.map((i: any) => i.licitacionItemId).join("|");
+  useEffect(() => {
+    setFilas((prev) => {
+      const porId = new Map(prev.map((f) => [f.licitacionItemId, f]));
+      const siguiente = items.map((item: any) => porId.get(item.licitacionItemId) ?? filaInicial(item));
+      const igual =
+        siguiente.length === prev.length && siguiente.every((f, i) => f === prev[i]);
+      return igual ? prev : siguiente;
+    });
+    // `firmaItems` es la dependencia real: solo importa que cambie el CONJUNTO
+    // de partidas, no que el servidor mande un array nuevo en cada revalidación.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmaItems]);
+
+  /**
+   * Filas alineadas con `items`, garantizado.
+   *
+   * El efecto de arriba corre DESPUÉS del render, así que existe un render en
+   * el que las props ya cambiaron y `filas` todavía no. Ahí es donde reventaba.
+   * Esto NO es un parche sobre el síntoma: la corrección de fondo es la
+   * re-sincronización por id; esto cubre el único frame en el que las dos
+   * listas pueden diferir legítimamente. Todo lo que se recorra por índice debe
+   * usar ESTA lista, nunca `filas` directamente.
+   *
+   * También se casa POR ID, no por posición: si se retiró una partida
+   * intermedia, alinear por posición mostraría un frame con los datos corridos
+   * una fila. Por id, ese frame ya enseña lo correcto.
+   */
+  const filasAlineadas: FilaState[] = (() => {
+    const porId = new Map(filas.map((f) => [f.licitacionItemId, f]));
+    return items.map((item: any) => porId.get(item.licitacionItemId) ?? filaInicial(item));
+  })();
 
   // ── Round timer state ─────────────────────────────────────────────────────
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -424,7 +488,7 @@ export default function LicitacionCotizacion({
   // su propósito. "No aplica" SÍ valida cantidad —va a surtir la partida— pero
   // no precio.
   const rowErrors = items.map((item, idx) => {
-    const fila = filas[idx];
+    const fila = filasAlineadas[idx];
     if (fila.estado === "no_dispongo") return null;
     const val = parseFloat(fila.cantidadDisponible);
     return fila.cantidadDisponible !== "" && !isNaN(val) && val > item.cantidadSolicitada
@@ -435,7 +499,7 @@ export default function LicitacionCotizacion({
   // El precio no se validaba en absoluto: solo se comprobaba la cantidad, así
   // que un campo vacío o un 0 pasaban derecho y llegaban a la base.
   const rowErroresPrecio = items.map((_item, idx) => {
-    const fila = filas[idx];
+    const fila = filasAlineadas[idx];
     // Los dos estados sin costo no llevan precio que validar. En "no aplica" el
     // 0 es una respuesta legítima —no un campo sin llenar—, así que exigirle un
     // precio positivo sería justo al revés de lo que significa.
@@ -454,7 +518,10 @@ export default function LicitacionCotizacion({
 
   // ── Live totals per moneda ────────────────────────────────────────────────
   const totalesPorMoneda = useMemo(() => {
-    return filas.reduce((acc, fila, idx) => {
+    // Se recorre `filasAlineadas` (mismo largo que `items`) y NO `filas`: aquí
+    // es donde reventaba con "reading 'moneda'" cuando el comprador retiraba
+    // una partida con esta pantalla abierta.
+    return filasAlineadas.reduce((acc, fila, idx) => {
       const moneda = items[idx].moneda ?? "MXN";
       const precio = parseFloat(fila.precioUnitario) || 0;
       const disponible = parseFloat(fila.cantidadDisponible) || 0;
@@ -462,7 +529,7 @@ export default function LicitacionCotizacion({
       acc[moneda] = (acc[moneda] ?? 0) + precio * Math.min(disponible, solicitada);
       return acc;
     }, {} as Record<string, number>);
-  }, [filas, items]);
+  }, [filasAlineadas, items]);
   // Total consolidado: convierte cada subtotal por moneda a la moneda de
   // consolidación con los tipos de cambio congelados de la licitación.
   const totalConsolidado = useMemo(() => {
@@ -477,10 +544,23 @@ export default function LicitacionCotizacion({
   const hayVariasMonedas = Object.keys(totalesPorMoneda).length > 1;
 
   // ── Row helpers ───────────────────────────────────────────────────────────
+  /**
+   * Escribe un campo de UNA fila.
+   *
+   * Recibe el índice (así lo llama el render) pero resuelve la fila POR ID: si
+   * el comprador acaba de retirar una partida y el estado todavía no se
+   * re-sincronizó, escribir por posición metería el dato en la partida
+   * equivocada — un precio en el material de al lado. Con el id, o escribe en
+   * la fila correcta o no escribe.
+   */
   function setFila(idx: number, campo: keyof FilaState, valor: string | boolean) {
+    const itemId = items[idx]?.licitacionItemId;
+    if (!itemId) return;
     setFilas((prev) => {
+      const pos = prev.findIndex((f) => f.licitacionItemId === itemId);
+      if (pos === -1) return prev;
       const next = [...prev];
-      next[idx] = { ...next[idx], [campo]: valor };
+      next[pos] = { ...next[pos], [campo]: valor };
       return next;
     });
   }
@@ -504,21 +584,21 @@ export default function LicitacionCotizacion({
           // cero en silencio, que era la vía principal por la que entraban los
           // ceros que envenenaban los comparativos. Ahora un vacío produce NaN,
           // que la validación de abajo y la del servidor rechazan.
-          precioUnitario: estadoSinCosto(filas[idx].estado)
+          precioUnitario: estadoSinCosto(filasAlineadas[idx].estado)
             ? 0
-            : parseFloat(filas[idx].precioUnitario),
+            : parseFloat(filasAlineadas[idx].precioUnitario),
           // La cantidad solo se anula en "no dispongo": quien marca "no
           // aplica" sí va a surtir la partida, y necesita cantidad para poder
           // ganarla.
           cantidadDisponible:
-            filas[idx].estado === "no_dispongo"
+            filasAlineadas[idx].estado === "no_dispongo"
               ? 0
-              : parseFloat(filas[idx].cantidadDisponible) || 0,
-          puedeCumplirFecha: filas[idx].puedeCumplirFecha,
-          fechaEstimadaEntrega: filas[idx].puedeCumplirFecha
+              : parseFloat(filasAlineadas[idx].cantidadDisponible) || 0,
+          puedeCumplirFecha: filasAlineadas[idx].puedeCumplirFecha,
+          fechaEstimadaEntrega: filasAlineadas[idx].puedeCumplirFecha
             ? null
-            : filas[idx].fechaEstimadaEntrega || null,
-          estado: filas[idx].estado,
+            : filasAlineadas[idx].fechaEstimadaEntrega || null,
+          estado: filasAlineadas[idx].estado,
         }))
       );
 
@@ -789,7 +869,7 @@ export default function LicitacionCotizacion({
                   }
 
                   // ── Editable row ───────────────────────────────────────────
-                  const fila = filas[idx];
+                  const fila = filasAlineadas[idx];
                   const disponible = parseFloat(fila.cantidadDisponible) || 0;
                   const rowError = rowErrors[idx];
                   const cantParcial =

@@ -35,6 +35,7 @@ export default async function DetalleSeleccionPage({
       monedaConsolidacion: true,
       estado: true,
       items: {
+        where: { eliminado: false },
         select: {
           id: true,
           cantidadSolicitada: true,
@@ -88,7 +89,7 @@ export default async function DetalleSeleccionPage({
   // partida en blanco quedaba preseleccionado como GANADOR a $0 en
   // AsignacionForm — a un descuido de emitir una orden de compra en cero.
   const todasLasOfertasCrudas = await prisma.ofertaItem.findMany({
-    where: { licitacionItem: { licitacionId: id } },
+    where: { licitacionItem: { licitacionId: id, eliminado: false } },
     include: { proveedor: { select: { id: true, razonSocial: true } } },
     orderBy: { precioUnitario: "asc" },
   });

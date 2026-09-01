@@ -40,6 +40,7 @@ export async function prepararResultadoInternoAction(
         tiposCambio: true,
         monedaConsolidacion: true,
         items: {
+          where: { eliminado: false },
           select: {
             id: true,
             cantidadSolicitada: true,
@@ -60,7 +61,7 @@ export async function prepararResultadoInternoAction(
     const monedaConsol = (licitacion as any).monedaConsolidacion ?? "MXN";
 
     const ofertas = await prisma.ofertaItem.findMany({
-      where: { licitacionItem: { licitacionId } },
+      where: { licitacionItem: { licitacionId, eliminado: false } },
       // proveedorId y noDisponible los exige el modelo de línea base promedio,
       // que agrupa por proveedor y descarta lo no cotizado.
       select: {
