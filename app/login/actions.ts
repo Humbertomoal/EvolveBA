@@ -3,7 +3,6 @@
 import { AuthError } from "next-auth";
 import { signIn } from "@/src/auth";
 import { prisma } from "@/src/lib/prisma";
-import { DURACION_SESION_SEGUNDOS } from "@/src/lib/sesionDuracion";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 
@@ -113,7 +112,7 @@ export async function loginAction(
     cookieStore.set("cyrgo_comprador_id", usuario.id, {
       path: "/",
       sameSite: "lax",
-      maxAge: DURACION_SESION_SEGUNDOS,
+      maxAge: 60 * 60 * 24 * 7,
     });
   } else if (tipoUsuario === "proveedor") {
     // Look up linked Proveedor record
@@ -126,7 +125,7 @@ export async function loginAction(
         cookieStore.set("cyrgo_proveedor_id", proveedor.id, {
           path: "/",
           sameSite: "lax",
-          maxAge: DURACION_SESION_SEGUNDOS,
+          maxAge: 60 * 60 * 24 * 7,
         });
       }
     } catch {

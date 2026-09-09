@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/prisma";
 import { parsearFechaMexico } from "@/src/lib/dateUtils";
@@ -320,14 +321,13 @@ export async function crearLicitacionAction(
   basePath: string,
   datos: LicitacionInput
 ): Promise<ResultadoGuardar> {
-  const sesion = await exigirCompradorSesion();
+  await exigirCompradorSesion();
   validarFechas(datos);
 
-  // El DUEÑO sale de la sesión firmada, no de la cookie de alcance. Antes se
-  // leía `cyrgo_comprador_id` y, si valía "__todos__" o faltaba, se estampaba el
-  // literal "default" — un id que no le pertenece a ningún Usuario. Así nacieron
-  // las licitaciones huérfanas 0010 y 0016, que ningún comprador real podía ver.
-  const compradorId = sesion.usuarioId;
+  const cookieStore = await cookies();
+  const rawCompradorId = cookieStore.get("cyrgo_comprador_id")?.value ?? "default";
+  // "__todos__" means the user has supervisor access — attribute to "default" on create
+  const compradorId = rawCompradorId === "__todos__" ? "default" : rawCompradorId;
 
   // Una licitación que no existe "era" un Borrador: ese es el estadoPrevio con
   // el que se entra a la máquina. Así `preparar_lanzamiento` nace en Borrador
