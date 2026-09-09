@@ -4,6 +4,7 @@ import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@/src/lib/prisma";
+import { DURACION_SESION_SEGUNDOS } from "@/src/lib/sesionDuracion";
 
 // Diagnóstico temporal — confirma si AUTH_SECRET y NEXTAUTH_SECRET conviven
 // con valores distintos (causaría que unas invocaciones cifren cookies con
@@ -293,13 +294,13 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
               cookieStore.set("cyrgo_comprador_id", usuario.id, {
                 path: "/",
                 sameSite: "lax",
-                maxAge: 60 * 60 * 24 * 7,
+                maxAge: DURACION_SESION_SEGUNDOS,
               });
             } else if ((usuario as any).proveedor?.id) {
               cookieStore.set("cyrgo_proveedor_id", (usuario as any).proveedor.id, {
                 path: "/",
                 sameSite: "lax",
-                maxAge: 60 * 60 * 24 * 7,
+                maxAge: DURACION_SESION_SEGUNDOS,
               });
             }
           }
@@ -346,6 +347,9 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   pages: {
     signIn: "/login",
   },
-  session: { strategy: "jwt" },
+  // maxAge explícito: era el default implícito de Auth.js (30 días) y las
+  // cookies de panel duraban 7, así que la cookie moría antes que la sesión.
+  // Un solo valor para las dos cosas — ver sesionDuracion.ts.
+  session: { strategy: "jwt", maxAge: DURACION_SESION_SEGUNDOS },
   secret: process.env.AUTH_SECRET,
 });
