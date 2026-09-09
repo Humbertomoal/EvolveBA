@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconBuildingStore, IconTruck } from "@tabler/icons-react";
 import Link from "next/link";
+import { DURACION_SESION_SEGUNDOS } from "@/src/lib/sesionDuracion";
 
 const COMPRADOR_COOKIE = "cyrgo_comprador_id";
 const VER_TODO_ID = "__todos__";
@@ -31,7 +32,9 @@ export default function InicioView({
   }
 
   function handleConfirmar() {
-    document.cookie = `${COMPRADOR_COOKIE}=${compradorId}; path=/; max-age=86400; SameSite=Lax`;
+    // Misma duración que la sesión: con 24 h el alcance se reiniciaba solo
+    // al día siguiente aunque la sesión siguiera viva.
+    document.cookie = `${COMPRADOR_COOKIE}=${compradorId}; path=/; max-age=${DURACION_SESION_SEGUNDOS}; SameSite=Lax`;
     router.push(`${basePath}/comprador`);
   }
 
