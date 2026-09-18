@@ -3,6 +3,7 @@
 import {
   IconBox,
   IconBriefcase,
+  IconCopy,
   IconCpu,
   IconEye,
   IconEyeOff,
@@ -408,6 +409,14 @@ function TarjetaProducto({
             >
               <IconPencil className="h-3.5 w-3.5" />
             </Link>
+            <Link
+              href={`${basePath}/comprador/catalogo/nuevo?base=${producto.id}`}
+              className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
+              aria-label={`Duplicar ${producto.nombre}`}
+              title="Duplicar como base de un material nuevo"
+            >
+              <IconCopy className="h-3.5 w-3.5" />
+            </Link>
             <button
               type="button"
               onClick={onToggleActivo}
@@ -512,6 +521,14 @@ function TablaProductos({
                       title="Editar"
                     >
                       <IconPencil className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      href={`${basePath}/comprador/catalogo/nuevo?base=${producto.id}`}
+                      className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors duration-150"
+                      aria-label={`Duplicar ${producto.nombre}`}
+                      title="Duplicar como base de un material nuevo"
+                    >
+                      <IconCopy className="h-4 w-4" />
                     </Link>
                     <button
                       type="button"

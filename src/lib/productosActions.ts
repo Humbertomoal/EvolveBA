@@ -6,9 +6,18 @@ import type { ProductoInput } from "@/src/data/productos";
 import {
   actualizarProducto,
   crearProducto,
+  ErrorCrearProducto,
   generarCodigoProductoUnico,
 } from "@/src/lib/productos";
 import { prisma } from "@/src/lib/prisma";
+import {
+  exigirCompradorSesion,
+  getCompradorSesionSegura,
+} from "@/src/lib/compradorSessionSegura";
+import type {
+  ProductoBaseOpcion,
+  ResultadoCrearProducto,
+} from "@/src/lib/productoBaseTypes";
 
 function extraerDatos(formData: FormData): ProductoInput {
   const familia = String(formData.get("familia") ?? "").trim();
@@ -48,11 +57,63 @@ export async function generarCodigoProductoAction(
   return generarCodigoProductoUnico(familia || undefined, nombre, excludeId);
 }
 
+/**
+ * Buscador de "Partir de un material existente…" en ProductoForm. Nombre o
+ * código, sin distinguir mayúsculas, sin eliminados, a lo más LIMITE_BUSQUEDA
+ * resultados con solo los campos que pinta el desplegable. Sin texto devuelve
+ * los primeros por nombre, para poder hojear.
+ */
+const LIMITE_BUSQUEDA = 20;
+
+export async function buscarProductosBaseAction(
+  q: string
+): Promise<ProductoBaseOpcion[]> {
+  if (!(await getCompradorSesionSegura())) return [];
+
+  const texto = q.trim();
+  return prisma.producto.findMany({
+    where: {
+      eliminado: false,
+      ...(texto
+        ? {
+            OR: [
+              { nombre: { contains: texto, mode: "insensitive" } },
+              { codigo: { contains: texto, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    select: { id: true, codigo: true, nombre: true, familia: true },
+    orderBy: { nombre: "asc" },
+    take: LIMITE_BUSQUEDA,
+  });
+}
+
+/**
+ * Crea un producto. Si el formulario trae `baseId` ("duplicar como base"),
+ * crearProducto copia además los archivos heredados y los proveedores del base.
+ *
+ * Los fallos esperados se DEVUELVEN (no se lanzan) para que su mensaje llegue
+ * al usuario: en producción Next oculta el texto de los errores lanzados desde
+ * una server action. En éxito redirige al catálogo.
+ */
 export async function crearProductoAction(
   basePath: string,
   formData: FormData
-) {
-  await crearProducto(extraerDatos(formData));
+): Promise<ResultadoCrearProducto | void> {
+  const baseId = String(formData.get("baseId") ?? "").trim() || undefined;
+  // Duplicar escribe en Storage y copia relaciones de proveedores: exige una
+  // sesión interna. (El alta en blanco conserva el comportamiento de siempre.)
+  if (baseId) await exigirCompradorSesion();
+
+  try {
+    await crearProducto(extraerDatos(formData), baseId);
+  } catch (error) {
+    if (error instanceof ErrorCrearProducto) {
+      return { ok: false, codigo: error.codigo, error: error.message };
+    }
+    throw error;
+  }
   revalidatePath(`${basePath}/comprador/catalogo`);
   redirect(`${basePath}/comprador/catalogo`);
 }

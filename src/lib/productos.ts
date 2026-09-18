@@ -5,6 +5,7 @@ import {
   extraerConsecutivo,
   formatearConsecutivo,
 } from "@/src/lib/generarCodigoProducto";
+import { copiarArchivo, eliminarArchivo } from "@/src/lib/supabaseStorage";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -105,26 +106,187 @@ async function guardarCodigoManual(id: string, codigoManual: boolean): Promise<v
   }
 }
 
-export async function crearProducto(datos: ProductoInput): Promise<Producto> {
-  if (await codigoProductoExiste(datos.codigo)) {
-    throw new Error("CODIGO_DUPLICADO");
-  }
-  const row = await prisma.producto.create({
-    data: {
-      codigo: datos.codigo,
-      nombre: datos.nombre,
-      tipoItem: datos.tipoItem,
-      familia: datos.familia ?? null,
-      unidadMedida: datos.unidadMedida,
-      descripcion: datos.descripcion ?? null,
-      imagenUrl: datos.imagenUrl ?? null,
-      especificacionesTecnicas: datos.especificacionesTecnicas || null,
-      archivosEspecificaciones: datos.archivosEspecificaciones || null,
-      monedaPredeterminada: datos.monedaPredeterminada || "MXN",
-      clienteId: "default",
-    },
+/**
+ * Material para "duplicar como base": igual que getProductoById pero excluye
+ * los eliminados, que tampoco aparecen en el buscador.
+ */
+export async function getProductoBase(id: string): Promise<Producto | null> {
+  const row = await prisma.producto.findFirst({
+    where: { id, eliminado: false },
     select: PRODUCTO_SELECT,
   });
+  if (!row) return null;
+  const codigoManualMap = await obtenerCodigoManualMap([id]);
+  return mapear(row, codigoManualMap[id] ?? false);
+}
+
+/** Cuántos proveedores surten un material (se copiarán al duplicarlo). */
+export async function contarProveedoresDeProducto(productoId: string): Promise<number> {
+  return prisma.proveedorMaterial.count({ where: { productoId } });
+}
+
+/**
+ * Fallo esperado al crear un producto, con un mensaje apto para el usuario.
+ * crearProductoAction lo convierte en un resultado en vez de relanzarlo: en
+ * producción Next oculta el mensaje de los errores lanzados desde una server
+ * action, y el usuario vería un "no se pudo guardar" genérico.
+ */
+export class ErrorCrearProducto extends Error {
+  constructor(
+    readonly codigo: "CODIGO_DUPLICADO" | "BASE_NO_ENCONTRADA" | "COPIA_ARCHIVOS",
+    mensaje: string
+  ) {
+    super(mensaje);
+    this.name = "ErrorCrearProducto";
+  }
+}
+
+function parsearUrls(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter((u) => typeof u === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Copia en Storage los archivos que el material nuevo HEREDÓ del base, para que
+ * cada material sea dueño de los suyos. Devuelve url original → url copia.
+ *
+ * Solo se copian URLs que de verdad pertenecen al base (leído de la BD, no del
+ * formulario): el navegador no puede colar aquí la URL de otro material. Lo que
+ * no sea heredado es un archivo que el usuario subió en este formulario y ya es
+ * propio del material nuevo.
+ *
+ * Todo o nada: si una copia falla, se intenta retirar las que ya se hicieron y
+ * se lanza. El material no se crea con fichas a medias.
+ */
+async function copiarArchivosHeredados(
+  urlsFormulario: string[],
+  urlsBase: Set<string>
+): Promise<Map<string, string>> {
+  const copias = new Map<string, string>();
+  try {
+    for (const url of urlsFormulario) {
+      if (!urlsBase.has(url) || copias.has(url)) continue;
+      copias.set(url, await copiarArchivo(url));
+    }
+  } catch (error) {
+    await descartarCopias(copias);
+    throw new ErrorCrearProducto(
+      "COPIA_ARCHIVOS",
+      `No se pudieron copiar los archivos del material base, así que no se guardó el material nuevo. ${
+        error instanceof Error ? error.message : ""
+      }`.trim()
+    );
+  }
+  return copias;
+}
+
+async function descartarCopias(copias: Map<string, string>): Promise<void> {
+  await Promise.all(
+    [...copias.values()].map((url) => eliminarArchivo(url).catch(() => {}))
+  );
+}
+
+/**
+ * Crea un producto. Con `baseId` ("duplicar como base") además:
+ *   · copia en Storage los archivos heredados del base y guarda las URLs nuevas;
+ *   · copia sus proveedores (ProveedorMaterial) al material nuevo.
+ * El material base SOLO se lee: nada de este flujo lo escribe.
+ */
+export async function crearProducto(
+  datos: ProductoInput,
+  baseId?: string
+): Promise<Producto> {
+  if (await codigoProductoExiste(datos.codigo)) {
+    throw new ErrorCrearProducto(
+      "CODIGO_DUPLICADO",
+      "Este código ya está en uso por otro producto."
+    );
+  }
+
+  let imagenUrl = datos.imagenUrl ?? null;
+  let archivosEspecificaciones = datos.archivosEspecificaciones || null;
+  let proveedoresBase: { proveedorId: string; familias: string | null }[] = [];
+  let copias = new Map<string, string>();
+
+  if (baseId) {
+    const base = await prisma.producto.findFirst({
+      where: { id: baseId, eliminado: false },
+      select: {
+        imagenUrl: true,
+        archivosEspecificaciones: true,
+        proveedores: { select: { proveedorId: true, familias: true } },
+      },
+    });
+    if (!base) {
+      throw new ErrorCrearProducto(
+        "BASE_NO_ENCONTRADA",
+        "El material base ya no existe. Recarga la página o empieza en blanco."
+      );
+    }
+    proveedoresBase = base.proveedores;
+
+    const urlsBase = new Set<string>([
+      ...(base.imagenUrl ? [base.imagenUrl] : []),
+      ...parsearUrls(base.archivosEspecificaciones),
+    ]);
+    const urlsArchivos = parsearUrls(archivosEspecificaciones);
+    copias = await copiarArchivosHeredados(
+      [...(imagenUrl ? [imagenUrl] : []), ...urlsArchivos],
+      urlsBase
+    );
+
+    if (imagenUrl) imagenUrl = copias.get(imagenUrl) ?? imagenUrl;
+    if (urlsArchivos.length > 0) {
+      archivosEspecificaciones = JSON.stringify(
+        urlsArchivos.map((u) => copias.get(u) ?? u)
+      );
+    }
+  }
+
+  let row: ProductoDB;
+  try {
+    // Producto + proveedores en una sola transacción: o queda el material con
+    // todos sus proveedores heredados, o no queda nada.
+    row = await prisma.$transaction(async (tx) => {
+      const creado = await tx.producto.create({
+        data: {
+          codigo: datos.codigo,
+          nombre: datos.nombre,
+          tipoItem: datos.tipoItem,
+          familia: datos.familia ?? null,
+          unidadMedida: datos.unidadMedida,
+          descripcion: datos.descripcion ?? null,
+          imagenUrl,
+          especificacionesTecnicas: datos.especificacionesTecnicas || null,
+          archivosEspecificaciones,
+          monedaPredeterminada: datos.monedaPredeterminada || "MXN",
+          clienteId: "default",
+        },
+        select: PRODUCTO_SELECT,
+      });
+      if (proveedoresBase.length > 0) {
+        await tx.proveedorMaterial.createMany({
+          data: proveedoresBase.map((p) => ({
+            proveedorId: p.proveedorId,
+            productoId: creado.id,
+            familias: p.familias,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return creado;
+    });
+  } catch (error) {
+    // Las copias ya subidas no las referencia nadie: se retiran (best-effort).
+    await descartarCopias(copias);
+    throw error;
+  }
+
   const codigoManual = datos.codigoManual ?? false;
   await guardarCodigoManual(row.id, codigoManual);
   return mapear(row, codigoManual);

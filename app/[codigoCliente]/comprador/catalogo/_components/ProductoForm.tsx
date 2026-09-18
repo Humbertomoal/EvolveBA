@@ -14,6 +14,7 @@ import { isNextRedirectError } from "@/src/lib/isNextRedirectError";
 import { MONEDAS } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import FileUpload from "@/src/components/FileUpload";
+import SelectorMaterialBase from "./SelectorMaterialBase";
 
 const TIPOS_IMAGEN = ["image/jpeg", "image/png", "image/webp"];
 const TIPOS_ESPECIFICACIONES = [
@@ -53,10 +54,25 @@ function iCls(hasErr: boolean) {
 export default function ProductoForm({
   basePath,
   productoExistente,
+  productoBase,
+  proveedoresBase = 0,
+  baseNoEncontrada = false,
   catalogos,
 }: {
   basePath: string;
+  /** EDITAR: el material que se modifica. */
   productoExistente?: Producto;
+  /**
+   * CREAR a partir de otro ("duplicar como base"): solo aporta los valores
+   * iniciales. Es un prop distinto de `productoExistente` a propósito: con él
+   * el formulario sigue en modo crear y guarda un material NUEVO; el base nunca
+   * se escribe. Ignorado si hay `productoExistente`.
+   */
+  productoBase?: Producto;
+  /** Proveedores del material base que se copiarán al nuevo (solo informativo). */
+  proveedoresBase?: number;
+  /** Llegó un ?base=<id> que no existe (o está eliminado). */
+  baseNoEncontrada?: boolean;
   catalogos?: {
     familias: { codigo: string; nombre: string }[];
     unidadesMedida: { codigo: string; nombre: string }[];
@@ -65,36 +81,45 @@ export default function ProductoForm({
 }) {
   usePageTitle(productoExistente ? "Editar producto" : "Agregar producto");
 
-  // ── Image state ───────────────────────────────────────────────────────────────
-  const [imagenUrl, setImagenUrl] = useState<string>(
-    productoExistente?.imagenUrl ?? ""
+  const base = productoExistente ? undefined : productoBase;
+  // Valores iniciales: el propio material al editar, o el base al duplicar.
+  const inicial = productoExistente ?? base;
+
+  // Archivos heredados del base: todavía son DEL ORIGINAL. Quitarlos aquí solo
+  // los desvincula (FileUpload no los borra del Storage); al guardar, el
+  // servidor los copia y el material nuevo queda con archivos propios.
+  const [urlsHeredadas] = useState<string[]>(() =>
+    base
+      ? [
+          ...(base.imagenUrl ? [base.imagenUrl] : []),
+          ...parsearJsonArray(base.archivosEspecificaciones),
+        ]
+      : []
   );
 
+  // ── Image state ───────────────────────────────────────────────────────────────
+  const [imagenUrl, setImagenUrl] = useState<string>(inicial?.imagenUrl ?? "");
+
   // ── Field state ───────────────────────────────────────────────────────────────
-  const [nombre, setNombre] = useState(productoExistente?.nombre ?? "");
-  const [tipoItem, setTipoItem] = useState(
-    productoExistente?.tipoItem ?? "Producto"
-  );
-  const [familia, setFamilia] = useState(productoExistente?.familia ?? "");
-  const [unidadMedida, setUnidadMedida] = useState(
-    productoExistente?.unidadMedida ?? ""
-  );
+  const [nombre, setNombre] = useState(inicial?.nombre ?? "");
+  const [tipoItem, setTipoItem] = useState(inicial?.tipoItem ?? "Producto");
+  const [familia, setFamilia] = useState(inicial?.familia ?? "");
+  const [unidadMedida, setUnidadMedida] = useState(inicial?.unidadMedida ?? "");
+  // El código NO se hereda del base (es único): se genera al montar.
   const [codigo, setCodigo] = useState(productoExistente?.codigo ?? "");
   const [codigoManual, setCodigoManual] = useState(
     productoExistente?.codigoManual ?? false
   );
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
-  const [descripcion, setDescripcion] = useState(
-    productoExistente?.descripcion ?? ""
-  );
+  const [descripcion, setDescripcion] = useState(inicial?.descripcion ?? "");
   const [monedaPredeterminada, setMonedaPredeterminada] = useState(
-    productoExistente?.monedaPredeterminada ?? "MXN"
+    inicial?.monedaPredeterminada ?? "MXN"
   );
   const [especificacionesTecnicas, setEspecificacionesTecnicas] = useState(
-    productoExistente?.especificacionesTecnicas ?? ""
+    inicial?.especificacionesTecnicas ?? ""
   );
   const [archivosEspecificaciones, setArchivosEspecificaciones] = useState<string[]>(
-    () => parsearJsonArray(productoExistente?.archivosEspecificaciones)
+    () => parsearJsonArray(inicial?.archivosEspecificaciones)
   );
 
   // ── Validation state ──────────────────────────────────────────────────────────
@@ -158,6 +183,15 @@ export default function ProductoForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familia, nombre]);
 
+  // Duplicar como base: el código del original no sirve (es @unique), así que
+  // se propone uno nuevo al montar. Va aparte porque el efecto de arriba se
+  // salta el primer render a propósito. Después, cambiar familia o nombre lo
+  // regenera por la vía normal (codigoManual queda en false).
+  useEffect(() => {
+    if (base && nombre.trim()) regenerarCodigo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function regenerarCodigo() {
     if (!nombre.trim()) return;
     setGenerandoCodigo(true);
@@ -220,7 +254,13 @@ export default function ProductoForm({
     setGuardando(true);
     const fd = new FormData(e.currentTarget);
     try {
-      await accion(fd);
+      // crearProductoAction DEVUELVE los fallos esperados (su mensaje debe
+      // llegar al usuario); en éxito redirige y no devuelve nada.
+      const resultado = await accion(fd);
+      if (resultado && !resultado.ok) {
+        if (resultado.codigo === "CODIGO_DUPLICADO") setCodigoDisponible(false);
+        toast.error(resultado.error, { duration: 8000 });
+      }
     } catch (error) {
       if (isNextRedirectError(error)) {
         toast.success("Producto guardado correctamente");
@@ -241,7 +281,19 @@ export default function ProductoForm({
 
   return (
     <div className="max-w-3xl space-y-8">
+      {/* Solo en CREAR: en editar no tiene sentido "partir de otro". */}
+      {!productoExistente && (
+        <SelectorMaterialBase
+          basePath={basePath}
+          base={base ? { nombre: base.nombre, codigo: base.codigo } : undefined}
+          proveedoresBase={base ? proveedoresBase : 0}
+          archivosBase={urlsHeredadas.length}
+          baseNoEncontrada={baseNoEncontrada}
+        />
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-10">
+        {base && <input type="hidden" name="baseId" value={base.id} />}
         <fieldset className="space-y-4">
           <legend className="text-sm font-semibold text-zinc-900">
             Información del item
@@ -408,6 +460,7 @@ export default function ProductoForm({
             maxSizeMB={5}
             multiple={false}
             archivosExistentes={imagenUrl ? [imagenUrl] : []}
+            urlsSinBorrar={urlsHeredadas}
             onUploadComplete={(urls) => setImagenUrl(urls[0] ?? "")}
           />
         </fieldset>
@@ -443,6 +496,7 @@ export default function ProductoForm({
               maxSizeMB={10}
               multiple
               archivosExistentes={archivosEspecificaciones}
+              urlsSinBorrar={urlsHeredadas}
               onUploadComplete={setArchivosEspecificaciones}
             />
           </div>

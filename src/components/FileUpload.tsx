@@ -66,6 +66,7 @@ export default function FileUpload({
   multiple = false,
   onUploadComplete,
   archivosExistentes = [],
+  urlsSinBorrar = [],
 }: {
   carpeta: string;
   tiposPermitidos: string[];
@@ -73,6 +74,13 @@ export default function FileUpload({
   multiple?: boolean;
   onUploadComplete: (urls: string[]) => void;
   archivosExistentes?: string[];
+  /**
+   * URLs que este formulario NO es dueño de borrar: al quitarlas (o reemplazar
+   * la imagen) solo se desvinculan, sin tocar el Storage. Caso de uso: los
+   * archivos heredados al "duplicar un material como base", que siguen siendo
+   * del material original hasta que el servidor los copie al guardar.
+   */
+  urlsSinBorrar?: string[];
 }) {
   const [archivos, setArchivos] = useState<ArchivoItem[]>(() =>
     archivosExistentes.map((url) => ({ url, nombre: nombreDesdeUrl(url) }))
@@ -107,7 +115,11 @@ export default function FileUpload({
     setSubiendo(true);
     try {
       // En modo single, reemplazamos: se borra el archivo anterior (best-effort).
-      if (!multiple && archivos.length > 0) {
+      if (
+        !multiple &&
+        archivos.length > 0 &&
+        !urlsSinBorrar.includes(archivos[0].url)
+      ) {
         await eliminarArchivo(archivos[0].url).catch(() => {});
       }
 
@@ -132,16 +144,21 @@ export default function FileUpload({
 
   async function eliminar(indice: number) {
     const item = archivos[indice];
-    try {
-      await eliminarArchivo(item.url);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo eliminar el archivo.");
-      return;
+    const protegido = urlsSinBorrar.includes(item.url);
+    if (!protegido) {
+      try {
+        await eliminarArchivo(item.url);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "No se pudo eliminar el archivo.");
+        return;
+      }
     }
     const actualizado = archivos.filter((_, i) => i !== indice);
     setArchivos(actualizado);
     onUploadComplete(actualizado.map((a) => a.url));
-    toast.success("Archivo eliminado");
+    toast.success(
+      protegido ? "Archivo quitado (el original no se modifica)" : "Archivo eliminado"
+    );
   }
 
   return (
