@@ -5,6 +5,7 @@ import {
   IconCheck,
   IconChevronDown,
   IconChevronUp,
+  IconCopy,
   IconFileText,
   IconInfoCircle,
   IconPencil,
@@ -50,6 +51,7 @@ import {
 import { prepararAdjuntosInvitacionAction } from "@/src/lib/adjuntosCorreoActions";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 import type { UsuarioActual } from "@/src/lib/usuarioActual";
+import type { LicitacionBase } from "@/src/lib/licitacionBaseTypes";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
 import FileUpload from "@/src/components/FileUpload";
@@ -246,6 +248,8 @@ export default function LicitacionForm({
   proveedores,
   proveedorMateriales = {},
   inicial,
+  licitacionBase,
+  baseNoEncontrada = false,
   siguienteNumero = "0001",
   catalogos,
   tiposCambioSettings = {},
@@ -257,6 +261,16 @@ export default function LicitacionForm({
   proveedores: Proveedor[];
   proveedorMateriales?: Record<string, string[]>;
   inicial?: PreDatos;
+  /**
+   * DUPLICAR: datos de otra licitación para prellenar el formulario. Es un prop
+   * DISTINTO de `inicial` a propósito — `inicial` enciende el modo edición y
+   * guardaría sobre la original. Con este, el formulario sigue en modo creación
+   * y guarda una licitación NUEVA; la original solo se leyó. Ignorado si hay
+   * `inicial`.
+   */
+  licitacionBase?: LicitacionBase;
+  /** Llegó un ?base=<id> que no existe o está eliminada. */
+  baseNoEncontrada?: boolean;
   siguienteNumero?: string;
   catalogos: {
     jerarquias: { codigo: string; nombre: string }[];
@@ -269,6 +283,9 @@ export default function LicitacionForm({
   usuarioActual?: UsuarioActual | null;
 }) {
   const modoEdicion = inicial !== undefined;
+  // Licitación de la que se está duplicando. Solo aporta valores iniciales: el
+  // formulario NO entra en modo edición y la original nunca se escribe.
+  const base = modoEdicion ? undefined : licitacionBase;
   // Id de la licitación creada EN ESTA SESIÓN del formulario (camino de
   // creación). Existe por el reintento: si el comprador crea, se abre el modal
   // de correo y cancela, se queda en el formulario — y el segundo intento
@@ -284,24 +301,52 @@ export default function LicitacionForm({
     getClienteByCodigo(basePath.replace(/^\//, "") || null)?.nombreEmpresa ?? "Evolve";
 
   // ── Section A state ──────────────────────────────────────────────────────────
+  // El NÚMERO nunca se hereda del duplicado: es @unique y la copia estrena el
+  // siguiente disponible.
   const [numero, setNumero] = useState(inicial?.numero ?? siguienteNumero);
-  const [jerarquia, setJerarquia] = useState(inicial?.jerarquia ?? "");
-  const [tipoLicitacion, setTipoLicitacion] = useState(inicial?.tipoLicitacion ?? "");
-  const [costoObjetivo, setCostoObjetivo] = useState(inicial?.costoObjetivo ?? "");
-  const [fechaEjecucion, setFechaEjecucion] = useState(inicial?.fechaEjecucion ?? "");
-  const [fechaFinLicitacion, setFechaFinLicitacion] = useState(inicial?.fechaFinLicitacion ?? "");
-  const [fechaInicioRango, setFechaInicioRango] = useState(inicial?.fechaInicioRangoEntrega ?? "");
-  const [fechaFinRango, setFechaFinRango] = useState(inicial?.fechaFinRangoEntrega ?? "");
-  const [duracionValor, setDuracionValor] = useState(inicial?.duracionValor ?? "1440");
-  const [duracionUnidad, setDuracionUnidad] = useState<UnidadDuracion>(
-    inicial?.duracionUnidad ?? "minutos"
+  const [jerarquia, setJerarquia] = useState(inicial?.jerarquia ?? base?.jerarquia ?? "");
+  const [tipoLicitacion, setTipoLicitacion] = useState(
+    inicial?.tipoLicitacion ?? base?.tipoLicitacion ?? ""
   );
-  const [maxRondas, setMaxRondas] = useState(inicial?.maxRondas ?? "3");
+  const [costoObjetivo, setCostoObjetivo] = useState(
+    inicial?.costoObjetivo ?? base?.costoObjetivo ?? ""
+  );
+  const [fechaEjecucion, setFechaEjecucion] = useState(
+    inicial?.fechaEjecucion ?? base?.fechaEjecucion ?? ""
+  );
+  const [fechaFinLicitacion, setFechaFinLicitacion] = useState(
+    inicial?.fechaFinLicitacion ?? base?.fechaFinLicitacion ?? ""
+  );
+  const [fechaInicioRango, setFechaInicioRango] = useState(
+    inicial?.fechaInicioRangoEntrega ?? base?.fechaInicioRangoEntrega ?? ""
+  );
+  const [fechaFinRango, setFechaFinRango] = useState(
+    inicial?.fechaFinRangoEntrega ?? base?.fechaFinRangoEntrega ?? ""
+  );
+  const [duracionValor, setDuracionValor] = useState(
+    inicial?.duracionValor ?? base?.duracionValor ?? "1440"
+  );
+  const [duracionUnidad, setDuracionUnidad] = useState<UnidadDuracion>(
+    inicial?.duracionUnidad ?? base?.duracionUnidad ?? "minutos"
+  );
+  const [maxRondas, setMaxRondas] = useState(inicial?.maxRondas ?? base?.maxRondas ?? "3");
 
   // ── Section B state ──────────────────────────────────────────────────────────
-  const [items, setItems] = useState<ItemFila[]>(
-    inicial?.items?.map((i) => ({ ...i, moneda: (i as ItemFila & { moneda?: string }).moneda ?? "MXN" })) ?? []
-  );
+  const [items, setItems] = useState<ItemFila[]>(() => {
+    if (inicial?.items) {
+      return inicial.items.map((i) => ({
+        ...i,
+        moneda: (i as ItemFila & { moneda?: string }).moneda ?? "MXN",
+      }));
+    }
+    // Duplicado: partidas SIN `id` (el servidor las crea, no las actualiza) y
+    // sin `eliminado`/`tieneDependencias` — las retiradas de la original ni
+    // llegan aquí. El orden del arreglo es el orden de la original.
+    if (base) {
+      return base.items.map((i) => ({ ...i, _id: nuevoId() }));
+    }
+    return [];
+  });
 
   // Partidas que CUENTAN. `items` es la lista completa (incluye las ocultas,
   // que se siguen dibujando tachadas para poder restaurarlas); `itemsActivos`
@@ -319,9 +364,13 @@ export default function LicitacionForm({
   // Valores como string para los inputs; se persisten como número en buildDatos.
   // Al CREAR se heredan de Settings (tiposCambioSettings); al EDITAR se usan los
   // ya congelados en la licitación (inicial.tiposCambio).
+  // Al DUPLICAR se congelan los de la ORIGINAL, no los actuales de Settings: la
+  // copia debe reproducir la licitación tal como se cotizó.
   const [tiposCambio, setTiposCambio] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
-    const fuente = modoEdicion ? (inicial?.tiposCambio ?? {}) : tiposCambioSettings;
+    const fuente = modoEdicion
+      ? (inicial?.tiposCambio ?? {})
+      : (base?.tiposCambio ?? tiposCambioSettings);
     for (const [moneda, tasa] of Object.entries(fuente)) {
       init[moneda] = String(tasa);
     }
@@ -332,12 +381,12 @@ export default function LicitacionForm({
   }
   // Monedas cuya tasa vino heredada de Settings (para mostrar el origen).
   const [heredadasDeSettings] = useState<Set<string>>(
-    () => new Set(modoEdicion ? [] : Object.keys(tiposCambioSettings))
+    () => new Set(modoEdicion || base ? [] : Object.keys(tiposCambioSettings))
   );
 
   // ── Moneda de consolidación de los totales (default MXN) ──────────────────────
   const [monedaConsolidacion, setMonedaConsolidacion] = useState(
-    inicial?.monedaConsolidacion ?? "MXN"
+    inicial?.monedaConsolidacion ?? base?.monedaConsolidacion ?? "MXN"
   );
 
   // Último valor que ESTE formulario autollenó en el Presupuesto Objetivo. Sirve
@@ -383,11 +432,13 @@ export default function LicitacionForm({
   const [preseleccionarMateriales, setPreseleccionarMateriales] = useState(true);
   const [selTemp, setSelTemp] = useState<string[]>([]);
   const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState<string[]>(
-    inicial?.proveedoresInvitados ?? []
+    inicial?.proveedoresInvitados ?? base?.proveedoresInvitados ?? []
   );
 
   // ── Modal Instrucciones state ────────────────────────────────────────────────
-  const [modoLicitacion, setModoLicitacion] = useState(inicial?.modoLicitacion ?? "Proveedores");
+  const [modoLicitacion, setModoLicitacion] = useState(
+    inicial?.modoLicitacion ?? base?.modoLicitacion ?? "Proveedores"
+  );
   const esManual = modoLicitacion === "Manual";
   const [guardando, setGuardando] = useState<"borrador" | "programada" | "proceso" | "edicion" | null>(null);
   const [modalConfirmarFecha, setModalConfirmarFecha] = useState(false);
@@ -398,12 +449,19 @@ export default function LicitacionForm({
   const [intencionPendienteFecha, setIntencionPendienteFecha] =
     useState<IntencionGuardado | null>(null);
   const [modalInstruccionesAbierto, setModalInstruccionesAbierto] = useState(false);
-  const [instrucciones, setInstrucciones] = useState(inicial?.instrucciones ?? "");
+  const [instrucciones, setInstrucciones] = useState(
+    inicial?.instrucciones ?? base?.instrucciones ?? ""
+  );
   const [instruccionesTemp, setInstruccionesTemp] = useState("");
   const [confirmarRestablecerInstrucciones, setConfirmarRestablecerInstrucciones] = useState(false);
   const [archivosAdjuntos, setArchivosAdjuntos] = useState<string[]>(
-    inicial?.archivosAdjuntos ?? []
+    inicial?.archivosAdjuntos ?? base?.archivosAdjuntos ?? []
   );
+
+  // Adjuntos HEREDADOS del duplicado: todavía son de la ORIGINAL. Quitarlos aquí
+  // solo los desvincula (FileUpload no los borra del Storage); al guardar, el
+  // servidor los copia y la licitación nueva queda con archivos propios.
+  const [urlsAdjuntosHeredados] = useState<string[]>(() => base?.archivosAdjuntos ?? []);
 
   // ── Correo de invitación / cambio de fecha (tras guardar) ───────────────────
   const [correoPendiente, setCorreoPendiente] = useState<
@@ -954,6 +1012,9 @@ Asistente de Inteligencia Artificial`;
       // El ORDEN del arreglo es la única señal de posición que manda el cliente;
       // el servidor deriva los números. Ver LicitacionInput.reordenado.
       reordenado,
+      // DUPLICAR: id de la original, para que el servidor copie sus archivos
+      // adjuntos a Storage. Solo se LEE de ella.
+      baseId: base?.id,
       proveedoresInvitados: proveedoresSeleccionados,
       // Solo tasas válidas de monedas en uso. MXN nunca se incluye (vale 1).
       tiposCambio: monedasParaTC.reduce(
@@ -1457,10 +1518,76 @@ Asistente de Inteligencia Artificial`;
     ...datosComprador(),
   };
 
+  // Fechas COPIADAS que ya pasaron. El aviso no bloquea, pero hace falta: nacer
+  // en Borrador NO protege — `validarFechas` solo exige que el fin sea posterior
+  // al inicio, no que sean futuras, y lanzar con una fecha vieja manda la
+  // licitación directo a "En Proceso" en vez de "Programada".
+  const fechasCopiadasVencidas = useMemo(() => {
+    if (!base) return [];
+    const ahora = new Date();
+    return [
+      { etiqueta: "inicio de licitación", valor: fechaEjecucion },
+      { etiqueta: "fin de licitación", valor: fechaFinLicitacion },
+      { etiqueta: "inicio del rango de entrega", valor: fechaInicioRango },
+      { etiqueta: "fin del rango de entrega", valor: fechaFinRango },
+    ]
+      .filter(({ valor }) => {
+        if (!valor) return false;
+        const fecha = new Date(valor);
+        return !Number.isNaN(fecha.getTime()) && fecha < ahora;
+      })
+      .map(({ etiqueta }) => etiqueta);
+  }, [base, fechaEjecucion, fechaFinLicitacion, fechaInicioRango, fechaFinRango]);
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="w-full max-w-5xl min-w-0 space-y-8 overflow-x-hidden">
+
+      {/* Duplicado: de dónde vienen los datos y cómo empezar de cero */}
+      {base && (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <p className="flex min-w-0 items-start gap-3 text-sm text-blue-800">
+            <IconCopy className="mt-0.5 h-5 w-5 shrink-0" />
+            <span>
+              Duplicado de la licitación{" "}
+              <span className="font-semibold">{base.numeroOriginal}</span> · el original no
+              se modifica.
+              <span className="block text-xs text-blue-700">
+                Se copiaron las partidas, los proveedores invitados y la configuración. El
+                número es nuevo y la licitación nace como Borrador; nada del proceso
+                (ofertas, asignaciones, órdenes) se copia.
+              </span>
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push(`${basePath}/comprador/licitaciones/nueva`)}
+            className="shrink-0 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            Empezar en blanco
+          </button>
+        </div>
+      )}
+
+      {fechasCopiadasVencidas.length > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+          <p className="min-w-0 flex-1 text-sm text-amber-700">
+            Las fechas vienen de la licitación {base?.numeroOriginal} y ya pasaron (
+            {fechasCopiadasVencidas.join(", ")}); ajústalas antes de lanzar.
+          </p>
+        </div>
+      )}
+
+      {baseNoEncontrada && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+          <p className="min-w-0 flex-1 text-sm text-amber-700">
+            La licitación que querías duplicar ya no existe. Este formulario está en blanco.
+          </p>
+        </div>
+      )}
 
       {/* Informative banner — rango de entrega auto-adjusted */}
       {bannerInfo && (
@@ -2724,6 +2851,7 @@ Asistente de Inteligencia Artificial`;
                   maxSizeMB={10}
                   multiple
                   archivosExistentes={archivosAdjuntos}
+                  urlsSinBorrar={urlsAdjuntosHeredados}
                   onUploadComplete={setArchivosAdjuntos}
                 />
               </div>

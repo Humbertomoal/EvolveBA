@@ -13,6 +13,8 @@ import {
   sentenciaPosicionesPartidas,
   type PosicionPartida,
 } from "@/src/lib/posicionesPartidas";
+import { parseTiposCambio } from "@/src/lib/conversionMoneda";
+import { copiarArchivo, eliminarArchivo } from "@/src/lib/supabaseStorage";
 
 export type ResultadoGuardarLicitacion = {
   destino: string;
@@ -70,6 +72,17 @@ function esNumeroDuplicado(error: unknown): boolean {
 
 // `LicitacionInput` e `ItemInput` viven ahora en licitacionInputTypes.ts (ver
 // la nota de allí sobre por qué un "use server" no debe exportar tipos).
+
+/** `Licitacion.archivosAdjuntos` es un JSON con lista de URLs, o null. */
+function parsearUrlsAdjuntos(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter((u) => typeof u === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 // Normaliza el mapa de tipos de cambio: descarta MXN y tasas no positivas.
 // Devuelve null cuando no hay ninguna tasa válida (columna Json? = null).
@@ -392,45 +405,149 @@ export async function crearLicitacionAction(
   const esManualEnProceso =
     datos.modoLicitacion === "Manual" && estadoInicial === "En Proceso";
 
+  // ── DUPLICAR: lo único que se lee de la licitación original ───────────────
+  // Sus adjuntos (para copiarlos a Storage) y sus tipos de cambio congelados.
+  // Ninguna escritura la toca, y nada del proceso —ofertas, asignaciones,
+  // órdenes, selecciones de precio, chat, bitácora— se consulta ni se copia.
+  let originalParaDuplicar: {
+    archivosAdjuntos: string[];
+    tiposCambio: Record<string, number>;
+  } | null = null;
+  if (datos.baseId) {
+    const original = await prisma.licitacion.findFirst({
+      where: { id: datos.baseId, eliminado: false },
+      select: { archivosAdjuntos: true, tiposCambio: true },
+    });
+    if (!original) {
+      return {
+        ok: false,
+        error:
+          "La licitación que estabas duplicando ya no existe. Recarga la página o empieza en blanco.",
+      };
+    }
+    originalParaDuplicar = {
+      archivosAdjuntos: parsearUrlsAdjuntos(original.archivosAdjuntos),
+      tiposCambio: parseTiposCambio(original.tiposCambio),
+    };
+  }
+
   // Herencia congelada: parte de los tipos de cambio actuales de Settings y los
   // sobrescribe con lo que envió el formulario (override manual del comprador).
   // El resultado queda CONGELADO en la licitación; cambiar Settings después no
   // afecta a esta licitación.
-  const tiposCambioSettings = await getTiposCambioActuales("default");
+  //
+  // Al DUPLICAR la base son los de la ORIGINAL, no los de Settings: la copia
+  // debe reproducir la licitación tal como se cotizó. Lo que el comprador vea y
+  // edite en el formulario sigue mandando encima.
+  const tiposCambioBase =
+    originalParaDuplicar?.tiposCambio ?? (await getTiposCambioActuales("default"));
   const tiposCambioCongelado = sanearTiposCambio({
-    ...tiposCambioSettings,
+    ...tiposCambioBase,
     ...(datos.tiposCambio ?? {}),
   });
 
+  // Los adjuntos heredados se COPIAN en Storage para que la licitación nueva sea
+  // dueña de sus archivos: compartir la URL haría que quitar un adjunto en
+  // cualquiera de las dos rompiera a la otra. Todo o nada: si una copia falla,
+  // no se crea nada (esto corre ANTES de escribir).
+  let archivosAdjuntosFinales = datos.archivosAdjuntos;
+  if (originalParaDuplicar) {
+    const heredados = new Set(originalParaDuplicar.archivosAdjuntos);
+    const copias = new Map<string, string>();
+    try {
+      for (const url of datos.archivosAdjuntos) {
+        if (!heredados.has(url) || copias.has(url)) continue;
+        copias.set(url, await copiarArchivo(url));
+      }
+    } catch (error) {
+      await Promise.all(
+        [...copias.values()].map((url) => eliminarArchivo(url).catch(() => {}))
+      );
+      console.error("[crearLicitacion] fallo la copia de adjuntos", error);
+      return {
+        ok: false,
+        error:
+          "No se pudieron copiar los archivos adjuntos de la licitación original, " +
+          "así que no se creó la licitación nueva. Vuelve a intentar: tus datos " +
+          "siguen en pantalla.",
+      };
+    }
+    archivosAdjuntosFinales = datos.archivosAdjuntos.map((u) => copias.get(u) ?? u);
+  }
+
+  const itemsValidos = datos.items.filter((item) => item.productoId !== "");
+
+  // Cabecera + partidas + invitados en UNA transacción: o queda la licitación
+  // completa, o no queda nada. Antes eran tres escrituras sueltas y un fallo a
+  // media tanda dejaba una licitación sin partidas o sin invitados. Es
+  // interactiva porque las partidas necesitan el id que asigna el create; son 3
+  // sentencias (~300 ms medidos), muy por debajo del timeout de 5 s.
   let licitacion;
   try {
-    licitacion = await prisma.licitacion.create({
-    data: {
-      numero: datos.numero,
-      jerarquia: datos.jerarquia,
-      tipoLicitacion: datos.tipoLicitacion,
-      costoObjetivo: datos.costoObjetivo,
-      fechaEjecucion: nuevaFechaEjecucion,
-      fechaFinLicitacion: parsearFechaMexico(datos.fechaFinLicitacion),
-      fechaInicioRangoEntrega: datos.fechaInicioRangoEntrega
-        ? new Date(datos.fechaInicioRangoEntrega)
-        : null,
-      fechaFinRangoEntrega: datos.fechaFinRangoEntrega
-        ? new Date(datos.fechaFinRangoEntrega)
-        : null,
-      duracionRondaMinutos: datos.duracionRondaMinutos,
-      maxRondas: datos.maxRondas,
-      instrucciones: datos.instrucciones,
-      archivosAdjuntos:
-        datos.archivosAdjuntos.length > 0 ? JSON.stringify(datos.archivosAdjuntos) : null,
-      tiposCambio: tiposCambioCongelado ?? undefined,
-      monedaConsolidacion: datos.monedaConsolidacion || "MXN",
-      estado: estadoInicial,
-      modoLicitacion: datos.modoLicitacion,
-      compradorId,
-      clienteId: "default",
-      ...(esManualEnProceso ? { rondaActual: 1, inicioRondaActual: new Date(), fechaInicioLicitacion: new Date() } : {}),
-    },
+    licitacion = await prisma.$transaction(async (tx) => {
+      const creada = await tx.licitacion.create({
+        data: {
+          numero: datos.numero,
+          jerarquia: datos.jerarquia,
+          tipoLicitacion: datos.tipoLicitacion,
+          costoObjetivo: datos.costoObjetivo,
+          fechaEjecucion: nuevaFechaEjecucion,
+          fechaFinLicitacion: parsearFechaMexico(datos.fechaFinLicitacion),
+          fechaInicioRangoEntrega: datos.fechaInicioRangoEntrega
+            ? new Date(datos.fechaInicioRangoEntrega)
+            : null,
+          fechaFinRangoEntrega: datos.fechaFinRangoEntrega
+            ? new Date(datos.fechaFinRangoEntrega)
+            : null,
+          duracionRondaMinutos: datos.duracionRondaMinutos,
+          maxRondas: datos.maxRondas,
+          instrucciones: datos.instrucciones,
+          archivosAdjuntos:
+            archivosAdjuntosFinales.length > 0
+              ? JSON.stringify(archivosAdjuntosFinales)
+              : null,
+          tiposCambio: tiposCambioCongelado ?? undefined,
+          monedaConsolidacion: datos.monedaConsolidacion || "MXN",
+          estado: estadoInicial,
+          modoLicitacion: datos.modoLicitacion,
+          compradorId,
+          clienteId: "default",
+          ...(esManualEnProceso ? { rondaActual: 1, inicioRondaActual: new Date(), fechaInicioLicitacion: new Date() } : {}),
+        },
+      });
+
+      if (itemsValidos.length > 0) {
+        await tx.licitacionItem.createMany({
+          // El índice del arreglo ES el orden de captura: el formulario agrega
+          // siempre al final y nunca reordena solo. Se deriva aquí en vez de
+          // aceptarlo del cliente. Al duplicar, ese orden es el de la original.
+          data: itemsValidos.map((item: any, indice: number) => ({
+            licitacionId: creada.id,
+            posicion: indice,
+            productoId: item.productoId,
+            especificacion: item.especificacion || null,
+            fechaEntrega: item.fechaEntrega ? new Date(item.fechaEntrega) : null,
+            cantidadSolicitada: parseFloat(item.cantidadSolicitada) || 0,
+            precioObjetivo: item.precioObjetivo
+              ? parseFloat(item.precioObjetivo)
+              : null,
+            moneda: item.moneda || "MXN",
+          })),
+        });
+      }
+
+      // Modo Manual también necesita el registro en LicitacionProveedor: es la
+      // lista de invitados que lee captura-manual, aunque no se les notifique.
+      if (datos.proveedoresInvitados.length > 0) {
+        await tx.licitacionProveedor.createMany({
+          data: datos.proveedoresInvitados.map((proveedorId) => ({
+            licitacionId: creada.id,
+            proveedorId,
+          })),
+        });
+      }
+
+      return creada;
     });
   } catch (error) {
     if (esNumeroDuplicado(error)) {
@@ -439,45 +556,15 @@ export async function crearLicitacionAction(
     throw error;
   }
 
-  // Primera entrada de la bitácora: creación (estadoAnterior null).
+  // Primera entrada de la bitácora: creación (estadoAnterior null). Va FUERA de
+  // la transacción: es un registro posterior al hecho y su fallo no debe
+  // deshacer una licitación ya creada.
   await registrarCambioEstado(
     licitacion.id,
     null,
     licitacion.estado,
     await getUsuarioIdActual()
   );
-
-  const itemsValidos = datos.items.filter((item) => item.productoId !== "");
-  if (itemsValidos.length > 0) {
-    await prisma.licitacionItem.createMany({
-      // El índice del arreglo ES el orden de captura: el formulario agrega
-      // siempre al final y nunca reordena solo. Se deriva aquí en vez de
-      // aceptarlo del cliente.
-      data: itemsValidos.map((item: any, indice: number) => ({
-        licitacionId: licitacion.id,
-        posicion: indice,
-        productoId: item.productoId,
-        especificacion: item.especificacion || null,
-        fechaEntrega: item.fechaEntrega ? new Date(item.fechaEntrega) : null,
-        cantidadSolicitada: parseFloat(item.cantidadSolicitada) || 0,
-        precioObjetivo: item.precioObjetivo
-          ? parseFloat(item.precioObjetivo)
-          : null,
-        moneda: item.moneda || "MXN",
-      })),
-    });
-  }
-
-  // Modo Manual también necesita el registro en LicitacionProveedor: es la
-  // lista de invitados que lee captura-manual, aunque no se les notifique.
-  if (datos.proveedoresInvitados.length > 0) {
-    await prisma.licitacionProveedor.createMany({
-      data: datos.proveedoresInvitados.map((proveedorId) => ({
-        licitacionId: licitacion.id,
-        proveedorId,
-      })),
-    });
-  }
 
   revalidatePath(`${basePath}/comprador/licitaciones`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);

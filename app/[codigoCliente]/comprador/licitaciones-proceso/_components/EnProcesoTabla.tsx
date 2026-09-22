@@ -3,6 +3,7 @@
 import {
   IconAlertCircle,
   IconAlertTriangle,
+  IconCopy,
   IconEye,
   IconMessage,
   IconPencil,
@@ -253,6 +254,14 @@ function EnProcesoFila({
             title="Editar"
           >
             <IconPencil className="h-4 w-4" />
+          </Link>
+          <Link
+            href={`${basePath}/comprador/licitaciones/nueva?base=${l.id}`}
+            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
+            aria-label={`Duplicar licitación ${l.numero}`}
+            title="Duplicar como base de una licitación nueva"
+          >
+            <IconCopy className="h-4 w-4" />
           </Link>
           {!l.esperandoDecision && (
             <button

@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCopy } from "@tabler/icons-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import PanelFiltros from "@/app/_components/PanelFiltros";
@@ -216,6 +217,8 @@ export default function FinalizadasTabla({
                 <th className="min-w-[110px] px-3 py-3 text-right">Proveedores</th>
                 <th className="min-w-[140px] px-3 py-3 text-right">Costo Final</th>
                 <th className="min-w-[100px] px-3 py-3">Estado</th>
+                <th className="w-12 px-3 py-3" />
+
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -262,6 +265,16 @@ export default function FinalizadasTabla({
                     <Badge variant={l.estado === "Cancelada" ? "cancelada" : "finalizada"}>
                       {l.estado}
                     </Badge>
+                  </td>
+                  <td className="px-3 py-3">
+                    <Link
+                      href={`${basePath}/comprador/licitaciones/nueva?base=${l.id}`}
+                      className="inline-flex rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-600"
+                      aria-label={`Duplicar licitación ${l.numero}`}
+                      title="Duplicar como base de una licitación nueva"
+                    >
+                      <IconCopy className="h-4 w-4" />
+                    </Link>
                   </td>
                 </tr>
               ))}

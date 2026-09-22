@@ -97,6 +97,14 @@ export type LicitacionInput = {
    * explícito sí renumera, un guardado de rutina nunca.
    */
   reordenado: boolean;
+  /**
+   * DUPLICAR LICITACIÓN: id de la licitación ORIGINAL de la que se copiaron los
+   * datos. Solo presente en ese camino y solo se usa para dos cosas en el
+   * servidor: copiar sus archivos adjuntos a Storage (para que la nueva sea
+   * dueña de los suyos) y congelar SUS tipos de cambio en vez de los actuales
+   * de Settings. La original nunca se escribe.
+   */
+  baseId?: string;
   items: ItemInput[];
   proveedoresInvitados: string[];
   // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
