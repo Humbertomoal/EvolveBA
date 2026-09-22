@@ -651,7 +651,7 @@ export default function LicitacionCotizacion({
             </Link>
           </div>
           <p className="text-sm text-zinc-500">
-            Ronda {rondaActual === 0 ? "—" : rondaActual} de {maxRondas}
+            Ronda {rondaActual === 0 ? "—" : rondaActual}
           </p>
         </div>
 

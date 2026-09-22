@@ -440,7 +440,7 @@ export default function MisLicitacionesTabla({
                       <td className={`${CELL} text-zinc-600`}>Comprador</td>
                       <td className={`${CELL} text-center`}>
                         <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
-                          Ronda {l.rondaActual} de {l.maxRondas}
+                          Ronda {l.rondaActual}
                         </span>
                       </td>
                       <td className={`${CELL} text-center`}>
