@@ -448,6 +448,14 @@ export default function LicitacionForm({
   // invitaciones: la intención se diluía en el camino.
   const [intencionPendienteFecha, setIntencionPendienteFecha] =
     useState<IntencionGuardado | null>(null);
+  // Confirmacion de "las rondas no caben en la ventana". Solo existe en modo
+  // EDICION: al crear o duplicar esto es un error que bloquea, porque no hay
+  // nada en curso que trabar. Editando si lo hay -una licitacion viva puede
+  // necesitar un ajuste aunque su fin ya haya pasado-, asi que se advierte y
+  // se deja decidir.
+  const [modalConfirmarRondas, setModalConfirmarRondas] = useState(false);
+  const [intencionPendienteRondas, setIntencionPendienteRondas] =
+    useState<IntencionGuardado | null>(null);
   const [modalInstruccionesAbierto, setModalInstruccionesAbierto] = useState(false);
   const [instrucciones, setInstrucciones] = useState(
     inicial?.instrucciones ?? base?.instrucciones ?? ""
@@ -1278,6 +1286,14 @@ Asistente de Inteligencia Artificial`;
       setModalConfirmarFecha(true);
       return;
     }
+    // Editando: las rondas que no caben no bloquean, pero si se confirman.
+    // Va DESPUES del modal de fecha porque ese cambia el estado de la
+    // licitacion y es la decision mas grande de las dos.
+    if (!esManual && modoEdicion && duracionExcede) {
+      setIntencionPendienteRondas(intencion);
+      setModalConfirmarRondas(true);
+      return;
+    }
     await ejecutarGuardar(intencion);
   }
 
@@ -1329,6 +1345,17 @@ Asistente de Inteligencia Artificial`;
     durMinutosActual > 0 &&
     durMinutosActual * maxRondasNum > minDisponibles;
   const duracionBajoMinimo = durMinutosActual > 0 && durMinutosActual < 30;
+  // Texto UNICO para el aviso en linea, el error que bloquea y el modal de
+  // confirmacion: los tres describen lo mismo y no deben poder divergir.
+  //
+  // Da la cuenta completa a proposito. El texto anterior solo decia que las
+  // rondas "exceden el rango de entrega" -ademas del campo equivocado: lo que
+  // se compara es la VENTANA DE LICITACION (inicio -> fin), no el rango de
+  // entrega- y sin numeros no se sabia por cuanto se pasaba.
+  const mensajeDuracionExcede =
+    minDisponibles === null
+      ? null
+      : `Las ${maxRondasNum} ronda${maxRondasNum !== 1 ? "s" : ""} de ${durMinutosActual} min necesitan ${durMinutosActual * maxRondasNum} min, y la ventana de licitación es de ${Math.round(minDisponibles)} min.`;
 
   // Validations
   const itemsValidos =
@@ -1400,6 +1427,13 @@ Asistente de Inteligencia Artificial`;
     tiposCambio: faltanTasas
       ? "Captura un tipo de cambio válido (> 0) para cada moneda distinta de MXN"
       : null,
+    // BLOQUEA al crear y al duplicar. Duplicar cuenta como creacion: usa
+    // `base`, que no enciende `modoEdicion`. En edicion NO entra aqui, se
+    // resuelve con el modal de confirmacion de `guardar()`.
+    duracionRondas:
+      esManual || modoEdicion || !duracionExcede
+        ? null
+        : mensajeDuracionExcede,
   };
   const hayErrores = Object.values(errores).some(Boolean);
 
@@ -2007,7 +2041,7 @@ Asistente de Inteligencia Artificial`;
                 <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                   <IconAlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   <span>
-                    Con esta duración, las rondas exceden el rango de entrega
+                    {mensajeDuracionExcede}
                     {duracionSugeridaMin !== null && (
                       <span className="ml-1">(sugerido: {sugeridaLabel})</span>
                     )}
@@ -2929,6 +2963,69 @@ Asistente de Inteligencia Artificial`;
                 className={`${BTN_PRIMARIO} disabled:opacity-60`}
               >
                 {guardando === "edicion" ? "Guardando…" : "Sí, cambiar fecha"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: rondas que no caben en la ventana (solo edicion) */}
+      {modalConfirmarRondas && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-md flex-col rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-zinc-900">
+                Las rondas no caben en la ventana
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalConfirmarRondas(false);
+                  setIntencionPendienteRondas(null);
+                }}
+                className="rounded-md p-1 text-zinc-400 hover:text-zinc-700"
+              >
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-5">
+              <div className="flex items-start gap-3">
+                <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                <div className="space-y-2 text-sm text-zinc-700">
+                  <p>{mensajeDuracionExcede}</p>
+                  <p>
+                    La licitación no cierra en la fecha de fin: termina cuando se
+                    agotan las rondas, así que se pasará de esa fecha.
+                    {duracionSugeridaMin !== null && (
+                      <span> Duración sugerida: {sugeridaLabel}.</span>
+                    )}
+                  </p>
+                  <p>¿Deseas guardar de todas formas?</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-zinc-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalConfirmarRondas(false);
+                  setIntencionPendienteRondas(null);
+                }}
+                className={BTN_SECUNDARIO}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={guardando !== null}
+                onClick={async () => {
+                  setModalConfirmarRondas(false);
+                  await ejecutarGuardar(intencionPendienteRondas ?? "editar");
+                  setIntencionPendienteRondas(null);
+                }}
+                className={`${BTN_PRIMARIO} disabled:opacity-60`}
+              >
+                {guardando !== null ? "Guardando…" : "Guardar de todas formas"}
               </button>
             </div>
           </div>
