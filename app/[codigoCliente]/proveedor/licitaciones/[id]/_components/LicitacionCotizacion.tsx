@@ -115,22 +115,28 @@ type FilaState = {
  */
 const OPCIONES_ESTADO: {
   valor: EstadoPartida;
+  /** Texto completo. Queda como etiqueta accesible del radio. */
   etiqueta: string;
+  /** Lo que se ve en el control segmentado, donde no cabe el largo. */
+  etiquetaCorta: string;
   consecuencia: string;
 }[] = [
   {
     valor: "cotizo",
     etiqueta: "Cotizo esta partida",
+    etiquetaCorta: "Cotizo",
     consecuencia: "Captura precio y cantidad.",
   },
   {
     valor: "no_dispongo",
     etiqueta: "No dispongo de esta partida",
+    etiquetaCorta: "No dispongo",
     consecuencia: "No la vendo o no puedo surtirla. No participa.",
   },
   {
     valor: "no_aplica",
     etiqueta: "Sin costo en este caso ($0)",
+    etiquetaCorta: "Sin costo",
     consecuencia:
       "Sí la ofrezco, pero aquí no tiene costo. Compite con $0 y puedes ganarla.",
   },
@@ -853,7 +859,7 @@ export default function LicitacionCotizacion({
                   <th className="min-w-[80px] px-3 py-2.5">Moneda</th>
                   <th className="min-w-[120px] px-3 py-2.5">Fecha Requerida</th>
                   <th className="min-w-[140px] px-3 py-2.5">Cant. Disponible</th>
-                  <th className="min-w-[140px] px-3 py-2.5">Precio Unitario</th>
+                  <th className="min-w-[210px] px-3 py-2.5">Precio Unitario</th>
                   <th className="min-w-[160px] px-3 py-2.5">¿Cumples la fecha?</th>
                 </tr>
               </thead>
@@ -865,31 +871,31 @@ export default function LicitacionCotizacion({
                     return (
                       <Fragment key={item.licitacionItemId}>
                         <tr className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors duration-150">
-                          <td className="px-3 py-2.5">
+                          <td className="px-3 py-2.5 align-top">
                             <p className="font-medium text-zinc-800">{item.nombre}</p>
                             {item.especificacion && (
                               <p className="text-xs text-zinc-400">{item.especificacion}</p>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 text-right text-zinc-600">
+                          <td className="px-3 py-2.5 align-top text-right text-zinc-600">
                             {item.cantidadSolicitada}
                           </td>
-                          <td className="px-3 py-2.5 text-zinc-500">{item.unidadMedida}</td>
-                          <td className="px-3 py-2.5">
+                          <td className="px-3 py-2.5 align-top text-zinc-500">{item.unidadMedida}</td>
+                          <td className="px-3 py-2.5 align-top">
                             <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
                               {item.moneda}
                             </span>
                           </td>
-                          <td className="px-3 py-2.5 text-zinc-600">
+                          <td className="px-3 py-2.5 align-top text-zinc-600">
                             {formatFecha(item.fechaEntrega)}
                           </td>
                           {o ? (
                             <>
-                              <td className="px-3 py-2.5 text-zinc-700">{o.cantidadDisponible}</td>
-                              <td className="px-3 py-2.5 font-medium text-zinc-800">
+                              <td className="px-3 py-2.5 align-top text-zinc-700">{o.cantidadDisponible}</td>
+                              <td className="px-3 py-2.5 align-top font-medium text-zinc-800">
                                 {formatImporte(o.precioUnitario, item.moneda)}
                               </td>
-                              <td className="px-3 py-2.5">
+                              <td className="px-3 py-2.5 align-top">
                                 <span
                                   className={`text-sm font-medium ${
                                     o.puedeCumplirFecha ? "text-emerald-700" : "text-amber-600"
@@ -900,7 +906,7 @@ export default function LicitacionCotizacion({
                               </td>
                             </>
                           ) : (
-                            <td colSpan={3} className="px-3 py-2.5">
+                            <td colSpan={3} className="px-3 py-2.5 align-top">
                               <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500">
                                 No cotizó
                               </span>
@@ -932,7 +938,7 @@ export default function LicitacionCotizacion({
                     <Fragment key={item.licitacionItemId}>
                       <tr className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors duration-150">
                         {/* Producto */}
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 align-top">
                           <p className="font-medium text-zinc-800">{item.nombre}</p>
                           {item.especificacion && (
                             <p className="text-xs text-zinc-400">{item.especificacion}</p>
@@ -940,27 +946,27 @@ export default function LicitacionCotizacion({
                         </td>
 
                         {/* Cantidad solicitada */}
-                        <td className="px-3 py-2.5 text-right text-zinc-600">
+                        <td className="px-3 py-2.5 align-top text-right text-zinc-600">
                           {item.cantidadSolicitada}
                         </td>
 
                         {/* Unidad */}
-                        <td className="px-3 py-2.5 text-zinc-500">{item.unidadMedida}</td>
+                        <td className="px-3 py-2.5 align-top text-zinc-500">{item.unidadMedida}</td>
 
                         {/* Moneda */}
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 align-top">
                           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
                             {item.moneda}
                           </span>
                         </td>
 
                         {/* Fecha requerida */}
-                        <td className="px-3 py-2.5 text-zinc-600">
+                        <td className="px-3 py-2.5 align-top text-zinc-600">
                           {formatFecha(item.fechaEntrega)}
                         </td>
 
                         {/* Cantidad disponible */}
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 align-top">
                           {rondaAbierta ? (
                             <input
                               type="number"
@@ -1002,9 +1008,60 @@ export default function LicitacionCotizacion({
                         </td>
 
                         {/* Precio unitario */}
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 align-top">
                           {rondaAbierta ? (
                             <div className="space-y-2">
+                              {/* Tres estados EXCLUYENTES. Siguen siendo
+                                  RADIOS nativos —solo que `sr-only`, con el
+                                  <label> pintado como segmento—: en la base
+                                  son mutuamente excluyentes (CHECK
+                                  oferta_estado_excluyente) y así se conservan
+                                  el grupo para lectores de pantalla y la
+                                  navegación con flechas, que unos <button>
+                                  perderían.
+
+                                  La CONSECUENCIA de cada opción seguía siendo
+                                  lo que evita que el proveedor las confunda
+                                  —"no participa" frente a "compite con $0"—,
+                                  así que no desaparece: se muestra la de la
+                                  opción SELECCIONADA, en una línea, debajo. */}
+                              <div>
+                                <fieldset className="flex w-full gap-0.5 rounded-md border border-zinc-300 bg-zinc-50 p-0.5">
+                                  <legend className="sr-only">
+                                    ¿Cómo respondes esta partida?
+                                  </legend>
+                                  {OPCIONES_ESTADO.map((opcion) => (
+                                    <label
+                                      key={opcion.valor}
+                                      className={`flex-1 cursor-pointer rounded px-1.5 py-1 text-center text-[11px] font-medium leading-tight transition-colors ${
+                                        fila.estado === opcion.valor
+                                          ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-300"
+                                          : "text-zinc-500 hover:text-zinc-700"
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`estado-${item.licitacionItemId}`}
+                                        checked={fila.estado === opcion.valor}
+                                        onChange={() =>
+                                          setFila(idx, "estado", opcion.valor)
+                                        }
+                                        aria-label={opcion.etiqueta}
+                                        className="sr-only"
+                                      />
+                                      {opcion.etiquetaCorta}
+                                    </label>
+                                  ))}
+                                </fieldset>
+                                <p className="mt-1 text-[11px] leading-tight text-zinc-400">
+                                  {
+                                    OPCIONES_ESTADO.find(
+                                      (o) => o.valor === fila.estado
+                                    )?.consecuencia
+                                  }
+                                </p>
+                              </div>
+
                               {fila.estado === "no_aplica" ? (
                                 /* Chip en lugar del campo: el proveedor ve el
                                    importe al que se compromete ANTES de enviar,
@@ -1057,114 +1114,33 @@ export default function LicitacionCotizacion({
                                 </div>
                               )}
 
-                              {rowErroresPrecio[idx] && (
-                                <p className="text-[11px] leading-tight text-red-600">
-                                  {rowErroresPrecio[idx]}
-                                </p>
-                              )}
-
-                              {/* Tres estados EXCLUYENTES. Van como radios y no
-                                  como casillas por dos razones: en la base son
-                                  mutuamente excluyentes (CHECK
-                                  oferta_estado_excluyente), y porque lo que
-                                  evita que el proveedor los confunda no es el
-                                  nombre sino la CONSECUENCIA escrita al lado
-                                  —"no participa" frente a "compite con $0 y
-                                  puedes ganarla"—. */}
-                              <fieldset className="space-y-1 border-t border-zinc-100 pt-2">
-                                <legend className="sr-only">
-                                  ¿Cómo respondes esta partida?
-                                </legend>
-                                {OPCIONES_ESTADO.map((opcion) => (
-                                  <label
-                                    key={opcion.valor}
-                                    className="flex cursor-pointer items-start gap-1.5 text-[11px] leading-tight text-zinc-500 hover:text-zinc-700"
-                                  >
-                                    <input
-                                      type="radio"
-                                      name={`estado-${item.licitacionItemId}`}
-                                      checked={fila.estado === opcion.valor}
-                                      onChange={() =>
-                                        setFila(idx, "estado", opcion.valor)
-                                      }
-                                      className="mt-0.5 h-3.5 w-3.5 shrink-0 border-zinc-300 accent-[var(--color-primario)]"
-                                    />
-                                    <span className="min-w-0">
-                                      <span className="font-medium text-zinc-700">
-                                        {opcion.etiqueta}
-                                      </span>
-                                      <span className="block text-zinc-400">
-                                        {opcion.consecuencia}
-                                      </span>
-                                    </span>
-                                  </label>
-                                ))}
-                              </fieldset>
-
-                              {/* Marca de producto similar. Va DESPUÉS de los
-                                  radios y solo en "cotizo" porque no es una
-                                  cuarta opción: es una marca sobre la
-                                  cotización con precio, que sigue compitiendo
-                                  con normalidad. */}
+                              {/* Marca sobre la cotización, no una cuarta
+                                  opción: por eso va FUERA del segmentado y
+                                  solo en "cotizo". El detalle se captura en
+                                  una sub-fila de ancho completo, abajo. */}
                               {fila.estado === "cotizo" && (
-                                <div className="space-y-1.5 border-t border-zinc-100 pt-2">
-                                  <label className="flex cursor-pointer items-start gap-1.5 text-[11px] leading-tight text-zinc-500 hover:text-zinc-700">
-                                    <input
-                                      type="checkbox"
-                                      checked={fila.esProductoSimilar}
-                                      onChange={(e) =>
-                                        setFila(
-                                          idx,
-                                          "esProductoSimilar",
-                                          e.target.checked
-                                        )
-                                      }
-                                      className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-zinc-300 accent-[var(--color-primario)]"
-                                    />
-                                    <span className="min-w-0">
-                                      <span className="font-medium text-zinc-700">
-                                        Es producto similar
-                                      </span>
-                                      <span className="block text-zinc-400">
-                                        No es exactamente el solicitado. Tu
-                                        precio compite igual.
-                                      </span>
-                                    </span>
-                                  </label>
-
-                                  {fila.esProductoSimilar && (
-                                    <div className="space-y-1">
-                                      <textarea
-                                        rows={2}
-                                        maxLength={LIMITE_DETALLE_SIMILAR}
-                                        value={fila.productoSimilarDetalle}
-                                        onChange={(e) =>
-                                          setFila(
-                                            idx,
-                                            "productoSimilarDetalle",
-                                            e.target.value
-                                          )
-                                        }
-                                        placeholder="¿Qué producto ofreces? Ej.: modelo 720 en lugar del 715"
-                                        aria-label="Descripción del producto similar"
-                                        className={`w-full rounded-md border px-2 py-1.5 text-[11px] leading-tight text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-                                          rowErroresSimilar[idx]
-                                            ? "border-red-400 focus:border-red-400 focus:ring-red-200"
-                                            : "border-zinc-300 focus:border-zinc-400"
-                                        }`}
-                                      />
-                                      <div className="flex items-start justify-between gap-2">
-                                        <p className="text-[11px] leading-tight text-red-600">
-                                          {rowErroresSimilar[idx] ?? ""}
-                                        </p>
-                                        <span className="shrink-0 text-[10px] tabular-nums text-zinc-400">
-                                          {fila.productoSimilarDetalle.trim().length}/
-                                          {LIMITE_DETALLE_SIMILAR}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
+                                <label className="flex cursor-pointer items-center gap-1.5 text-[11px] leading-tight text-zinc-600 hover:text-zinc-800">
+                                  <input
+                                    type="checkbox"
+                                    checked={fila.esProductoSimilar}
+                                    onChange={(e) =>
+                                      setFila(
+                                        idx,
+                                        "esProductoSimilar",
+                                        e.target.checked
+                                      )
+                                    }
+                                    className="h-3.5 w-3.5 shrink-0 rounded border-zinc-300 accent-[var(--color-primario)]"
+                                  />
+                                  <span className="font-medium">Es producto similar</span>
+                                  <span
+                                    title="No es exactamente el solicitado. Tu precio compite igual."
+                                    aria-label="No es exactamente el solicitado. Tu precio compite igual."
+                                    className="cursor-help text-zinc-400"
+                                  >
+                                    ⓘ
+                                  </span>
+                                </label>
                               )}
                             </div>
                           ) : rondaActual === 0 ? (
@@ -1189,7 +1165,7 @@ export default function LicitacionCotizacion({
                         </td>
 
                         {/* ¿Cumples la fecha? */}
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 align-top">
                           {rondaAbierta ? (
                             <div className="flex items-center gap-1">
                               <button
@@ -1241,6 +1217,68 @@ export default function LicitacionCotizacion({
                           )}
                         </td>
                       </tr>
+
+                      {/* Detalle del producto similar — sub-fila de ancho
+                          completo. Sale de la celda porque un textarea en una
+                          columna de 210px es inservible, y aquí cabe con su
+                          contador y su error sin estirar la fila. */}
+                      {rondaAbierta &&
+                        fila.estado === "cotizo" &&
+                        fila.esProductoSimilar && (
+                          <tr className="border-b border-zinc-100 last:border-0 bg-amber-50/20 hover:bg-zinc-50/50 transition-colors duration-150">
+                            <td colSpan={8} className="px-3 pb-2.5 pt-0">
+                              <div className="pl-2">
+                                <div className="flex items-baseline justify-between gap-2">
+                                  <span className="text-xs font-medium text-zinc-600">
+                                    Descripción del producto similar
+                                    <span className="text-red-500"> *</span>
+                                  </span>
+                                  <span className="shrink-0 text-[10px] tabular-nums text-zinc-400">
+                                    {fila.productoSimilarDetalle.trim().length}/
+                                    {LIMITE_DETALLE_SIMILAR}
+                                  </span>
+                                </div>
+                                <textarea
+                                  rows={2}
+                                  maxLength={LIMITE_DETALLE_SIMILAR}
+                                  value={fila.productoSimilarDetalle}
+                                  onChange={(e) =>
+                                    setFila(
+                                      idx,
+                                      "productoSimilarDetalle",
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="¿Qué producto ofreces? Ej.: modelo 720 en lugar del 715"
+                                  aria-label="Descripción del producto similar"
+                                  className={`mt-1 w-full rounded-md border px-3 py-1.5 text-sm leading-snug text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                                    rowErroresSimilar[idx]
+                                      ? "border-red-400 focus:border-red-400 focus:ring-red-200"
+                                      : "border-zinc-300 focus:border-zinc-400"
+                                  }`}
+                                />
+                                {rowErroresSimilar[idx] && (
+                                  <p className="mt-1 text-xs text-red-600">
+                                    ✕ {rowErroresSimilar[idx]}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+
+                      {/* Error row — precio. A ancho completo y no dentro de
+                          la celda: el mensaje mide ~150 caracteres y en una
+                          columna estrecha se parte en cuatro líneas. El input
+                          ya queda con borde rojo, así que se sabe a qué campo
+                          se refiere. */}
+                      {rowErroresPrecio[idx] && (
+                        <tr className="border-b border-zinc-100 last:border-0 bg-red-50/40 hover:bg-zinc-50/50 transition-colors duration-150">
+                          <td colSpan={8} className="px-3 pb-2.5 pt-0 text-xs text-red-600">
+                            ✕ {rowErroresPrecio[idx]}
+                          </td>
+                        </tr>
+                      )}
 
                       {/* Error row — cantidad excede máximo */}
                       {rowError && (
