@@ -27,6 +27,9 @@ export type OrdenCompraDetalle = {
     fechaEntregaObjetivo: string | null;
     fechaEstimadaProveedor: string | null;
     subtotal: number;
+    /** Snapshot de la marca de la oferta origen. Ver OrdenCompraLinea. */
+    esProductoSimilar: boolean;
+    productoSimilarDetalle: string | null;
   }[];
   // Total agregado en la moneda de consolidación (líneas convertidas desde su moneda).
   total: number;
@@ -87,6 +90,8 @@ export default async function OrdenDetallePageWrapper({
     lineas: (raw.lineas as any[]).map((l: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
       id: l.id,
       productoNombre: l.productoNombre,
+      esProductoSimilar: l.esProductoSimilar,
+      productoSimilarDetalle: l.productoSimilarDetalle,
       cantidad: l.cantidad,
       unidadMedida: l.unidadMedida,
       moneda: l.moneda ?? "MXN",

@@ -125,6 +125,8 @@ export default async function ImprimirOrdenCompradorPage({
         th, td { padding: 8px 12px; border: 1px solid #e4e4e7; font-size: 13px; }
         th { background: #f4f4f5; font-weight: 600; color: #52525b; text-align: left; }
         .text-right { text-align: right; }
+        /* Producto similar: el proveedor cotizo algo distinto de lo pedido. */
+        .similar { margin-top: 3px; font-size: 11px; font-style: italic; color: #b45309; }
         tfoot td { background: #f4f4f5; font-weight: 700; }
         .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e4e4e7; }
         .meta-item label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #71717a; display: block; margin-bottom: 3px; }
@@ -221,7 +223,17 @@ export default async function ImprimirOrdenCompradorPage({
           <tbody>
             {(orden.lineas as any[]).map((l: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
               <tr key={l.id}>
-                <td>{l.productoNombre}</td>
+                <td>
+                  {l.productoNombre}
+                  {l.esProductoSimilar && (
+                    <div className="similar">
+                      SIMILAR
+                      {l.productoSimilarDetalle
+                        ? ` — ${l.productoSimilarDetalle}`
+                        : ""}
+                    </div>
+                  )}
+                </td>
                 <td className="text-right">{(l.cantidad as number).toLocaleString("es-MX")}</td>
                 <td>{l.unidadMedida}</td>
                 <td className="text-right">

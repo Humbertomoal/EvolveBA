@@ -18,6 +18,7 @@ import {
   reasignarProveedorAction,
 } from "@/src/lib/asignacionActions";
 import { formatImporte } from "@/src/lib/monedas";
+import MarcaSimilar from "@/src/components/MarcaSimilar";
 import {
   convertirAMoneda,
   faltanTiposCambio,
@@ -654,6 +655,12 @@ export default function SeguimientoView({
                   <span className="ml-1 text-xs text-zinc-400">
                     {a.unidadMedida}
                   </span>
+                  {a.esProductoSimilar && (
+                    <MarcaSimilar
+                      detalle={a.productoSimilarDetalle}
+                      detalleClassName="text-[11px]"
+                    />
+                  )}
                 </td>
                 <td className={`${CELL} text-zinc-700`}>{a.proveedorNombre}</td>
                 <td className={`${CELL} text-right text-zinc-600`}>

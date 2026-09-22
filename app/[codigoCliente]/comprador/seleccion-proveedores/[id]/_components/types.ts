@@ -8,6 +8,13 @@ export type OfertaParaDropdown = {
   ronda: number;
   puedeCumplirFecha: boolean;
   fechaEstimadaEntrega: string | null;
+  /**
+   * El proveedor ofrece un producto SIMILAR al solicitado. No altera el
+   * precio ni su lugar en el orden: la oferta compite igual. Solo avisa al
+   * comprador de que no es exactamente lo que pidió.
+   */
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string | null;
 };
 
 export type ItemParaAsignacion = {
@@ -40,6 +47,12 @@ export type AsignacionDetalle = {
   estatusProveedor: string;
   fechaLimiteConfirmacion: string | null;
   motivoRechazo: string | null;
+  /**
+   * Marca de la OFERTA que originó esta asignación, resuelta por
+   * (licitacionItemId, proveedorId, ronda) — la clave única de OfertaItem.
+   */
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string | null;
   ofertasAlternativas: OfertaParaDropdown[];
   ordenNumero: string | null;
 };

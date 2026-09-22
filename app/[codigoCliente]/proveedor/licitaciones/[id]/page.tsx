@@ -137,6 +137,8 @@ export default async function DetalleLicitacionPage({
             fechaEstimadaEntrega: true,
             noDisponible: true,
             noAplica: true,
+            esProductoSimilar: true,
+            productoSimilarDetalle: true,
           },
           orderBy: [{ licitacionItem: { posicion: "asc" } }, { ronda: "asc" }],
         })
@@ -165,6 +167,8 @@ export default async function DetalleLicitacionPage({
           ronda: o.ronda,
           precioUnitario: o.precioUnitario,
           cantidadDisponible: o.cantidadDisponible,
+          esProductoSimilar: o.esProductoSimilar,
+          productoSimilarDetalle: o.productoSimilarDetalle,
         }));
 
       return {
@@ -178,6 +182,10 @@ export default async function DetalleLicitacionPage({
         mejorPrecio: mejor?.precioUnitario ?? null,
         cantidadOfertada: mejor?.cantidadDisponible ?? null,
         rondaCotizado: mejor?.ronda ?? null,
+        // Marca de la MEJOR oferta, que es la que se muestra en el resumen.
+        // El historial lleva la suya fila por fila.
+        esProductoSimilar: mejor?.esProductoSimilar ?? false,
+        productoSimilarDetalle: mejor?.productoSimilarDetalle ?? null,
         puedeCumplirFecha: mejor?.puedeCumplirFecha ?? null,
         fechaEstimadaEntrega: mejor?.fechaEstimadaEntrega?.toISOString() ?? null,
         historial,
@@ -274,6 +282,8 @@ export default async function DetalleLicitacionPage({
             fechaEstimadaEntrega: oferta.fechaEstimadaEntrega?.toISOString() ?? null,
             noDisponible: oferta.noDisponible,
             noAplica: oferta.noAplica,
+            esProductoSimilar: oferta.esProductoSimilar,
+            productoSimilarDetalle: oferta.productoSimilarDetalle,
           }
         : null,
       ofertaAnterior: ofertaAnterior
@@ -285,6 +295,8 @@ export default async function DetalleLicitacionPage({
               ofertaAnterior.fechaEstimadaEntrega?.toISOString() ?? null,
             noDisponible: ofertaAnterior.noDisponible,
             noAplica: ofertaAnterior.noAplica,
+            esProductoSimilar: ofertaAnterior.esProductoSimilar,
+            productoSimilarDetalle: ofertaAnterior.productoSimilarDetalle,
           }
         : null,
     };

@@ -7,6 +7,9 @@ import {
   esCapturaValida,
   estadoSinCosto,
   flagsDeEstado,
+  flagsSimilar,
+  validarDetalleSimilar,
+  MENSAJE_DETALLE_SIMILAR,
   type EstadoPartida,
 } from "@/src/lib/ofertaValida";
 
@@ -23,6 +26,14 @@ type OfertaItemInput = {
    * base. Los flags se derivan de aquí con `flagsDeEstado`.
    */
   estado: EstadoPartida;
+  /**
+   * Marca de producto similar y su detalle. Llegan CRUDOS del formulario: el
+   * recorte y la limpieza los hace `flagsSimilar` justo antes de escribir, no
+   * el cliente. Opcionales para no romper a ningún llamador que aún no los
+   * mande — ausente equivale a "no es similar".
+   */
+  esProductoSimilar?: boolean;
+  productoSimilarDetalle?: string | null;
 };
 
 export type MotivoRechazoOferta =
@@ -30,7 +41,8 @@ export type MotivoRechazoOferta =
   | "no_invitado"
   | "materiales_invalidos"
   | "licitacion_no_disponible"
-  | "precio_invalido";
+  | "precio_invalido"
+  | "detalle_similar_invalido";
 
 export type ResultadoOferta =
   | { ok: true }
@@ -192,6 +204,25 @@ export async function enviarOfertaAction(
   // formulario: la validación del cliente es comodidad, esta es la que manda.
   // Sin ella, cualquiera puede llamar la acción a mano y volver a meter ceros
   // —y un 0 llega a preseleccionar al proveedor como ganador a $0.
+  // Producto similar: se comprueba APARTE de `esCapturaValida` —que también lo
+  // cubre— solo para poder decir qué falta exactamente. Un "no se pudo enviar"
+  // genérico frente a un textarea vacío no le dice nada al proveedor.
+  //
+  // Solo se mira en "cotizo", igual que `esCapturaValida`: una marca que sobró
+  // de antes de cambiar a "no dispongo" no es un error, es basura que
+  // `flagsSimilar` limpia al guardar.
+  for (const item of items) {
+    if (item.estado !== "cotizo") continue;
+    const motivoDetalle = validarDetalleSimilar(item);
+    if (motivoDetalle) {
+      return {
+        ok: false,
+        motivo: "detalle_similar_invalido",
+        mensaje: MENSAJE_DETALLE_SIMILAR[motivoDetalle],
+      };
+    }
+  }
+
   if (!items.every((item) => esCapturaValida({ ...item, ...flagsDeEstado(item.estado) }))) {
     return {
       ok: false,
@@ -220,6 +251,16 @@ export async function enviarOfertaAction(
       precioUnitario: estadoSinCosto(item.estado) ? 0 : item.precioUnitario,
       cantidadDisponible: noDispone ? 0 : item.cantidadDisponible,
       ...flagsDeEstado(item.estado),
+      // SIEMPRE por aquí, nunca a mano: `flagsSimilar` es lo único que impide
+      // mandar esProductoSimilar = true junto a noDisponible/noAplica, que es
+      // justo lo que el CHECK `oferta_similar_coherente` rechaza en la base.
+      // Este es el único camino de escritura de OfertaItem del portal del
+      // proveedor, así que basta con que la regla viva aquí.
+      ...flagsSimilar(
+        item.estado,
+        item.esProductoSimilar,
+        item.productoSimilarDetalle
+      ),
       puedeCumplirFecha: item.puedeCumplirFecha,
       fechaEstimadaEntrega:
         noDispone || !item.fechaEstimadaEntrega

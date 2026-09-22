@@ -35,6 +35,13 @@ export type ComparativoOfertasPdfData = {
     variacionPct: number | null;
     ahorroTotal: number | null;
     proveedorGanador: string | null;
+    /**
+     * El ganador de esta partida cotizó un producto SIMILAR al solicitado.
+     * Su precio ganó por mérito propio; esto solo advierte que lo ofrecido
+     * no es exactamente lo pedido.
+     */
+    ganadorEsProductoSimilar: boolean;
+    ganadorProductoSimilarDetalle: string | null;
   }[];
   historial: {
     proveedores: { id: string; nombre: string }[];
@@ -165,9 +172,23 @@ export default function ComparativoOfertasPDF({
                 <Text style={[pdfStyles.tablaCell, { width: "12%", textAlign: "right" }]}>
                   {m.ahorroTotal != null ? formatImporte(m.ahorroTotal, m.moneda) : "N/A"}
                 </Text>
-                <Text style={[pdfStyles.tablaCellMuted, { width: "20%" }]}>
-                  {nd(m.proveedorGanador)}
-                </Text>
+                <View style={{ width: "20%" }}>
+                  <Text style={pdfStyles.tablaCellMuted}>
+                    {nd(m.proveedorGanador)}
+                  </Text>
+                  {/* La marca va con el GANADOR, que es de quien habla esta
+                      columna. El precio de la izquierda ganó por mérito
+                      propio: compitió como cualquier otro. */}
+                  {m.ganadorEsProductoSimilar && (
+                    <Text
+                      style={[pdfStyles.tablaCellMuted, { color: "#b45309", fontSize: 7 }]}
+                    >
+                      {m.ganadorProductoSimilarDetalle
+                        ? `SIMILAR: ${m.ganadorProductoSimilarDetalle}`
+                        : "SIMILAR"}
+                    </Text>
+                  )}
+                </View>
               </View>
             ))}
             <View style={pdfStyles.tablaFooterRow}>

@@ -11,6 +11,7 @@ import { notaTipoCambio } from "@/src/lib/conversionMoneda";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
+import MarcaSimilar from "@/src/components/MarcaSimilar";
 
 const ESTADOS = ["Pendiente", "En tránsito", "Entregada", "Recibida", "Cancelada"];
 
@@ -149,7 +150,12 @@ export default function OrdenCompradorDetalle({
             <tbody className="divide-y divide-zinc-100">
               {orden.lineas.map((l: any) => (
                 <tr key={l.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
-                  <td className="px-5 py-3 font-medium text-zinc-800">{l.productoNombre}</td>
+                  <td className="px-5 py-3 font-medium text-zinc-800">
+                    {l.productoNombre}
+                    {l.esProductoSimilar && (
+                      <MarcaSimilar detalle={l.productoSimilarDetalle} />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right text-zinc-600">
                     {l.cantidad.toLocaleString("es-MX")}
                   </td>

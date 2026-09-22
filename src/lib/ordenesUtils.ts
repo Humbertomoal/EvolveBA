@@ -28,6 +28,35 @@ export async function crearOrdenesCompraParaLicitacion(
 
   if (asignaciones.length === 0) return;
 
+  // Marca de producto similar de la OFERTA que origino cada asignacion.
+  // AsignacionMaterial guarda (licitacionItemId, proveedorId, ronda), que es
+  // exactamente la clave unica de OfertaItem, asi que la oferta siempre es
+  // recuperable. Se copia a la linea porque la OC es un documento: congela
+  // lo que se compro, igual que ya congela productoNombre y precioUnitario.
+  const claveOferta = (
+    licitacionItemId: string,
+    proveedorId: string,
+    ronda: number
+  ) => `${licitacionItemId}:${proveedorId}:${ronda}`;
+  const ofertasOrigen = await prisma.ofertaItem.findMany({
+    where: {
+      licitacionItemId: { in: asignaciones.map((a) => a.licitacionItemId) },
+    },
+    select: {
+      licitacionItemId: true,
+      proveedorId: true,
+      ronda: true,
+      esProductoSimilar: true,
+      productoSimilarDetalle: true,
+    },
+  });
+  const similarPorClave = new Map(
+    ofertasOrigen.map((o) => [
+      claveOferta(o.licitacionItemId, o.proveedorId, o.ronda),
+      o,
+    ])
+  );
+
   const licitacion = await prisma.licitacion.findUnique({
     where: { id: licitacionId },
     select: { clienteId: true },
@@ -68,6 +97,16 @@ export async function crearOrdenesCompraParaLicitacion(
           create: lineas.map((a: any) => ({
             asignacionId: a.id,
             productoNombre: a.licitacionItem.producto.nombre,
+            // Ausente (reasignacion manual con otra ronda, filas antiguas) cae
+            // a "no es similar": el lado seguro es no inventar una marca.
+            esProductoSimilar:
+              similarPorClave.get(
+                claveOferta(a.licitacionItemId, a.proveedorId, a.ronda)
+              )?.esProductoSimilar ?? false,
+            productoSimilarDetalle:
+              similarPorClave.get(
+                claveOferta(a.licitacionItemId, a.proveedorId, a.ronda)
+              )?.productoSimilarDetalle ?? null,
             cantidad: a.cantidadAsignada,
             unidadMedida: a.licitacionItem.producto.unidadMedida,
             precioUnitario: a.precioUnitario,

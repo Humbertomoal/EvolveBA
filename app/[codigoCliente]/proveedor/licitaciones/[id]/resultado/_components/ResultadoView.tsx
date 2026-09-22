@@ -18,6 +18,7 @@ import {
   rechazarAsignacionProveedorAction,
 } from "@/src/lib/proveedorAsignacionActions";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import MarcaSimilar from "@/src/components/MarcaSimilar";
 import {
   convertirAMoneda,
   formatMontoConEquivalencia,
@@ -453,6 +454,9 @@ export default function ResultadoView({
                 <tr key={a.id} className="hover:bg-zinc-50/50 transition-colors duration-150">
                   <td className="px-4 py-3 font-medium text-zinc-800">
                     {a.productoNombre}
+                    {a.esProductoSimilar && (
+                      <MarcaSimilar detalle={a.productoSimilarDetalle} />
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right text-zinc-700">{a.cantidadAsignada}</td>
                   <td className="px-4 py-3 text-zinc-500">{a.unidadMedida}</td>

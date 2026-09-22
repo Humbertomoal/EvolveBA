@@ -27,6 +27,8 @@ export type OrdenCompraPdfData = {
     moneda: string;
     fechaEntregaObjetivo: string | Date | null;
     subtotal: number;
+    esProductoSimilar: boolean;
+    productoSimilarDetalle: string | null;
   }[];
   // Total agregado en la moneda de consolidación y nota del TC usado.
   totalConsolidado: number;
@@ -104,7 +106,21 @@ export default function OrdenCompraPDF({
             </View>
             {orden.lineas.map((l) => (
               <View key={l.id} style={pdfStyles.tablaRow} wrap={false}>
-                <Text style={[pdfStyles.tablaCell, { width: "26%" }]}>{l.productoNombre}</Text>
+                <View style={{ width: "26%" }}>
+                  <Text style={pdfStyles.tablaCell}>{l.productoNombre}</Text>
+                  {l.esProductoSimilar && (
+                    <Text
+                      style={[
+                        pdfStyles.tablaCellMuted,
+                        { color: "#b45309", fontSize: 7 },
+                      ]}
+                    >
+                      {l.productoSimilarDetalle
+                        ? `SIMILAR: ${l.productoSimilarDetalle}`
+                        : "SIMILAR"}
+                    </Text>
+                  )}
+                </View>
                 <Text style={[pdfStyles.tablaCell, { width: "10%", textAlign: "right" }]}>
                   {l.cantidad.toLocaleString("es-MX")}
                 </Text>

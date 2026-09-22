@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { IconArrowLeft } from "@tabler/icons-react";
 import Badge from "@/src/components/Badge";
+import MarcaSimilar from "@/src/components/MarcaSimilar";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import {
@@ -45,6 +46,13 @@ export type HistorialPujas = {
       ronda: number;
       ofertas: Record<string, number | null>;
     }>;
+    /**
+     * Proveedores que cotizaron esta partida con un producto SIMILAR al
+     * solicitado. Su precio compitió con normalidad — aparece en la matriz
+     * como cualquier otro—; esto solo dice que lo ofrecido no era
+     * exactamente lo pedido.
+     */
+    similares: Array<{ proveedorNombre: string; detalle: string | null }>;
     ganadorIds: string[];
   }>;
 };
@@ -259,6 +267,24 @@ function HistorialPujasTab({
               <p className="mt-0.5 text-xs text-zinc-400">
                 Solicitado: {item.cantidadSolicitada} {item.unidadMedida}
               </p>
+              {item.similares.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {item.similares.map(
+                    (sim: { proveedorNombre: string; detalle: string | null }) => (
+                    <p key={sim.proveedorNombre} className="text-xs text-amber-800">
+                      <MarcaSimilar detalle={null} soloChip className="mr-1.5" />
+                      <span className="font-medium">{sim.proveedorNombre}</span>
+                      {sim.detalle && (
+                        <span className="italic text-amber-700">
+                          {" — "}
+                          {sim.detalle}
+                        </span>
+                      )}
+                      </p>
+                    )
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto">

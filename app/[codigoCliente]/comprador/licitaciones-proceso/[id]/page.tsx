@@ -267,6 +267,8 @@ export default async function DetalleLicitacionProcesoPage({
             puedeCumplirFecha: oferta?.puedeCumplirFecha ?? null,
             fechaEstimadaEntrega:
               oferta?.fechaEstimadaEntrega?.toISOString() ?? null,
+            esProductoSimilar: oferta?.esProductoSimilar ?? false,
+            productoSimilarDetalle: oferta?.productoSimilarDetalle ?? null,
           };
         }),
       };
@@ -312,6 +314,8 @@ export default async function DetalleLicitacionProcesoPage({
         proveedorNombre: mejor.proveedor.razonSocial,
         ronda: mejor.ronda,
         cantidadDisponible: mejor.cantidadDisponible,
+        esProductoSimilar: mejor.esProductoSimilar,
+        productoSimilarDetalle: mejor.productoSimilarDetalle,
       },
       segundo: segundo
         ? {
@@ -320,6 +324,8 @@ export default async function DetalleLicitacionProcesoPage({
             ronda: segundo.ronda,
             cantidadDisponible: segundo.cantidadDisponible,
             cantidadNecesaria: cantRestante,
+            esProductoSimilar: segundo.esProductoSimilar,
+            productoSimilarDetalle: segundo.productoSimilarDetalle,
           }
         : null,
     };

@@ -117,6 +117,21 @@ export default async function DetalleSeleccionPage({
   // que el mínimo automático descartó por más cara — ese es justamente el caso
   // que esto resuelve. Se busca en las crudas, no en las filtradas.
   const ofertaPorId = new Map(todasLasOfertasCrudas.map((o) => [o.id, o]));
+  // Indice por la clave UNICA de OfertaItem. Una AsignacionMaterial guarda
+  // (licitacionItemId, proveedorId, ronda), que es exactamente esa clave, asi
+  // que la oferta que origino cada asignacion siempre es recuperable sin
+  // columnas nuevas.
+  const claveOferta = (
+    licitacionItemId: string,
+    proveedorId: string,
+    ronda: number
+  ) => `${licitacionItemId}:${proveedorId}:${ronda}`;
+  const ofertaPorTripleta = new Map(
+    todasLasOfertasCrudas.map((o) => [
+      claveOferta(o.licitacionItemId, o.proveedorId, o.ronda),
+      o,
+    ])
+  );
 
   // ── Construir items para la forma de asignación ──────────────────────────────
   // `item` sin anotar como `any` a propósito: así el tipo inferido por Prisma
@@ -174,6 +189,8 @@ export default async function DetalleSeleccionPage({
         ronda: o.ronda,
         puedeCumplirFecha: o.puedeCumplirFecha,
         fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
+        esProductoSimilar: o.esProductoSimilar,
+        productoSimilarDetalle: o.productoSimilarDetalle,
       }));
 
     return {
@@ -259,8 +276,16 @@ export default async function DetalleSeleccionPage({
             ronda: o.ronda,
             puedeCumplirFecha: o.puedeCumplirFecha,
             fechaEstimadaEntrega: o.fechaEstimadaEntrega?.toISOString() ?? null,
+            esProductoSimilar: o.esProductoSimilar,
+            productoSimilarDetalle: o.productoSimilarDetalle,
           }));
 
+        // Oferta que origino esta asignacion. `undefined` es posible en filas
+        // antiguas o si el comprador reasigno a mano con otra ronda: se cae a
+        // "no es similar", que es el lado seguro (no inventa una marca).
+        const ofertaOrigen = ofertaPorTripleta.get(
+          claveOferta(a.licitacionItemId, a.proveedorId, a.ronda)
+        );
         return {
           id: a.id,
           licitacionItemId: a.licitacionItemId,
@@ -283,6 +308,8 @@ export default async function DetalleSeleccionPage({
           fechaLimiteConfirmacion:
             a.fechaLimiteConfirmacion?.toISOString() ?? null,
           motivoRechazo: a.motivoRechazo,
+          esProductoSimilar: ofertaOrigen?.esProductoSimilar ?? false,
+          productoSimilarDetalle: ofertaOrigen?.productoSimilarDetalle ?? null,
           ofertasAlternativas,
           ordenNumero: ocMap.get(a.id) ?? null,
         };

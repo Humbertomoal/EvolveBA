@@ -91,6 +91,8 @@ export async function descargarOrdenCompraPdfAction(
     lineas: orden.lineas.map((l) => ({
       id: l.id,
       productoNombre: l.productoNombre,
+      esProductoSimilar: l.esProductoSimilar,
+      productoSimilarDetalle: l.productoSimilarDetalle,
       cantidad: l.cantidad,
       unidadMedida: l.unidadMedida,
       precioUnitario: l.precioUnitario,
@@ -299,12 +301,18 @@ export async function descargarComparativoOfertasPdfAction(
   // Las partidas sin ninguna oferta válida simplemente no entran al mapa, y
   // `proveedorGanador` queda en null: el PDF ya pinta "—" para ese caso.
   const proveedorGanadorPorItem = new Map<string, string>();
+  // Detalle del similar del GANADOR, si lo hay. Mapa aparte del de nombres
+  // para no volver opcional un campo que siempre existe.
+  const similarGanadorPorItem = new Map<string, string | null>();
   for (const item of licitacion.items) {
     const mejor = mejorOfertaValida(
       ofertas.filter((o) => o.licitacionItemId === item.id)
     );
     if (!mejor) continue;
     proveedorGanadorPorItem.set(item.id, mejor.proveedor.razonSocial);
+    if (mejor.esProductoSimilar) {
+      similarGanadorPorItem.set(item.id, mejor.productoSimilarDetalle);
+    }
   }
 
   const materiales: ComparativoOfertasPdfData["materiales"] = licitacion.items.map(
@@ -318,6 +326,9 @@ export async function descargarComparativoOfertasPdfAction(
       variacionPct: analisis[i]?.variacionPct ?? null,
       ahorroTotal: analisis[i]?.ahorroTotal ?? null,
       proveedorGanador: proveedorGanadorPorItem.get(item.id) ?? null,
+      ganadorEsProductoSimilar: similarGanadorPorItem.has(item.id),
+      ganadorProductoSimilarDetalle:
+        similarGanadorPorItem.get(item.id) ?? null,
     })
   );
 

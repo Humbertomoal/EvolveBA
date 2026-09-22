@@ -54,6 +54,12 @@ export type FilaHistoricoPuja = {
   variacionPct: number | null;
   /** `variacionMonto` convertido a MXN. null cuando no hay ronda anterior. */
   variacionMontoMXN: number | null;
+  /**
+   * El proveedor cotizó un producto SIMILAR al solicitado. No altera el
+   * precio ni los agregados: la puja compitió como cualquier otra.
+   */
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string | null;
 };
 
 /** Filas + el contexto de conversión que necesitan las vistas para formatear. */
@@ -160,6 +166,10 @@ export function construirFilasExcel(
     "¿Cumple fecha?": f.puedeCumplirFecha ? "Sí" : "No",
     "Fecha estimada de entrega": fechaExcelMexico(f.fechaEstimadaEntrega),
     "Fecha/hora de la puja": fechaExcelMexico(f.fechaPuja),
+    // Texto y no booleano: en Excel un "Sí/No" se filtra de un clic y se
+    // lee sin tener que saber que TRUE significa.
+    "¿Producto similar?": f.esProductoSimilar ? "Sí" : "No",
+    "Detalle del producto similar": f.productoSimilarDetalle ?? "",
   }));
 }
 

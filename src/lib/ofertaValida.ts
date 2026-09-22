@@ -42,6 +42,65 @@ export type OfertaEvaluable = {
   noAplica?: boolean | null;
 };
 
+/**
+ * Lo que necesita la validación de CAPTURA, que es más que lo que necesita el
+ * filtro de competencia. Se declara aparte de `OfertaEvaluable` a propósito:
+ * así queda escrito en el tipo que la marca de producto similar NO participa en
+ * "¿esta oferta compite?" — `esOfertaValida` ni siquiera puede verla.
+ */
+export type CapturaEvaluable = OfertaEvaluable & {
+  /**
+   * El proveedor ofrece un producto SIMILAR al solicitado (se pide el 715,
+   * ofrece el 720). Marca SOBRE la cotización, no un cuarto estado: la oferta
+   * lleva precio y compite con normalidad. Opcional por la misma razón que los
+   * otros flags: ausente equivale a `false`.
+   */
+  esProductoSimilar?: boolean | null;
+  /** Qué producto ofrece. Obligatorio si `esProductoSimilar`. */
+  productoSimilarDetalle?: string | null;
+};
+
+/**
+ * Tope del detalle de producto similar.
+ *
+ * Vive SOLO en código, no en la base: la columna es TEXT sin límite físico. Un
+ * texto más largo es un error de captura, no una corrupción de datos, y el
+ * lugar de atajarlo es el formulario. De aquí lo toman el `maxLength` del
+ * textarea y las dos validaciones, para que no puedan discrepar.
+ */
+export const LIMITE_DETALLE_SIMILAR = 500;
+
+/** Por qué el detalle de producto similar no es aceptable. */
+export type MotivoDetalleSimilar = "vacio" | "muy_largo";
+
+/**
+ * Mensajes del detalle inválido. Compartidos por el formulario y el servidor
+ * para que el proveedor lea exactamente lo mismo venga de donde venga el
+ * rechazo — mismo criterio que el resto de este módulo.
+ */
+export const MENSAJE_DETALLE_SIMILAR: Record<MotivoDetalleSimilar, string> = {
+  vacio: "Describe qué producto ofreces.",
+  muy_largo: `La descripción no puede pasar de ${LIMITE_DETALLE_SIMILAR} caracteres.`,
+};
+
+/**
+ * ¿El detalle de producto similar es aceptable? `null` = sí (o no aplica
+ * porque la marca no está puesta).
+ *
+ * Se mide sobre el texto YA recortado: unos espacios no son una descripción, y
+ * tampoco deben consumir el presupuesto de caracteres.
+ */
+export function validarDetalleSimilar(oferta: {
+  esProductoSimilar?: boolean | null;
+  productoSimilarDetalle?: string | null;
+}): MotivoDetalleSimilar | null {
+  if (!oferta.esProductoSimilar) return null;
+  const detalle = (oferta.productoSimilarDetalle ?? "").trim();
+  if (detalle.length === 0) return "vacio";
+  if (detalle.length > LIMITE_DETALLE_SIMILAR) return "muy_largo";
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DOS predicados, no uno
 //
@@ -176,13 +235,21 @@ export function mejorOfertaValida<T extends OfertaEvaluable>(
  * de decir lo mismo. La usan por igual la validación del formulario y la del
  * servidor, para que no puedan discrepar.
  */
-export function esCapturaValida(oferta: OfertaEvaluable): boolean {
+export function esCapturaValida(oferta: CapturaEvaluable): boolean {
   // Los dos estados "sin costo" son respuestas completas por sí solas: no
   // llevan precio y no hay nada que validar. Lo que sigue sin ser aceptable es
   // un 0 o un vacío SIN marca, que era la forma implícita —y ambigua— de decir
   // cualquiera de las dos cosas.
+  //
+  // Van ANTES que la comprobación del producto similar, y el orden es
+  // deliberado: si el proveedor marcó "similar" y después cambió a "no
+  // dispongo", la marca es basura que sobró, no un error que deba bloquearlo.
+  // Se acepta la captura y `flagsSimilar` la limpia al guardar.
   if (oferta.noDisponible) return true;
   if (oferta.noAplica) return true;
+  // Marcar "producto similar" sin decir cuál no es una captura completa: el
+  // dato existe justamente para que el comprador sepa qué está comprando.
+  if (validarDetalleSimilar(oferta) !== null) return false;
   return Number.isFinite(oferta.precioUnitario) && oferta.precioUnitario > 0;
 }
 
@@ -226,6 +293,33 @@ export function flagsDeEstado(estado: EstadoPartida): {
   return {
     noDisponible: estado === "no_dispongo",
     noAplica: estado === "no_aplica",
+  };
+}
+
+/**
+ * Estado + marca → lo que se guarda de "producto similar".
+ *
+ * Hermano de `flagsDeEstado`, y por el mismo motivo: que ninguna escritura arme
+ * estos campos a mano. Aplica dos reglas de golpe:
+ *
+ *   · La marca SOLO sobrevive en "cotizo". En los dos estados sin costo se
+ *     limpia, igual que el precio se normaliza a 0 — si no, una marca vieja de
+ *     otra ronda viajaría pegada a una partida que ya no lleva precio, y el
+ *     CHECK `oferta_similar_coherente` rechazaría el INSERT.
+ *   · El detalle se guarda recortado, y sin marca se guarda `null` (no cadena
+ *     vacía): el dato ausente se representa de una sola forma.
+ */
+export function flagsSimilar(
+  estado: EstadoPartida,
+  esProductoSimilar: boolean | null | undefined,
+  productoSimilarDetalle: string | null | undefined
+): { esProductoSimilar: boolean; productoSimilarDetalle: string | null } {
+  if (estado !== "cotizo" || !esProductoSimilar) {
+    return { esProductoSimilar: false, productoSimilarDetalle: null };
+  }
+  return {
+    esProductoSimilar: true,
+    productoSimilarDetalle: (productoSimilarDetalle ?? "").trim() || null,
   };
 }
 

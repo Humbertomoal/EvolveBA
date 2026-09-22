@@ -58,6 +58,8 @@ export default async function DetalleFinalizadaPage({
               // COMPITE antes de aplanar la matriz (ver abajo).
               noDisponible: true,
               noAplica: true,
+              esProductoSimilar: true,
+              productoSimilarDetalle: true,
               proveedor: { select: { id: true, razonSocial: true } },
             },
           },
@@ -141,6 +143,35 @@ export default async function DetalleFinalizadaPage({
           return { ronda, ofertas };
         });
 
+        // Proveedores que ofrecieron un producto SIMILAR en esta partida.
+        // Van como lista aparte y no dentro de la matriz a proposito: las
+        // celdas solo transportan un numero (ronda x proveedor), y meterles
+        // un objeto obligaria a reestructurar toda la vista para un dato que
+        // no cambia por ronda. Uno por proveedor: si marco similar en varias
+        // rondas, el detalle vigente es el de la puja mas reciente.
+        type ProveedorSimilar = {
+          proveedorNombre: string;
+          detalle: string | null;
+        };
+        const similares: ProveedorSimilar[] = [
+          ...new Map<string, ProveedorSimilar>(
+            item.ofertas
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .filter((o: any) => o.esProductoSimilar && esOfertaValida(o))
+              .map(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (o: any) =>
+                  [
+                    o.proveedorId as string,
+                    {
+                      proveedorNombre: o.proveedor.razonSocial as string,
+                      detalle: (o.productoSimilarDetalle ?? null) as string | null,
+                    },
+                  ] as [string, ProveedorSimilar]
+              )
+          ).values(),
+        ];
+
         return {
           id: item.id,
           productoNombre: item.producto.nombre,
@@ -149,6 +180,7 @@ export default async function DetalleFinalizadaPage({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           moneda: (item as any).moneda ?? "MXN",
           filas,
+          similares,
           ganadorIds: [...(ganadoresMap.get(item.id) ?? new Set<string>())],
         };
       });

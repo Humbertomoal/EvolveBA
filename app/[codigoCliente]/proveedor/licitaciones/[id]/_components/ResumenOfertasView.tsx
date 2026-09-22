@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
+import MarcaSimilar from "@/src/components/MarcaSimilar";
 import { calcularVariacionesGrupo } from "@/src/lib/variacionRonda";
 import {
   formatMontoConEquivalencia,
@@ -34,10 +35,15 @@ export type MejorOfertaItem = {
   rondaCotizado: number | null;
   puedeCumplirFecha: boolean | null;
   fechaEstimadaEntrega: string | null;
+  /** Marca de la mejor oferta: ofreciste un producto similar al solicitado. */
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string | null;
   historial: Array<{
     ronda: number;
     precioUnitario: number;
     cantidadDisponible: number;
+    esProductoSimilar: boolean;
+    productoSimilarDetalle: string | null;
   }>;
 };
 
@@ -89,6 +95,7 @@ export default function ResumenOfertasView({
     ronda: number;
     precioUnitario: number;
     cantidadDisponible: number;
+    esProductoSimilar: boolean;
     diffPct: number | null; // null = no anterior para este item
   }> = [];
 
@@ -105,6 +112,7 @@ export default function ResumenOfertasView({
         ronda: oferta.ronda,
         precioUnitario: oferta.precioUnitario,
         cantidadDisponible: oferta.cantidadDisponible,
+        esProductoSimilar: oferta.esProductoSimilar,
         diffPct: variaciones.get(oferta)?.diffPct ?? null,
       });
     });
@@ -202,6 +210,9 @@ export default function ResumenOfertasView({
                       <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                         <td className={`${CELL} font-medium text-zinc-800`}>
                           {item.productoNombre}
+                          {item.esProductoSimilar && (
+                            <MarcaSimilar detalle={item.productoSimilarDetalle} />
+                          )}
                         </td>
                         <td className={`${CELL} text-zinc-500`}>{item.unidadMedida}</td>
                         <td className={`${CELL} text-right text-zinc-600`}>
@@ -296,6 +307,13 @@ export default function ResumenOfertasView({
                         <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
                           {row.ronda}
                         </span>
+                        {row.esProductoSimilar && (
+                          <MarcaSimilar
+                            detalle={null}
+                            soloChip
+                            className="ml-1"
+                          />
+                        )}
                       </td>
                       <td className={`${CELL} text-right font-medium text-zinc-800`}>
                         {formatMontoConEquivalencia(

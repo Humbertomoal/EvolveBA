@@ -19,6 +19,9 @@ export type AsignacionProveedor = {
   moneda: string;
   ronda: number;
   orden: number;
+  /** Ofreciste un producto similar al solicitado en la oferta ganadora. */
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string | null;
   fechaObjetivo: string | null;
   fechaEstimadaProveedor: string | null;
   estatusProveedor: string;
@@ -102,6 +105,27 @@ export default async function ResultadoPage({
     );
   }
 
+  // Marca de la OFERTA que origino cada asignacion, por la clave unica de
+  // OfertaItem (licitacionItemId, proveedorId, ronda). Ausente cae a "no es
+  // similar": no se inventa una marca.
+  const ofertasOrigen = await prisma.ofertaItem.findMany({
+    where: {
+      proveedorId: proveedor.id,
+      licitacionItemId: {
+        in: asignacionesRaw.map((a: any) => a.licitacionItemId),
+      },
+    },
+    select: {
+      licitacionItemId: true,
+      ronda: true,
+      esProductoSimilar: true,
+      productoSimilarDetalle: true,
+    },
+  });
+  const similarPorClave = new Map(
+    ofertasOrigen.map((o) => [`${o.licitacionItemId}:${o.ronda}`, o])
+  );
+
   const asignaciones: AsignacionProveedor[] = asignacionesRaw.map((a: any) => ({
     id: a.id,
     productoNombre: a.licitacionItem.producto.nombre,
@@ -117,6 +141,12 @@ export default async function ResultadoPage({
     fechaLimiteConfirmacion: a.fechaLimiteConfirmacion?.toISOString() ?? null,
     fechaConfirmacion: a.fechaConfirmacion?.toISOString() ?? null,
     motivoRechazo: a.motivoRechazo,
+    esProductoSimilar:
+      similarPorClave.get(`${a.licitacionItemId}:${a.ronda}`)
+        ?.esProductoSimilar ?? false,
+    productoSimilarDetalle:
+      similarPorClave.get(`${a.licitacionItemId}:${a.ronda}`)
+        ?.productoSimilarDetalle ?? null,
   }));
 
   const licitacionInfo: LicitacionResultado = {

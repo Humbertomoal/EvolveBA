@@ -16,6 +16,7 @@ import { Fragment, useState } from "react";
 import { ETIQUETA_GRATIS, textoPrecioGanador } from "@/src/lib/monedas";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
+import MarcaSimilar from "@/src/components/MarcaSimilar";
 import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
 import {
   cerrarTodasLasRondasAction,
@@ -42,6 +43,13 @@ export type OfertaDetalle = {
   cantidadDisponible: number | null;
   puedeCumplirFecha: boolean | null;
   fechaEstimadaEntrega: string | null;
+  /**
+   * El proveedor ofrece un producto SIMILAR al solicitado. NO cambia que el
+   * precio compita: se marca para que el comprador sepa que lo cotizado no
+   * es exactamente lo que pidio.
+   */
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string | null;
 };
 
 export type RondaHistorial = {
@@ -106,6 +114,8 @@ export type MejorPrecioItem = {
     proveedorNombre: string;
     ronda: number;
     cantidadDisponible: number;
+    esProductoSimilar: boolean;
+    productoSimilarDetalle: string | null;
   } | null;
   segundo: {
     precioUnitario: number;
@@ -113,6 +123,8 @@ export type MejorPrecioItem = {
     ronda: number;
     cantidadDisponible: number;
     cantidadNecesaria: number;
+    esProductoSimilar: boolean;
+    productoSimilarDetalle: string | null;
   } | null;
 };
 
@@ -792,6 +804,12 @@ export default function DetalleLicitacion({
                     <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="px-4 py-3 font-medium text-zinc-800">
                         {item.productoNombre}
+                        {item.mejor?.esProductoSimilar && (
+                          <MarcaSimilar
+                            detalle={item.mejor.productoSimilarDetalle}
+                            className="mt-1"
+                          />
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right text-zinc-600">
                         {item.cantidadSolicitada}
@@ -840,6 +858,12 @@ export default function DetalleLicitacion({
                             ↳ Complemento (
                             {item.segundo.cantidadNecesaria} adicionales)
                           </span>
+                          {item.segundo.esProductoSimilar && (
+                            <MarcaSimilar
+                              detalle={item.segundo.productoSimilarDetalle}
+                              className="mt-1"
+                            />
+                          )}
                         </td>
                         <td className="px-4 py-2 text-right text-xs text-zinc-400">
                           {item.segundo.cantidadNecesaria}
@@ -918,6 +942,12 @@ export default function DetalleLicitacion({
                         <span className="ml-1 text-xs text-zinc-400">
                           {d.unidadMedida}
                         </span>
+                        {d.esProductoSimilar && (
+                          <MarcaSimilar
+                            detalle={d.productoSimilarDetalle}
+                            className="mt-1"
+                          />
+                        )}
                       </td>
                       <td className="py-2 text-right text-zinc-600">
                         {d.cantidadSolicitada}

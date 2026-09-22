@@ -241,14 +241,14 @@ model SeleccionPrecioComprador {
 // Si algún día se decide que el proveedor pueda cotizar en otra moneda, hay que
 // poblarlo explícitamente y migrar las filas existentes antes de confiar en él.
 model OfertaItem {
-  id                   String         @id @default(cuid())
-  licitacionItemId     String
-  licitacionItem       LicitacionItem @relation(fields: [licitacionItemId], references: [id])
-  proveedorId          String
-  proveedor            Proveedor      @relation(fields: [proveedorId], references: [id])
-  ronda                Int            @default(1)
-  precioUnitario       Float
-  cantidadDisponible   Float
+  id                     String         @id @default(cuid())
+  licitacionItemId       String
+  licitacionItem         LicitacionItem @relation(fields: [licitacionItemId], references: [id])
+  proveedorId            String
+  proveedor              Proveedor      @relation(fields: [proveedorId], references: [id])
+  ronda                  Int            @default(1)
+  precioUnitario         Float
+  cantidadDisponible     Float
   // Vía EXPLÍCITA para "no dispongo de esta partida". Antes los proveedores
   // usaban precioUnitario = 0 con ese significado (o dejaban el campo vacío,
   // que el formulario convertía en 0 en silencio), y como 0 es el precio más
@@ -258,7 +258,7 @@ model OfertaItem {
   // Con noDisponible = true, precioUnitario se guarda en 0 pero NO compite:
   // ver esOfertaValida() en src/lib/ofertaValida.ts, por donde pasan todos los
   // cálculos de mínimo.
-  noDisponible         Boolean        @default(false)
+  noDisponible           Boolean        @default(false)
   // TERCER estado: "no aplica". El proveedor SÍ ofrece la partida, pero en este
   // caso no corresponde cobrarla (da el flete, pero la obra está donde él vive).
   // Es un $0 REAL y competitivo, y ahí está la diferencia con noDisponible:
@@ -276,12 +276,29 @@ model OfertaItem {
   // La base la protege un CHECK (`oferta_estado_excluyente`) que impide
   // noDisponible AND noAplica a la vez. Aun así el helper aplica precedencia:
   // noDisponible manda, para que cualquier fila anómala falle del lado seguro.
-  noAplica             Boolean        @default(false)
-  puedeCumplirFecha    Boolean        @default(true)
-  fechaEstimadaEntrega DateTime?
-  moneda               String         @default("MXN") // NO CONFIAR — ver nota arriba; la buena es LicitacionItem.moneda
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  noAplica               Boolean        @default(false)
+  // MARCA sobre la cotización, NO un cuarto estado. El proveedor puede surtir
+  // la partida con un producto SIMILAR al solicitado (se pide el 715, ofrece el
+  // 720). Es ortogonal a noDisponible/noAplica: la oferta lleva precio y
+  // COMPITE con normalidad — `esOfertaValida` ni la mira. Solo informa al
+  // comprador de que lo ofrecido no es exactamente lo pedido.
+  //
+  // Por eso la marca solo tiene sentido sobre una cotización CON precio. El
+  // CHECK `oferta_similar_coherente` lo exige en la base: si esProductoSimilar
+  // es true, el detalle no puede venir vacío y ni noDisponible ni noAplica
+  // pueden estar activos.
+  //
+  // El máximo de 500 caracteres del detalle vive SOLO en código
+  // (`esCapturaValida`, que usan por igual el formulario y el servidor). La
+  // columna es TEXT sin límite físico a propósito: un texto más largo es un
+  // error de captura, no una corrupción de datos.
+  esProductoSimilar      Boolean        @default(false)
+  productoSimilarDetalle String?
+  puedeCumplirFecha      Boolean        @default(true)
+  fechaEstimadaEntrega   DateTime?
+  moneda                 String         @default("MXN") // NO CONFIAR — ver nota arriba; la buena es LicitacionItem.moneda
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   @@unique([licitacionItemId, proveedorId, ronda])
 }
@@ -371,6 +388,16 @@ model OrdenCompraLinea {
   fechaEstimadaProveedor DateTime?
   subtotal               Float
   moneda                 String             @default("MXN")
+  // Snapshot de la marca de producto similar, copiada de la OfertaItem origen
+  // al generar la orden (ordenesUtils.ts). NO se lee en vivo: la OC es un
+  // documento y congela lo que se compró, igual que ya congela productoNombre
+  // y precioUnitario.
+  //
+  // El vínculo con la oferta existe porque AsignacionMaterial tiene
+  // (licitacionItemId, proveedorId, ronda), que es exactamente la clave única
+  // de OfertaItem.
+  esProductoSimilar      Boolean            @default(false)
+  productoSimilarDetalle String?
   createdAt              DateTime           @default(now())
 }
 

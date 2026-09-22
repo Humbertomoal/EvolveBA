@@ -32,6 +32,7 @@ import {
 } from "@/src/lib/seleccionPrecioActions";
 import { getHistoricoPujas } from "@/src/lib/historicoPujasActions";
 import type { FilaHistoricoPuja } from "@/src/lib/historicoPujasExcel";
+import MarcaSimilar from "@/src/components/MarcaSimilar";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
 import {
   prepararResultadoInternoAction,
@@ -1167,6 +1168,12 @@ export default function AsignacionForm({
                   <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                     <td className={`${CELL} font-medium text-zinc-800`}>
                       {item.productoNombre}
+                      {o1?.esProductoSimilar && (
+                        <MarcaSimilar
+                          detalle={o1.productoSimilarDetalle}
+                          detalleClassName="text-[11px]"
+                        />
+                      )}
                       {cobertura && (
                         <span
                           className={`mt-0.5 block text-[11px] font-normal ${
@@ -1325,6 +1332,12 @@ export default function AsignacionForm({
                     <tr className="bg-amber-50/40 hover:bg-amber-50/60 transition-colors duration-150">
                       <td className={`${CELL} pl-8 text-zinc-500`}>
                         <span className="text-xs">↳ {item.productoNombre} (resto)</span>
+                        {o2?.esProductoSimilar && (
+                          <MarcaSimilar
+                            detalle={o2.productoSimilarDetalle}
+                            detalleClassName="text-[11px]"
+                          />
+                        )}
                       </td>
                       {/* La cantidad REALMENTE asignada al secundario — la misma
                           que el input de esta fila. Antes mostraba el resto

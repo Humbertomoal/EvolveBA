@@ -104,6 +104,8 @@ async function consultarOfertasHistorico(
         fechaPuja: o.createdAt.toISOString(),
         variacionMonto: variacion?.diffMonto ?? null,
         variacionPct: variacion?.diffPct ?? null,
+        esProductoSimilar: o.esProductoSimilar,
+        productoSimilarDetalle: o.productoSimilarDetalle,
       },
       tiposCambio
     );

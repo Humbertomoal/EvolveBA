@@ -22,6 +22,9 @@ import { enviarOfertaAction } from "@/src/lib/ofertasActions";
 import {
   estadoDePartida,
   estadoSinCosto,
+  validarDetalleSimilar,
+  MENSAJE_DETALLE_SIMILAR,
+  LIMITE_DETALLE_SIMILAR,
   type EstadoPartida,
 } from "@/src/lib/ofertaValida";
 import { formatImporte } from "@/src/lib/monedas";
@@ -49,6 +52,8 @@ export type ItemDetalle = {
     fechaEstimadaEntrega: string | null;
     noDisponible: boolean;
     noAplica: boolean;
+    esProductoSimilar: boolean;
+    productoSimilarDetalle: string | null;
   } | null;
   // Oferta del mismo proveedor en la ronda inmediatamente anterior — solo se
   // usa para pre-llenar los campos cuando aún no ha cotizado en la ronda actual.
@@ -59,6 +64,8 @@ export type ItemDetalle = {
     fechaEstimadaEntrega: string | null;
     noDisponible: boolean;
     noAplica: boolean;
+    esProductoSimilar: boolean;
+    productoSimilarDetalle: string | null;
   } | null;
 };
 
@@ -86,6 +93,13 @@ type FilaState = {
    * `oferta_estado_excluyente`).
    */
   estado: EstadoPartida;
+  /**
+   * Marca de producto similar y su descripción. NO son un cuarto estado: van
+   * SOBRE la cotización y solo existen mientras `estado === "cotizo"`. Cambiar
+   * a un estado sin costo las limpia (ver `setFila`).
+   */
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -256,6 +270,11 @@ export default function LicitacionCotizacion({
       // marque "No dispongo".
       precioUnitario: base && base.precioUnitario > 0 ? String(base.precioUnitario) : "",
       estado: base ? estadoDePartida(base) : "cotizo",
+      // Se precargan igual que el precio: si en la ronda anterior ofreció el
+      // 720 en vez del 715, lo más probable es que lo siga ofreciendo. Si no,
+      // desmarca la casilla y se limpia.
+      esProductoSimilar: base?.esProductoSimilar ?? false,
+      productoSimilarDetalle: base?.productoSimilarDetalle ?? "",
       puedeCumplirFecha: base ? base.puedeCumplirFecha : true,
       fechaEstimadaEntrega: base?.fechaEstimadaEntrega
         ? new Date(base.fechaEstimadaEntrega).toISOString().split("T")[0]
@@ -513,8 +532,23 @@ export default function LicitacionCotizacion({
     return null;
   });
 
+  // Marcar "producto similar" sin describirlo deja al comprador sin saber que
+  // compra, así que bloquea el envío igual que un precio inválido. Usa el MISMO
+  // validador que el servidor (`validarDetalleSimilar`) y los mismos mensajes,
+  // para que no puedan discrepar.
+  const rowErroresSimilar = items.map((_item, idx) => {
+    const fila = filasAlineadas[idx];
+    // Solo en "cotizo": una marca que sobró de antes de cambiar a "no dispongo"
+    // no es un error, se limpia sola al guardar.
+    if (fila.estado !== "cotizo") return null;
+    const motivo = validarDetalleSimilar(fila);
+    return motivo ? MENSAJE_DETALLE_SIMILAR[motivo] : null;
+  });
+
   const hayErroresCantidad =
-    rowErrors.some(Boolean) || rowErroresPrecio.some(Boolean);
+    rowErrors.some(Boolean) ||
+    rowErroresPrecio.some(Boolean) ||
+    rowErroresSimilar.some(Boolean);
 
   // ── Live totals per moneda ────────────────────────────────────────────────
   const totalesPorMoneda = useMemo(() => {
@@ -561,6 +595,18 @@ export default function LicitacionCotizacion({
       if (pos === -1) return prev;
       const next = [...prev];
       next[pos] = { ...next[pos], [campo]: valor };
+      // Salir de "cotizo" tira la marca de producto similar. No es cosmético:
+      // sin esto viajaría pegada a una partida sin precio y el CHECK
+      // `oferta_similar_coherente` rechazaría el INSERT. El servidor lo vuelve
+      // a normalizar con `flagsSimilar`; aquí se hace para que la UI no muestre
+      // un textarea que ya no aplica.
+      if (campo === "estado" && valor !== "cotizo") {
+        next[pos] = {
+          ...next[pos],
+          esProductoSimilar: false,
+          productoSimilarDetalle: "",
+        };
+      }
       return next;
     });
   }
@@ -599,6 +645,10 @@ export default function LicitacionCotizacion({
             ? null
             : filasAlineadas[idx].fechaEstimadaEntrega || null,
           estado: filasAlineadas[idx].estado,
+          // Crudos: el recorte y la limpieza los hace `flagsSimilar` en el
+          // servidor, que es el único punto donde se decide qué se guarda.
+          esProductoSimilar: filasAlineadas[idx].esProductoSimilar,
+          productoSimilarDetalle: filasAlineadas[idx].productoSimilarDetalle,
         }))
       );
 
@@ -1050,6 +1100,72 @@ export default function LicitacionCotizacion({
                                   </label>
                                 ))}
                               </fieldset>
+
+                              {/* Marca de producto similar. Va DESPUÉS de los
+                                  radios y solo en "cotizo" porque no es una
+                                  cuarta opción: es una marca sobre la
+                                  cotización con precio, que sigue compitiendo
+                                  con normalidad. */}
+                              {fila.estado === "cotizo" && (
+                                <div className="space-y-1.5 border-t border-zinc-100 pt-2">
+                                  <label className="flex cursor-pointer items-start gap-1.5 text-[11px] leading-tight text-zinc-500 hover:text-zinc-700">
+                                    <input
+                                      type="checkbox"
+                                      checked={fila.esProductoSimilar}
+                                      onChange={(e) =>
+                                        setFila(
+                                          idx,
+                                          "esProductoSimilar",
+                                          e.target.checked
+                                        )
+                                      }
+                                      className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-zinc-300 accent-[var(--color-primario)]"
+                                    />
+                                    <span className="min-w-0">
+                                      <span className="font-medium text-zinc-700">
+                                        Es producto similar
+                                      </span>
+                                      <span className="block text-zinc-400">
+                                        No es exactamente el solicitado. Tu
+                                        precio compite igual.
+                                      </span>
+                                    </span>
+                                  </label>
+
+                                  {fila.esProductoSimilar && (
+                                    <div className="space-y-1">
+                                      <textarea
+                                        rows={2}
+                                        maxLength={LIMITE_DETALLE_SIMILAR}
+                                        value={fila.productoSimilarDetalle}
+                                        onChange={(e) =>
+                                          setFila(
+                                            idx,
+                                            "productoSimilarDetalle",
+                                            e.target.value
+                                          )
+                                        }
+                                        placeholder="¿Qué producto ofreces? Ej.: modelo 720 en lugar del 715"
+                                        aria-label="Descripción del producto similar"
+                                        className={`w-full rounded-md border px-2 py-1.5 text-[11px] leading-tight text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                                          rowErroresSimilar[idx]
+                                            ? "border-red-400 focus:border-red-400 focus:ring-red-200"
+                                            : "border-zinc-300 focus:border-zinc-400"
+                                        }`}
+                                      />
+                                      <div className="flex items-start justify-between gap-2">
+                                        <p className="text-[11px] leading-tight text-red-600">
+                                          {rowErroresSimilar[idx] ?? ""}
+                                        </p>
+                                        <span className="shrink-0 text-[10px] tabular-nums text-zinc-400">
+                                          {fila.productoSimilarDetalle.trim().length}/
+                                          {LIMITE_DETALLE_SIMILAR}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ) : rondaActual === 0 ? (
                             <div className="relative">
