@@ -62,6 +62,8 @@ export default async function LicitacionesEnProcesoPage({
           include: { proveedor: { select: { razonSocial: true } } },
         },
       },
+      // Las mejores ofertas se listan en la tarjeta en el orden de partidas.
+      orderBy: [{ posicion: "asc" }, { id: "asc" }],
     });
 
     // El mínimo NO se calcula aquí. Antes esto era `orderBy: precioUnitario asc`

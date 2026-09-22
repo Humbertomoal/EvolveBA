@@ -19,6 +19,11 @@ export async function crearOrdenesCompraParaLicitacion(
         include: { producto: { select: { nombre: true, unidadMedida: true } } },
       },
     },
+    // De aquí sale el orden de las LÍNEAS de la orden de compra: se crean en
+    // este orden y las pantallas y el PDF las leen igual. Por partida
+    // (posicion) y, dentro de una partida repartida entre proveedores, por
+    // lugar del ganador.
+    orderBy: [{ licitacionItem: { posicion: "asc" } }, { orden: "asc" }],
   });
 
   if (asignaciones.length === 0) return;

@@ -82,7 +82,9 @@ export default async function ResultadoPage({
           include: { producto: { select: { nombre: true, unidadMedida: true } } },
         },
       },
-      orderBy: [{ licitacionItemId: "asc" }, { orden: "asc" }],
+      // Mismo orden de partidas que ve el comprador; `orden` es el lugar del
+      // ganador dentro de la partida.
+      orderBy: [{ licitacionItem: { posicion: "asc" } }, { orden: "asc" }],
     }),
   ]);
 

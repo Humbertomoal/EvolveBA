@@ -47,7 +47,7 @@ export default async function DetalleSeleccionPage({
           moneda: true,
           producto: { select: { nombre: true, unidadMedida: true } },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ posicion: "asc" }, { id: "asc" }],
       },
     },
   });
@@ -77,7 +77,10 @@ export default async function DetalleSeleccionPage({
         include: { producto: { select: { nombre: true, unidadMedida: true } } },
       },
     },
-    orderBy: [{ licitacionItemId: "asc" }, { orden: "asc" }],
+    // Por posición de la PARTIDA (licitacionItem.posicion), no por su id, que es
+    // un cuid sin orden. `orden` después sigue siendo el lugar del ganador
+    // (1º, 2º) dentro de la partida: son dos cosas distintas.
+    orderBy: [{ licitacionItem: { posicion: "asc" } }, { orden: "asc" }],
   });
 
   // Todas las ofertas para esta licitación (para dropdowns).

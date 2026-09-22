@@ -82,6 +82,21 @@ export type LicitacionInput = {
   // a "Programada" en el camino de CREACIÓN, esquivando `resolverEstado`.
   intencion: IntencionGuardado;
   modoLicitacion: string;
+  /**
+   * true = el comprador movió partidas de lugar con los botones subir/bajar.
+   *
+   * La POSICIÓN no viaja como número por partida: el servidor la deriva del
+   * ORDEN DEL ARREGLO `items`, igual que al crear. El cliente solo dice "este
+   * es el orden", no qué número le toca a cada fila.
+   *
+   * Con la bandera en false ninguna partida se renumera: cada una conserva su
+   * `posicion` y las nuevas se van al final. En true se reasigna 0..n-1 sobre
+   * la lista completa tal como se ve en pantalla, contando las retiradas, que
+   * siguen visibles tachadas y deben conservar su lugar. Esa renumeración
+   * cierra los huecos que hubieran dejado soft-deletes previos: un reorden
+   * explícito sí renumera, un guardado de rutina nunca.
+   */
+  reordenado: boolean;
   items: ItemInput[];
   proveedoresInvitados: string[];
   // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.

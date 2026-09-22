@@ -55,7 +55,15 @@ export async function descargarOrdenCompraPdfAction(
           vendedorCorreo: true,
         },
       },
-      lineas: { orderBy: { createdAt: "asc" } },
+      // Mismo criterio que crearOrdenesCompraParaLicitacion: por posición de la
+      // partida. `createdAt` empataba (las líneas nacen en un solo INSERT
+      // anidado) y el desempate acababa siendo el orden físico.
+      lineas: {
+        orderBy: [
+          { asignacion: { licitacionItem: { posicion: "asc" } } },
+          { asignacion: { orden: "asc" } },
+        ],
+      },
     },
   });
   if (!orden) throw new Error("No se encontró la orden de compra.");
@@ -116,7 +124,7 @@ async function cargarLicitacionParaPdf(licitacionId: string) {
       items: {
         where: { eliminado: false },
         include: { producto: { select: { nombre: true, unidadMedida: true } } },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ posicion: "asc" }, { id: "asc" }],
       },
       proveedoresInvitados: {
         include: { proveedor: { select: { id: true, razonSocial: true } } },
@@ -189,7 +197,9 @@ export async function descargarResumenLicitacionPdfAction(
     const asignaciones = await prisma.asignacionMaterial.findMany({
       where: { licitacionId },
       include: { proveedor: { select: { razonSocial: true } } },
-      orderBy: { orden: "asc" },
+      // Partidas en el orden del comprador; dentro de cada una, el lugar del
+      // ganador (AsignacionMaterial.orden).
+      orderBy: [{ licitacionItem: { posicion: "asc" } }, { orden: "asc" }],
     });
     const asignacionesPorItem = new Map<string, typeof asignaciones>();
     for (const a of asignaciones) {

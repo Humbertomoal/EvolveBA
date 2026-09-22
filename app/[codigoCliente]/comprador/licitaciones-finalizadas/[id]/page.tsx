@@ -28,7 +28,7 @@ export default async function DetalleFinalizadaPage({
       updatedAt: true,
       items: {
         where: { eliminado: false },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ posicion: "asc" }, { id: "asc" }],
         select: {
           id: true,
           cantidadSolicitada: true,

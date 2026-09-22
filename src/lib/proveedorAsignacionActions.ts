@@ -109,6 +109,8 @@ export async function confirmarRespuestaFinalAction(
         select: { producto: { select: { nombre: true, unidadMedida: true } } },
       },
     },
+    // El resumen que ve y confirma el proveedor, en el orden del comprador.
+    orderBy: [{ licitacionItem: { posicion: "asc" } }, { orden: "asc" }],
   });
 
   if (asignaciones.length === 0) {

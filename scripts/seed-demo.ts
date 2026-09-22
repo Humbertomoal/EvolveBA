@@ -579,7 +579,7 @@ async function main() {
       });
       conteo.invitados += invitados.length;
 
-      for (const prod of seleccion) {
+      for (const [posicion, prod] of seleccion.entries()) {
         const cantidad = entero(5, 250);
         // Precio final objetivo, en la moneda de la licitación.
         const finalMXN = redondear(prod.precioBaseMXN * derivaAnual * entre(0.94, 1.06), 2);
@@ -592,6 +592,8 @@ async function main() {
           data: {
             licitacionId: lic.id,
             productoId: prod.id,
+            // Orden de captura de la partida (ver LicitacionItem.posicion).
+            posicion,
             cantidadSolicitada: cantidad,
             precioObjetivo: objetivo,
             moneda, // FUENTE DE VERDAD de la moneda (OfertaItem.moneda no se usa)

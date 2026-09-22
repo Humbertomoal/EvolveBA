@@ -49,7 +49,12 @@ export default async function DetalleLicitacionPage({
           // partida hace justo eso. El proveedor veía sus partidas cambiar de
           // sitio a media captura. Mismo criterio que el resto de consultas de
           // partidas.
-          orderBy: { createdAt: "asc" },
+          //
+          // Ordenaba por `createdAt`, que NO alcanzaba: createMany es un solo
+          // INSERT, así que todas las partidas de un guardado comparten el
+          // milisegundo y el empate lo volvía a resolver el orden físico. Se
+          // veía bien por casualidad, no por diseño.
+          orderBy: [{ posicion: "asc" }, { id: "asc" }],
           include: {
             producto: {
               select: {
@@ -133,7 +138,7 @@ export default async function DetalleLicitacionPage({
             noDisponible: true,
             noAplica: true,
           },
-          orderBy: [{ licitacionItemId: "asc" }, { ronda: "asc" }],
+          orderBy: [{ licitacionItem: { posicion: "asc" } }, { ronda: "asc" }],
         })
       : [];
 

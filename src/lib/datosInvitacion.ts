@@ -70,7 +70,8 @@ export async function getDatosInvitacion(
             },
           },
         },
-        orderBy: { createdAt: "asc" },
+        // Mismo orden que ve el comprador en pantalla (ver LicitacionItem.posicion).
+        orderBy: [{ posicion: "asc" }, { id: "asc" }],
       },
       proveedoresInvitados: {
         select: {

@@ -165,6 +165,22 @@ model LicitacionItem {
   cantidadSolicitada Float
   precioObjetivo     Float?
   moneda             String     @default("MXN")
+  // Orden de captura de la partida dentro de su licitación, base 0. TODAS las
+  // lecturas ordenan por aquí: `createdAt` no sirve porque `createMany` es un
+  // solo INSERT y Postgres evalúa now() una vez por transacción, así que todas
+  // las partidas de un guardado comparten el milisegundo. Sin un orden total,
+  // Postgres devuelve orden FÍSICO, y cada UPDATE de la reconciliación
+  // incremental mueve la fila de lugar: las partidas se barajaban.
+  //
+  // NO confundir con AsignacionMaterial.orden, que es el lugar del ganador
+  // (1º, 2º) dentro de una partida. En consultas de asignaciones con partida
+  // anidada, esto se escribe `licitacionItem: { posicion: "asc" }`.
+  //
+  // A propósito SIN @default, aunque la columna en la base sí tenga DEFAULT 0:
+  // así Prisma la exige en create/createMany y un camino de escritura que
+  // olvide asignarla falla en compilación, no en silencio. El DEFAULT de la
+  // base existe solo para el código ya desplegado, que todavía no la manda.
+  posicion           Int
   createdAt          DateTime   @default(now())
   // Soft-delete de PARTIDA. Una partida con ofertas, asignaciones o borrador de
   // precio NO se puede borrar (las tres FK son RESTRICT) y borrarla destruiría
@@ -182,6 +198,8 @@ model LicitacionItem {
   ofertas      OfertaItem[]
   asignaciones AsignacionMaterial[]
   seleccionesPrecio SeleccionPrecioComprador[]
+
+  @@index([licitacionId, posicion])
 }
 
 // Borrador de trabajo de la pantalla de Selección de Proveedores.

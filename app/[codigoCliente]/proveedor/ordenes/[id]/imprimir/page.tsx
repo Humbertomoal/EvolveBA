@@ -54,7 +54,12 @@ export default async function ImprimirOrdenPage({
       proveedor: { select: { razonSocial: true } },
       // Sin `select`: trae todos los escalares de OrdenCompraLinea, `moneda`
       // incluida (la congelada que viene de AsignacionMaterial.moneda).
-      lineas: { orderBy: { createdAt: "asc" } },
+      lineas: {
+        orderBy: [
+          { asignacion: { licitacionItem: { posicion: "asc" } } },
+          { asignacion: { orden: "asc" } },
+        ],
+      },
     },
   });
 

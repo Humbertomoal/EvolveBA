@@ -3,6 +3,8 @@
 import {
   IconAlertTriangle,
   IconCheck,
+  IconChevronDown,
+  IconChevronUp,
   IconFileText,
   IconInfoCircle,
   IconPencil,
@@ -307,6 +309,12 @@ export default function LicitacionForm({
   // Toda cuenta debe partir de esta, no de `items`.
   const itemsActivos = items.filter((i) => !i.eliminado);
 
+  // ¿El comprador movió partidas de lugar en esta sesión de edición? Solo con
+  // esto en true el servidor renumera las posiciones (derivándolas del orden de
+  // `items`); si no, cada partida conserva la que ya tiene. Se queda en true si
+  // el guardado falla, para no perder el reorden pendiente.
+  const [reordenado, setReordenado] = useState(false);
+
   // ── Tipos de cambio (por moneda ≠ MXN usada en los materiales) ────────────────
   // Valores como string para los inputs; se persisten como número en buildDatos.
   // Al CREAR se heredan de Settings (tiposCambioSettings); al EDITAR se usan los
@@ -542,6 +550,27 @@ export default function LicitacionForm({
       : items.filter((item) => item._id !== id);
     setItems(newItems);
     aplicarAutollenado(newItems.filter((i) => !i.eliminado));
+  }
+
+  /**
+   * Sube o baja una partida una posición. El orden vive SOLO en el estado del
+   * formulario hasta que se aprieta Guardar; ahí `reordenado` le dice al
+   * servidor que derive las posiciones del orden de este arreglo.
+   *
+   * Las retiradas (tachadas) también se mueven: conservan su lugar para cuando
+   * se restauren. No se recalcula el presupuesto autollenado, porque la suma no
+   * depende del orden.
+   */
+  function moverItem(indice: number, direccion: -1 | 1) {
+    const destino = indice + direccion;
+    if (destino < 0 || destino >= items.length) return;
+    setItems((prev) => {
+      const siguiente = [...prev];
+      [siguiente[indice], siguiente[destino]] = [siguiente[destino], siguiente[indice]];
+      return siguiente;
+    });
+    setReordenado(true);
+    setBannerInfo(null);
   }
 
   function restaurarItem(id: string) {
@@ -922,6 +951,9 @@ Asistente de Inteligencia Artificial`;
       // la base). Antes se tiraban los dos y el servidor se quedaba sin forma
       // de casar filas — de ahí el borrar-y-recrear.
       items: items.map(({ _id, ...rest }) => rest),
+      // El ORDEN del arreglo es la única señal de posición que manda el cliente;
+      // el servidor deriva los números. Ver LicitacionInput.reordenado.
+      reordenado,
       proveedoresInvitados: proveedoresSeleccionados,
       // Solo tasas válidas de monedas en uso. MXN nunca se incluye (vale 1).
       tiposCambio: monedasParaTC.reduce(
@@ -1896,6 +1928,13 @@ Asistente de Inteligencia Artificial`;
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                  <th className="px-2 py-2.5 w-14">
+                    Orden
+                    <span className="sr-only">
+                      {" "}
+                      — usa los botones subir y bajar de cada fila para cambiarlo
+                    </span>
+                  </th>
                   <th className="px-2 py-2.5 w-44">Producto</th>
                   <th className="px-2 py-2.5 w-40">Especificación</th>
                   <th className="px-2 py-2.5 w-36">Fecha de entrega</th>
@@ -1908,7 +1947,7 @@ Asistente de Inteligencia Artificial`;
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {items.map((item: any) => {
+                {items.map((item: any, indice: number) => {
                   const subtotal =
                     (parseFloat(item.cantidadSolicitada) || 0) *
                     (parseFloat(item.precioObjetivo) || 0);
@@ -1937,6 +1976,41 @@ Asistente de Inteligencia Artificial`;
                           : undefined
                       }
                     >
+                      {/* Orden: número de fila + subir/bajar. Las retiradas
+                          también se mueven, para conservar su lugar. */}
+                      <td className="px-2 py-2 no-underline">
+                        <div className="flex items-center gap-1">
+                          <span className="w-4 shrink-0 text-xs tabular-nums text-zinc-400">
+                            {indice + 1}
+                          </span>
+                          <div className="flex flex-col">
+                            <button
+                              type="button"
+                              onClick={() => moverItem(indice, -1)}
+                              disabled={indice === 0}
+                              aria-label={`Subir ${
+                                nombreProducto ?? `la partida ${indice + 1}`
+                              } al lugar ${indice}`}
+                              title="Subir una posición"
+                              className="rounded p-2 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
+                            >
+                              <IconChevronUp className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moverItem(indice, 1)}
+                              disabled={indice === items.length - 1}
+                              aria-label={`Bajar ${
+                                nombreProducto ?? `la partida ${indice + 1}`
+                              } al lugar ${indice + 2}`}
+                              title="Bajar una posición"
+                              className="rounded p-2 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
+                            >
+                              <IconChevronDown className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-2 py-2">
                         <select
                           value={item.productoId}

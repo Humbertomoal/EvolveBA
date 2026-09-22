@@ -82,6 +82,8 @@ export async function prepararNotificacionesGanadoresAction(
           select: { producto: { select: { nombre: true, unidadMedida: true } } },
         },
       },
+      // La tabla de materiales del correo va en el orden del comprador.
+      orderBy: [{ licitacionItem: { posicion: "asc" } }, { orden: "asc" }],
     });
 
     // Participantes (cotizaron): proveedorIds distintos con ofertas.

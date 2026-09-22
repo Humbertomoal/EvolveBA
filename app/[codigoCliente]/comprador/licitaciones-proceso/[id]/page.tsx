@@ -44,7 +44,7 @@ export default async function DetalleLicitacionProcesoPage({
         include: {
           producto: { select: { nombre: true, unidadMedida: true } },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ posicion: "asc" }, { id: "asc" }],
       },
       proveedoresInvitados: {
         include: {

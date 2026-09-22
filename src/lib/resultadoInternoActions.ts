@@ -102,6 +102,8 @@ export async function prepararResultadoInternoAction(
           select: { producto: { select: { nombre: true, unidadMedida: true } } },
         },
       },
+      // Tabla de ganadores en el orden de partidas del comprador.
+      orderBy: [{ licitacionItem: { posicion: "asc" } }, { orden: "asc" }],
     });
     const itemsGanadores: ItemTablaGanador[] = asignaciones.map((a) => ({
       material: a.licitacionItem.producto.nombre,

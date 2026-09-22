@@ -29,7 +29,7 @@ export default async function CapturaManualPage({
           fechaEntrega: true,
           producto: { select: { nombre: true, unidadMedida: true } },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ posicion: "asc" }, { id: "asc" }],
       },
       proveedoresInvitados: {
         select: { proveedor: { select: { id: true, razonSocial: true } } },

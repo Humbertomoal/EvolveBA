@@ -59,7 +59,12 @@ export default async function OrdenCompradorDetallePage({
         },
       },
       proveedor: { select: { razonSocial: true } },
-      lineas: { orderBy: { createdAt: "asc" } },
+      lineas: {
+        orderBy: [
+          { asignacion: { licitacionItem: { posicion: "asc" } } },
+          { asignacion: { orden: "asc" } },
+        ],
+      },
     },
   });
 

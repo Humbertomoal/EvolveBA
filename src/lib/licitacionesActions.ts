@@ -9,6 +9,10 @@ import { resolverEstado } from "@/src/lib/licitacionesIntencion";
 import { exigirCompradorSesion } from "@/src/lib/compradorSessionSegura";
 import { publicarAvisoRonda } from "@/src/lib/avisosRonda";
 import type { ItemInput, LicitacionInput } from "@/src/lib/licitacionInputTypes";
+import {
+  sentenciaPosicionesPartidas,
+  type PosicionPartida,
+} from "@/src/lib/posicionesPartidas";
 
 export type ResultadoGuardarLicitacion = {
   destino: string;
@@ -163,6 +167,7 @@ type ItemEnBase = {
   cantidadSolicitada: number;
   precioObjetivo: number | null;
   moneda: string;
+  posicion: number;
   eliminado: boolean;
   producto: { nombre: string };
   _count: { ofertas: number; asignaciones: number; seleccionesPrecio: number };
@@ -189,12 +194,26 @@ function tieneDependencias(fila: ItemEnBase): boolean {
   );
 }
 
+/**
+ * Datos de un `update` de partida. NO lleva `posicion`: los cambios de lugar van
+ * TODOS por la sentencia única de `sentenciaPosicionesPartidas`, así que ninguna
+ * fila se escribe dos veces en el mismo guardado.
+ */
+type DatosUpdateItem = ReturnType<typeof normalizarItem> & {
+  eliminado?: boolean;
+  eliminadoEn?: Date | null;
+};
+
 type Reconciliacion = {
-  aCrear: ItemInput[];
-  aActualizar: {
-    id: string;
-    datos: ReturnType<typeof normalizarItem> & { eliminado?: false; eliminadoEn?: null };
-  }[];
+  /** Partida nueva + la posición que le toca (al final de las que ya hay). */
+  aCrear: { item: ItemInput; posicion: number }[];
+  aActualizar: { id: string; datos: DatosUpdateItem }[];
+  /**
+   * Partidas EXISTENTES que cambian de lugar. Van aparte de `aActualizar`
+   * porque se aplican en una sola sentencia; vacío cuando no hubo reorden, y
+   * entonces el guardado no incluye SQL crudo.
+   */
+  posiciones: PosicionPartida[];
   /** Partidas a OCULTAR: tienen dependencias, así que no se pueden borrar. */
   aOcultar: string[];
   /** Partidas a borrar de verdad: no las referencia nada. */
@@ -214,11 +233,23 @@ type Reconciliacion = {
 function reconciliarItems(
   itemsEnBase: ItemEnBase[],
   itemsPayload: ItemInput[],
-  fechaCambiada: boolean
+  fechaCambiada: boolean,
+  /**
+   * true = el comprador reordenó: las posiciones se derivan del ÍNDICE en
+   * `itemsPayload`, que llega en el orden de la pantalla. false = nadie se
+   * movió y cada partida conserva la `posicion` que ya tiene.
+   */
+  reordenado: boolean
 ): Reconciliacion {
   const porId = new Map(itemsEnBase.map((i) => [i.id, i]));
-  const aCrear: ItemInput[] = [];
+  const aCrear: Reconciliacion["aCrear"] = [];
+  // Las partidas nuevas se van al FINAL: max de las que ya hay, +1 en adelante.
+  // Se calcula con lo ya cargado en memoria (incluidas las ocultas, que siguen
+  // ocupando su lugar), sin consultas extra. Sin partidas previas arranca en 0.
+  let siguientePosicion =
+    itemsEnBase.reduce((max, i) => Math.max(max, i.posicion), -1) + 1;
   const aActualizar: Reconciliacion["aActualizar"] = [];
+  const posiciones: PosicionPartida[] = [];
   const aOcultar: string[] = [];
   const bloqueos: string[] = [];
   const cambios: CambiosLicitacion = {
@@ -231,19 +262,34 @@ function reconciliarItems(
   };
   const vistos = new Set<string>();
 
-  for (const item of itemsPayload) {
+  for (const [indice, item] of itemsPayload.entries()) {
     const fila = item.id ? porId.get(item.id) : undefined;
+    // El índice va sobre la lista YA filtrada de filas sin producto, así que una
+    // fila vacía a medio capturar no consume un número y las posiciones quedan
+    // contiguas. Las retiradas SÍ cuentan: en pantalla siguen ahí, tachadas.
+    const posicionDeseada = reordenado ? indice : undefined;
 
     // Sin id, o con un id que ya no existe (otra pestaña la borró): es nueva.
     // Una fila nueva marcada como oculta no llega a existir: no hay nada que
     // crear ni nada que ocultar.
     if (!fila) {
       if (item.eliminado) continue;
-      aCrear.push(item);
+      // Con reorden, el lugar que ocupa en la lista; si no, al final.
+      aCrear.push({
+        item,
+        posicion: posicionDeseada ?? siguientePosicion++,
+      });
       cambios.agregadas++;
       continue;
     }
     vistos.add(fila.id);
+
+    // Cambió de lugar: se anota para la sentencia única de posiciones, sin
+    // importar qué más le pase a la fila (se oculta, se restaura, se modifica o
+    // nada). Así la posición se escribe en un solo sitio.
+    if (posicionDeseada !== undefined && posicionDeseada !== fila.posicion) {
+      posiciones.push({ id: fila.id, posicion: posicionDeseada });
+    }
 
     // ── Ocultar ────────────────────────────────────────────────────────────
     // El comprador la quitó en pantalla. Como tiene ofertas detrás, no se
@@ -254,7 +300,9 @@ function reconciliarItems(
         aOcultar.push(fila.id);
         cambios.ocultas++;
       }
-      // Ya estaba oculta y sigue oculta: no se toca nada.
+      // Ya estaba oculta y sigue oculta: no se toca nada. Si además se movió, su
+      // nuevo lugar ya quedó anotado arriba y viaja por la sentencia de
+      // posiciones; sus demás datos NO se reescriben.
       continue;
     }
 
@@ -287,7 +335,10 @@ function reconciliarItems(
     else if (otroCambio) cambios.modificadas++;
 
     // Se escribe solo si de verdad cambió algo: un guardado que no toca la
-    // partida no debe moverle nada (ni disparar avisos).
+    // partida no debe moverle nada (ni disparar avisos). Un cambio de SOLO
+    // posición no genera update: va por la sentencia de posiciones. Y tampoco
+    // toca los contadores de `cambios`, así que reordenar no dispara el correo
+    // ni el chat de ajuste — al proveedor no le cambia nada de lo que cotiza.
     if (restaurar || cantidadCambio || otroCambio) {
       aActualizar.push({
         id: fila.id,
@@ -313,7 +364,7 @@ function reconciliarItems(
     aBorrar.push(fila.id);
   }
 
-  return { aCrear, aActualizar, aOcultar, aBorrar, bloqueos, cambios };
+  return { aCrear, aActualizar, posiciones, aOcultar, aBorrar, bloqueos, cambios };
 }
 
 export async function crearLicitacionAction(
@@ -399,8 +450,12 @@ export async function crearLicitacionAction(
   const itemsValidos = datos.items.filter((item) => item.productoId !== "");
   if (itemsValidos.length > 0) {
     await prisma.licitacionItem.createMany({
-      data: itemsValidos.map((item: any) => ({
+      // El índice del arreglo ES el orden de captura: el formulario agrega
+      // siempre al final y nunca reordena solo. Se deriva aquí en vez de
+      // aceptarlo del cliente.
+      data: itemsValidos.map((item: any, indice: number) => ({
         licitacionId: licitacion.id,
+        posicion: indice,
         productoId: item.productoId,
         especificacion: item.especificacion || null,
         fechaEntrega: item.fechaEntrega ? new Date(item.fechaEntrega) : null,
@@ -527,13 +582,17 @@ export async function actualizarLicitacionAction(
       cantidadSolicitada: true,
       precioObjetivo: true,
       moneda: true,
+      // La posición ya cargada aquí es la que conservan las partidas que siguen,
+      // y de su máximo salen las posiciones de las nuevas: la reconciliación no
+      // necesita ninguna consulta extra.
+      posicion: true,
       eliminado: true,
       producto: { select: { nombre: true } },
       _count: { select: { ofertas: true, asignaciones: true, seleccionesPrecio: true } },
     },
   });
   const itemsValidos = datos.items.filter((item) => item.productoId !== "");
-  const plan = reconciliarItems(itemsEnBase, itemsValidos, fechaCambio);
+  const plan = reconciliarItems(itemsEnBase, itemsValidos, fechaCambio, datos.reordenado);
 
   if (plan.bloqueos.length > 0) {
     return {
@@ -601,27 +660,72 @@ export async function actualizarLicitacionAction(
   // Actualizar / crear / borrar por separado, conservando el id de las filas
   // que siguen. Ese id es lo que mantiene vivas las ofertas ya recibidas: con
   // el borrar-y-recrear anterior, cada guardado les cambiaba la fila debajo.
-  for (const { id: itemId, datos: cambios } of plan.aActualizar) {
-    await prisma.licitacionItem.update({ where: { id: itemId }, data: cambios });
-  }
-  if (plan.aCrear.length > 0) {
-    await prisma.licitacionItem.createMany({
-      data: plan.aCrear.map((item) => ({ licitacionId: id, ...normalizarItem(item) })),
-    });
-  }
-  if (plan.aOcultar.length > 0) {
-    // Soft-delete: la partida deja de contar en TODOS los cálculos (cada
-    // consulta filtra `eliminado: false`) pero conserva sus ofertas y el
-    // histórico, y se puede restaurar. Es lo que P0 rechazaba con un mensaje.
-    await prisma.licitacionItem.updateMany({
-      where: { id: { in: plan.aOcultar } },
-      data: { eliminado: true, eliminadoEn: new Date() },
-    });
-  }
-  if (plan.aBorrar.length > 0) {
-    // Solo llegan aquí las partidas sin ofertas, asignaciones ni borrador de
-    // precio: las tres FK son RESTRICT, así que un borrado indebido fallaría.
-    await prisma.licitacionItem.deleteMany({ where: { id: { in: plan.aBorrar } } });
+  // UN SOLO $transaction en forma de ARREGLO, en el orden en que se le pasan:
+  // el guardado de partidas es todo-o-nada. Antes eran `await` sueltos y un
+  // reorden interrumpido a medias dejaba posiciones repetidas.
+  //
+  // Son 4 o 5 sentencias, no una por partida: TODAS las posiciones caben en la
+  // primera (ver posicionesPartidas.ts, con la medición que lo justifica). Eso
+  // importa porque al lote le aplica el timeout de 5 s de Prisma, que no se
+  // puede subir: con un update por partida, un reorden de 50 reventaba.
+  //
+  // La cabecera (licitacion.update) queda FUERA a propósito: ya se escribió
+  // arriba con su propio manejo de número duplicado.
+  const sentenciaPosiciones = sentenciaPosicionesPartidas(id, plan.posiciones);
+  const operaciones = [
+    // Primero las posiciones, en una sola sentencia. Ausente si nadie se movió.
+    ...(sentenciaPosiciones ? [sentenciaPosiciones] : []),
+    ...plan.aActualizar.map(({ id: itemId, datos: cambiosItem }) =>
+      prisma.licitacionItem.update({ where: { id: itemId }, data: cambiosItem })
+    ),
+    ...(plan.aCrear.length > 0
+      ? [
+          prisma.licitacionItem.createMany({
+            data: plan.aCrear.map(({ item, posicion }) => ({
+              licitacionId: id,
+              posicion,
+              ...normalizarItem(item),
+            })),
+          }),
+        ]
+      : []),
+    ...(plan.aOcultar.length > 0
+      ? [
+          // Soft-delete: la partida deja de contar en TODOS los cálculos (cada
+          // consulta filtra `eliminado: false`) pero conserva sus ofertas y el
+          // histórico, y se puede restaurar. Es lo que P0 rechazaba con un mensaje.
+          prisma.licitacionItem.updateMany({
+            where: { id: { in: plan.aOcultar } },
+            data: { eliminado: true, eliminadoEn: new Date() },
+          }),
+        ]
+      : []),
+    ...(plan.aBorrar.length > 0
+      ? [
+          // Solo llegan aquí las partidas sin ofertas, asignaciones ni borrador
+          // de precio: las tres FK son RESTRICT, así que un borrado indebido
+          // fallaría.
+          prisma.licitacionItem.deleteMany({ where: { id: { in: plan.aBorrar } } }),
+        ]
+      : []),
+  ];
+
+  if (operaciones.length > 0) {
+    try {
+      await prisma.$transaction(operaciones);
+    } catch (error) {
+      // El lote es todo-o-nada, así que las partidas quedaron como estaban. Se
+      // DEVUELVE el fallo en vez de lanzarlo para que el formulario conserve lo
+      // capturado —incluido el reorden— y el comprador pueda reintentar.
+      console.error("[actualizarLicitacion] fallo el lote de partidas", error);
+      return {
+        ok: false,
+        error:
+          "No se pudieron guardar las partidas, así que quedaron como estaban " +
+          "(no hay nada a medias). Los datos generales sí se guardaron. " +
+          "Revisa tu conexión y vuelve a intentar: tus cambios siguen en pantalla.",
+      };
+    }
   }
 
   await prisma.licitacionProveedor.deleteMany({ where: { licitacionId: id } });

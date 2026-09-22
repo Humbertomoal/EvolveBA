@@ -58,7 +58,11 @@ export default async function EditarLicitacionPage({
           // precio se OCULTA al quitarla; una sin nada se borra de verdad.
           _count: { select: { ofertas: true, asignaciones: true, seleccionesPrecio: true } },
         },
-        orderBy: { createdAt: "asc" },
+        // Orden de captura. `createdAt` NO sirve: createMany es un solo INSERT y
+        // todas las partidas de un guardado comparten el milisegundo, así que el
+        // empate lo resolvía el orden físico y cada UPDATE las barajaba. `id`
+        // desempata para que el resultado sea determinista.
+        orderBy: [{ posicion: "asc" }, { id: "asc" }],
       },
       proveedoresInvitados: true,
     },

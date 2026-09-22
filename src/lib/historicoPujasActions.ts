@@ -73,7 +73,9 @@ async function consultarOfertasHistorico(
     orderBy: [
       { ronda: "asc" },
       { proveedor: { razonSocial: "asc" } },
-      { licitacionItem: { producto: { nombre: "asc" } } },
+      // Los materiales en el orden del comprador, no alfabético: así el modal y
+      // el Excel se leen igual que el resto de las pantallas.
+      { licitacionItem: { posicion: "asc" } },
     ],
   });
 
