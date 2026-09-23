@@ -351,7 +351,19 @@ export default function LicitacionCotizacion({
 
   // ── Tiempo extra state ────────────────────────────────────────────────────
   const [modoSoloLectura, setModoSoloLectura] = useState(false);
+  // DOS estados, y la separación es el punto entero:
+  //
+  //   · `tiempoExtraActivo`         → el minuto extra está CORRIENDO. Manda
+  //     el intervalo del contador y el AUTO-ENVÍO al llegar a 0.
+  //   · `modalTiempoExtraAbierto`   → si se ve el modal que bloquea la
+  //     pantalla, o solo la banda.
+  //
+  // Antes eran uno solo y el modal no tenía forma de cerrarse: apagar
+  // `tiempoExtraActivo` para ocultarlo habría cortado el intervalo y, con él,
+  // el auto-envío — justo la red de seguridad que este minuto existe para
+  // dar. Cerrar el modal solo apaga el segundo.
   const [tiempoExtraActivo, setTiempoExtraActivo] = useState(false);
+  const [modalTiempoExtraAbierto, setModalTiempoExtraAbierto] = useState(true);
   const [tiempoExtraRestante, setTiempoExtraRestante] = useState(60);
   const [notifAutoEnvio, setNotifAutoEnvio] = useState(false);
   // Rechazo del servidor. Antes cualquier fallo de enviarOfertaAction quedaba
@@ -384,6 +396,7 @@ export default function LicitacionCotizacion({
     rondaPrevia.current = rondaActual;
     setModoSoloLectura(false);
     setTiempoExtraActivo(false);
+    setModalTiempoExtraAbierto(true);
     setTiempoExtraRestante(60);
     setNotifAutoEnvio(false);
     setCanceloParticipacion(false);
@@ -472,6 +485,7 @@ export default function LicitacionCotizacion({
     ) {
       tiempoExtraDisparadoRef.current = true;
       setTiempoExtraActivo(true);
+      setModalTiempoExtraAbierto(true);
       setTiempoExtraRestante(60);
     }
   }, [remaining, rondaActual, esperandoDecision, modoSoloLectura]);
@@ -816,6 +830,21 @@ export default function LicitacionCotizacion({
             : "Registrar oferta de precio por producto"}
         </h2>
 
+        {/* La regla del IVA se repite aquí aunque ya esté en el encabezado
+            de la columna: es lo único que cambia el NÚMERO que el proveedor
+            teclea, y en una licitación de varias rondas vuelve a capturar
+            precios muchas veces después de haber leído el correo.
+
+            Solo en captura: con `esperandoDecision` el título pasa a "Tu
+            última oferta enviada" y no hay nada que capturar, así que un
+            imperativo ahí sobra. Para ese caso queda el "(sin IVA)" de la
+            columna, que se ve en los dos modos. */}
+        {!esperandoDecision && (
+          <p className="text-xs text-zinc-500">
+            Captura todos los precios <span className="font-semibold text-zinc-700">SIN IVA</span>.
+          </p>
+        )}
+
         {/* Cancelled participation banner */}
         {canceloParticipacion && (
           <div className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
@@ -859,7 +888,9 @@ export default function LicitacionCotizacion({
                   <th className="min-w-[80px] px-3 py-2.5">Moneda</th>
                   <th className="min-w-[120px] px-3 py-2.5">Fecha Requerida</th>
                   <th className="min-w-[140px] px-3 py-2.5">Cant. Disponible</th>
-                  <th className="min-w-[210px] px-3 py-2.5">Precio Unitario</th>
+                  <th className="min-w-[210px] px-3 py-2.5">
+                    Precio Unitario (sin IVA)
+                  </th>
                   <th className="min-w-[160px] px-3 py-2.5">¿Cumples la fecha?</th>
                 </tr>
               </thead>
@@ -1428,8 +1459,11 @@ export default function LicitacionCotizacion({
         </div>
       )}
 
-      {/* ── Extra time modal (cannot be dismissed) ───────────────────────── */}
-      {tiempoExtraActivo && (
+      {/* ── Modal de tiempo extra ─────────────────────────────────────────
+          Se puede cerrar: al hacerlo queda la banda de arriba con el mismo
+          contador. El minuto NO se cancela — `tiempoExtraActivo` sigue en
+          true, así que el intervalo y el auto-envío continúan. */}
+      {tiempoExtraActivo && modalTiempoExtraAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm overflow-hidden rounded-xl bg-white shadow-2xl">
             {/* Pulsing red header */}
@@ -1471,8 +1505,50 @@ export default function LicitacionCotizacion({
               >
                 Cancelar y no participar
               </button>
+
+              {/* Cerrar: oculta el modal y nada más. Sin esto el proveedor
+                  quedaba atrapado —recargar solo lo quitaba hasta que el
+                  efecto lo volvía a disparar, porque el reloj de la ronda
+                  seguía en cero—. `tiempoExtraDisparadoRef` ya está en true,
+                  así que no reaparece en esta sesión. */}
+              <button
+                type="button"
+                onClick={() => setModalTiempoExtraAbierto(false)}
+                className="w-full rounded-md border border-zinc-300 px-4 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+              >
+                Cerrar y seguir capturando
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Banda de tiempo extra ─────────────────────────────────────────
+          Sustituye al modal cuando el proveedor lo cierra. Va FIJA y arriba:
+          abajo ya viven la barra de totales (z-30) y los dos toasts (z-50),
+          y con z-40 queda por encima de la barra pero por debajo de los
+          modales, así que nunca tapa una decisión.
+
+          Usa el mismo `tiempoExtraRestante` que el modal, así que sigue
+          contando en vivo con el intervalo que ya estaba corriendo. */}
+      {tiempoExtraActivo && !modalTiempoExtraAbierto && (
+        <div className="fixed left-1/2 top-4 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-red-200 bg-red-50 px-4 py-2 shadow-lg">
+          <span className="animate-pulse text-sm font-semibold text-red-600">
+            Tiempo extra
+          </span>
+          <span className="tabular-nums text-lg font-bold text-red-600">
+            0:{String(tiempoExtraRestante).padStart(2, "0")}
+          </span>
+          <span className="hidden text-xs text-red-700 sm:inline">
+            · tu oferta se enviará automáticamente al terminar
+          </span>
+          <button
+            type="button"
+            onClick={() => setModalTiempoExtraAbierto(true)}
+            className="rounded-full px-2 py-0.5 text-xs font-medium text-red-700 underline underline-offset-2 transition-colors hover:bg-red-100"
+          >
+            Ver opciones
+          </button>
         </div>
       )}
 

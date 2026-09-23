@@ -244,6 +244,8 @@ Nos da gusto informarte que tu oferta resultó seleccionada en la licitación {n
 
 {tablaMateriales}
 
+Los precios unitarios e importes mostrados son SIN IVA.
+
 Esta asignación es preliminar. Antes de emitir la orden de compra necesitamos que confirmes que puedes cumplir con las cantidades y las fechas de entrega indicadas arriba.
 
 Para validarla:
@@ -271,6 +273,8 @@ Atentamente,
 Nos complace informarte que has resultado ganador en la licitación {numeroLicitacion} para los siguientes materiales:
 
 {tablaMateriales}
+
+Los precios unitarios e importes mostrados son SIN IVA.
 
 El siguiente paso es que ingreses al portal para revisar y confirmar la asignación:
 
