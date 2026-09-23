@@ -4,7 +4,7 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import { getDatosInvitacion } from "@/src/lib/datosInvitacion";
-import { soloOfertasValidas } from "@/src/lib/ofertaValida";
+import { mejorOfertaValida, soloOfertasValidas } from "@/src/lib/ofertaValida";
 import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,
@@ -275,15 +275,41 @@ export default async function DetalleLicitacionProcesoPage({
     });
 
   const mejoresPrecioItems: MejorPrecioItem[] = licitacion.items.map((item: any) => {
-    const itemOfertas = todasLasOfertas.filter(
-      (o: any) => o.licitacionItemId === item.id
+    // QUINTO escape del bug del precio 0 — ver ofertaValida.ts.
+    //
+    // Este bloque calculaba su propio mínimo sobre las ofertas CRUDAS: se
+    // quedaba con la primera de cada proveedor confiando en el
+    // `orderBy: { precioUnitario: "asc" }` de la consulta, y volvía a ordenar
+    // por precio. Un "no dispongo" se guarda con precioUnitario = 0, así que
+    // ordenaba primero, se convertía en "la mejor oferta" de ese proveedor y
+    // ganaba la partida — la tabla lo anunciaba como ganador a $0, que
+    // `textoPrecioGanador` pinta como "Gratis".
+    //
+    // El filtro va PRIMERO y es `soloOfertasValidas`, no un `precio > 0`: un
+    // "no aplica" es un $0 LEGÍTIMO que sí compite y puede ganar, y tiene que
+    // seguir apareciendo como "Gratis". El helper distingue los dos casos; un
+    // `> 0` los aplastaría por igual.
+    const itemOfertas = soloOfertasValidas(
+      todasLasOfertas.filter((o: any) => o.licitacionItemId === item.id)
     );
 
-    // Mejor oferta por proveedor (ya ordenadas por precio asc, primera por proveedor = la más barata)
-    const bestPerProveedor = new Map<string, (typeof itemOfertas)[0]>();
+    // La mejor de cada proveedor se pide al helper en vez de deducirla del
+    // orden de la consulta. Con el filtro de arriba ya no es un bug, pero
+    // depender del `orderBy` para calcular un mínimo es justo la forma que
+    // tuvo este error las cinco veces: aquí queda explícito.
+    const ofertasPorProveedor = new Map<string, typeof itemOfertas>();
     for (const o of itemOfertas) {
-      if (!bestPerProveedor.has(o.proveedorId)) {
-        bestPerProveedor.set(o.proveedorId, o);
+      const lista = ofertasPorProveedor.get(o.proveedorId);
+      if (lista) lista.push(o);
+      else ofertasPorProveedor.set(o.proveedorId, [o]);
+    }
+    const bestPerProveedor = new Map<string, (typeof itemOfertas)[0]>();
+    for (const [proveedorId, ofertasDelProveedor] of ofertasPorProveedor) {
+      const mejorDelProveedor = mejorOfertaValida(ofertasDelProveedor);
+      // `null` es imposible aquí (la lista ya viene filtrada), pero se respeta
+      // el contrato del helper en vez de forzarlo con un `!`.
+      if (mejorDelProveedor) {
+        bestPerProveedor.set(proveedorId, mejorDelProveedor);
       }
     }
     const sorted = [...bestPerProveedor.values()].sort(
