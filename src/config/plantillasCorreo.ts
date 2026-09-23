@@ -39,6 +39,13 @@ export interface PlantillaCorreo {
  * adjuntos, firma— es EL MISMO y vive una sola vez en `CUERPO_LICITACION`. Si
  * se edita el detalle de la licitación, se edita para las dos redacciones.
  *
+ * La nota de PRECIOS SIN IVA va DOS veces a propósito: como punto 6 de las
+ * instrucciones y como línea suelta pegada a la tabla de materiales. En un
+ * correo de texto plano no hay negritas ni color, y el proveedor que salta
+ * directo a la tabla para ver qué cotizar se salta la lista entera. Es la
+ * única regla del correo que cambia el NÚMERO que el proveedor escribe, así
+ * que se repite donde mira antes de escribirlo.
+ *
  * OJO al tocar los puntos 1 y 2 de las instrucciones: hablan de ingresar el
  * día del inicio y del acceso 15 minutos antes. Para un AJUSTE sobre una
  * licitación ya en curso ese momento ya pasó. Se conservan tal cual porque el
@@ -58,10 +65,13 @@ A continuación, te compartimos las instrucciones, con el objetivo de que cuente
 3. La modalidad de la licitación es simultánea y de subasta: habrá varias rondas en las que tendrás la oportunidad de mejorar tu oferta, y todos los participantes ofertan al mismo tiempo para garantizar que compitan de forma correcta y justa.
 4. Cada vez que alguno de los competidores mejore la oferta anterior, se activará una nueva ronda para darles la oportunidad de mejorar de nuevo.
 5. Revisa los materiales y cantidades que se licitarán, así como los archivos adjuntos.
-6. Te recomendamos que llegues preparado teniendo a la mano la lista de productos con sus precios más competitivos, ya que los demás proveedores llegarán listos con sus ofertas para cada ronda. Si no llegas preparado, incrementa la probabilidad de que otro competidor gane la licitación.
+6. IMPORTANTE: todos los precios que captures deben ser SIN IVA. Registra el precio unitario por partida antes de impuestos.
+7. Te recomendamos que llegues preparado teniendo a la mano la lista de productos con sus precios más competitivos, ya que los demás proveedores llegarán listos con sus ofertas para cada ronda. Si no llegas preparado, incrementa la probabilidad de que otro competidor gane la licitación.
 
 Fecha de inicio: {fechaInicio}
 Fecha de cierre: {fechaFin}
+
+IMPORTANTE: los precios se capturan SIN IVA.
 
 Materiales a licitar (los que corresponden a tu catálogo):
 {tablaMateriales}
