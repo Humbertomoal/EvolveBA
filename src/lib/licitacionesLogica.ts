@@ -100,6 +100,22 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
       data: { esperandoDecision: true, fechaFinReal: now, fechaEsperandoDecision: now },
     });
     // Entra a la etapa "Esperando Decisión" (automática, sin usuario).
+    //
+    // NO se publica aviso de cierre. El sistema se DETIENE en silencio y
+    // espera al comprador, que decide con los botones del detalle: agregar
+    // otra ronda o finalizar.
+    //
+    // Antes se anunciaba el final aquí, solo. En la licitación 0021 eso
+    // produjo esta secuencia en el chat de los 7 proveedores:
+    //
+    //   17:00:14  "Hemos llegado a los mejores precios... nos comunicaremos
+    //              con los participantes seleccionados"   (automático)
+    //   17:00:22  "se generará una séptima ronda"          (+8 segundos)
+    //   17:10:26  "Hemos llegado a los mejores precios..." (otra vez)
+    //
+    // El sistema daba por terminada la licitación antes de que el comprador
+    // decidiera, y cuando decidía seguir el anuncio ya no se podía retirar.
+    // El aviso de cierre sale ahora SOLO de `enviarAvisoFinalizacionAction`.
     if (cierre.count === 1) {
       await registrarCambioEstado(
         licitacionId,
@@ -107,10 +123,6 @@ export async function verificarYActualizarEstado(licitacionId: string): Promise<
         ESTADO_ESPERANDO_DECISION,
         null
       );
-      await publicarAvisoRonda(licitacionId, {
-        tipo: "cierre",
-        ultimaRonda: lic.rondaActual,
-      });
     }
   }
 }

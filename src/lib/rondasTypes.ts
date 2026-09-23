@@ -19,3 +19,10 @@ export type MotivoCierreRondas =
 export type ResultadoCierreRondas =
   | { ok: true; rondasOmitidas: number }
   | { ok: false; motivo: MotivoCierreRondas; mensaje: string };
+
+/** Por qué no se pudo mandar el aviso de finalización. */
+export type MotivoAvisoFinalizacion = "no_encontrada" | "ya_enviado";
+
+export type ResultadoAvisoFinalizacion =
+  | { ok: true }
+  | { ok: false; motivo: MotivoAvisoFinalizacion; mensaje: string };

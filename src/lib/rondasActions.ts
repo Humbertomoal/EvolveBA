@@ -8,8 +8,11 @@ import {
   ESTADO_ESPERANDO_DECISION,
 } from "@/src/lib/estadoLog";
 import { exigirCompradorSesion } from "@/src/lib/compradorSessionSegura";
-import { publicarAvisoRonda } from "@/src/lib/avisosRonda";
-import type { ResultadoCierreRondas } from "@/src/lib/rondasTypes";
+import { EMISOR_SISTEMA, publicarAvisoRonda } from "@/src/lib/avisosRonda";
+import type {
+  ResultadoCierreRondas,
+  ResultadoAvisoFinalizacion,
+} from "@/src/lib/rondasTypes";
 
 // NOTA: los tipos de resultado viven en rondasTypes.ts. Este archivo es
 // "use server" y NO debe exportar nada que no sea una función async — ni
@@ -239,6 +242,72 @@ export async function agregarRondaExtraAction(
 
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso/${id}`);
+}
+
+/**
+ * Manda a los proveedores el aviso de que la licitación finalizó. Y NADA más.
+ *
+ * No toca el estado, no pasa a selección, no cierra rondas: es el botón
+ * "Finalizar licitación" del detalle, cuyo único efecto es comunicar. El
+ * paso a selección sigue siendo `cerrarLicitacionAction`, independiente.
+ *
+ * Existe porque el aviso dejó de mandarse solo al agotar las rondas (ver
+ * licitacionesLogica.ts): ahora el final lo anuncia el comprador cuando ya
+ * decidió que no habrá más rondas.
+ *
+ * `ultimaRonda` es la ronda en la que está la licitación, que es la última
+ * que el proveedor vio abierta — mismo criterio que el resto de los cierres.
+ */
+export async function enviarAvisoFinalizacionAction(
+  id: string,
+  basePath: string
+): Promise<ResultadoAvisoFinalizacion> {
+  await exigirCompradorSesion();
+
+  const lic = await prisma.licitacion.findUnique({
+    where: { id },
+    select: { rondaActual: true },
+  });
+  if (!lic) {
+    return {
+      ok: false,
+      motivo: "no_encontrada",
+      mensaje: "La licitación ya no existe.",
+    };
+  }
+
+  // Guarda de idempotencia: el aviso de finalización se manda UNA vez. Sin
+  // esto, dos clics —o dos compradores a la vez— publicarían el mismo
+  // anuncio dos veces en el chat de cada proveedor, que es justo el ruido
+  // que este cambio vino a quitar.
+  //
+  // Se detecta por el texto y no por una columna nueva: `cierre()` en
+  // plantillasChat.ts siempre contiene esta frase, y el aviso ya vive en
+  // ChatMensaje. Una bandera en Licitacion sería una columna para un dato
+  // que ya está guardado.
+  const yaEnviado = await prisma.chatMensaje.count({
+    where: {
+      licitacionId: id,
+      emisor: EMISOR_SISTEMA,
+      mensaje: { contains: "Hemos llegado a los mejores precios" },
+    },
+  });
+  if (yaEnviado > 0) {
+    return {
+      ok: false,
+      motivo: "ya_enviado",
+      mensaje:
+        "Los proveedores ya recibieron el aviso de finalización de esta licitación.",
+    };
+  }
+
+  await publicarAvisoRonda(id, {
+    tipo: "cierre",
+    ultimaRonda: lic.rondaActual,
+  });
+
+  revalidatePath(`${basePath}/comprador/licitaciones-proceso/${id}`);
+  return { ok: true };
 }
 
 export async function cerrarLicitacionAction(

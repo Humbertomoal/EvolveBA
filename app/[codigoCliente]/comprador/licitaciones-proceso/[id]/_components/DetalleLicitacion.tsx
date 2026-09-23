@@ -1,25 +1,30 @@
 "use client";
 
 import {
+  IconAlertTriangle,
   IconClock,
   IconEye,
   IconMail,
+  IconMailCheck,
   IconMessageCircle,
   IconPlayerSkipForward,
   IconPlayerTrackNext,
+  IconPlus,
   IconReceipt,
   IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { ETIQUETA_GRATIS, textoPrecioGanador } from "@/src/lib/monedas";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
 import MarcaSimilar from "@/src/components/MarcaSimilar";
 import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
 import {
+  agregarRondaExtraAction,
   cerrarTodasLasRondasAction,
+  enviarAvisoFinalizacionAction,
   forzarAvanceRondaAction,
 } from "@/src/lib/rondasActions";
 import {
@@ -294,6 +299,23 @@ export default function DetalleLicitacion({
   const [forzando, setForzando] = useState(false);
   const [reenvioAbierto, setReenvioAbierto] = useState(false);
 
+  // ── Decisión de fin de rondas ─────────────────────────────────────────
+  // Al agotarse las rondas la licitación queda en `esperandoDecision` y el
+  // sistema NO anuncia nada (ver licitacionesLogica.ts). Aquí es donde el
+  // comprador decide: agregar otra ronda o finalizar.
+  //
+  // El modal se abre al montar si ya está esperando, y también cuando la
+  // prop pasa de false a true con la pantalla abierta —`useRefrescoAutomatico`
+  // revalida cada pocos segundos, así que el comprador ve el aviso sin
+  // recargar—. Se puede cerrar para mirar el comparativo; los botones del
+  // encabezado siguen disponibles.
+  const [decisionAbierta, setDecisionAbierta] = useState(esperandoDecision);
+  const esperandoPrevio = useRef(esperandoDecision);
+  useEffect(() => {
+    if (esperandoDecision && !esperandoPrevio.current) setDecisionAbierta(true);
+    esperandoPrevio.current = esperandoDecision;
+  }, [esperandoDecision]);
+
   // La preparación de adjuntos, las variables del correo y el sello del envío
   // viven en ModalInvitacionLicitacion — el mismo componente que usa la
   // pantalla de lanzamiento. Aquí solo se decide cuándo abrirlo.
@@ -360,6 +382,40 @@ export default function DetalleLicitacion({
     // Se avisa solo cuando NO se pudo: el éxito ya se ve en la pantalla, que
     // pasa a "Revisando resultados finales".
     if (!resultado.ok) window.alert(resultado.mensaje);
+  }
+
+  async function handleAgregarRonda() {
+    setForzando(true);
+    await agregarRondaExtraAction(id, basePath);
+    setDecisionAbierta(false);
+    router.refresh();
+    setForzando(false);
+    toast.success("Ronda agregada. Los proveedores recibieron el aviso.");
+  }
+
+  // Solo COMUNICA. No cambia el estado ni pasa a selección: eso sigue siendo
+  // el botón "Cerrar licitación" del listado, que es independiente.
+  async function handleFinalizar() {
+    if (
+      !window.confirm(
+        "¿Avisar a los proveedores que la licitación finalizó?\n\n" +
+          "Recibirán el mensaje de cierre en el chat. Esto NO cierra la " +
+          "licitación ni la pasa a selección de proveedores.\n\n" +
+          "El aviso se manda una sola vez."
+      )
+    ) {
+      return;
+    }
+    setForzando(true);
+    const resultado = await enviarAvisoFinalizacionAction(id, basePath);
+    setForzando(false);
+    if (resultado.ok) {
+      setDecisionAbierta(false);
+      toast.success("Aviso de finalización enviado a los proveedores.");
+      router.refresh();
+    } else {
+      toast.error(resultado.mensaje);
+    }
   }
 
   const TAB_BTN = (active: boolean) =>
@@ -453,6 +509,33 @@ export default function DetalleLicitacion({
               <IconPlayerTrackNext className="h-4 w-4" />
               Cerrar todas las rondas
             </button>
+          )}
+
+          {/* Decisión de fin de rondas. Duplican lo que ofrece el modal, para
+              que sigan a mano después de cerrarlo. */}
+          {esperandoDecision && (
+            <>
+              <button
+                type="button"
+                onClick={handleAgregarRonda}
+                disabled={forzando}
+                className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                title="Reabre las rondas y avisa a los proveedores"
+              >
+                <IconPlus className="h-4 w-4" />
+                Agregar ronda
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalizar}
+                disabled={forzando}
+                className="flex items-center gap-2 rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 transition-colors hover:bg-violet-100 disabled:opacity-50"
+                title="Avisa a los proveedores que la licitación finalizó"
+              >
+                <IconMailCheck className="h-4 w-4" />
+                Finalizar licitación
+              </button>
+            </>
           )}
 
           <button
@@ -895,6 +978,95 @@ export default function DetalleLicitacion({
           </div>
         )}
       </div>
+
+      {/* ── Modal: decisión de fin de rondas ──────────────────────────────────
+          Se abre solo cuando la licitación entra en `esperandoDecision`. El
+          sistema ya no anuncia nada por su cuenta, así que este es el punto
+          donde el comprador decide qué reciben los proveedores. */}
+      {decisionAbierta && esperandoDecision && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-zinc-900">
+                Se agotaron las rondas
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDecisionAbierta(false)}
+                className="rounded-md p-1 text-zinc-400 hover:text-zinc-700"
+              >
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="flex items-start gap-3">
+                <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                <div className="space-y-2 text-sm text-zinc-700">
+                  <p>
+                    La licitación {numero} terminó la Ronda {rondaActual} y quedó
+                    en espera de tu decisión. Los proveedores ya no pueden
+                    cotizar.
+                  </p>
+                  <p className="text-zinc-500">
+                    Todavía no han recibido ningún aviso de cierre: decides tú
+                    qué se les comunica.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleAgregarRonda}
+                  disabled={forzando}
+                  className="flex w-full items-start gap-3 rounded-lg border border-zinc-200 px-4 py-3 text-left transition-colors hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  <IconPlus className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
+                  <span>
+                    <span className="block text-sm font-medium text-zinc-800">
+                      Agregar otra ronda
+                    </span>
+                    <span className="block text-xs text-zinc-500">
+                      Reabre la competencia. Los proveedores reciben el aviso de
+                      nueva ronda y pueden volver a cotizar.
+                    </span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleFinalizar}
+                  disabled={forzando}
+                  className="flex w-full items-start gap-3 rounded-lg border border-violet-200 bg-violet-50/50 px-4 py-3 text-left transition-colors hover:bg-violet-50 disabled:opacity-50"
+                >
+                  <IconMailCheck className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+                  <span>
+                    <span className="block text-sm font-medium text-violet-900">
+                      Finalizar licitación
+                    </span>
+                    <span className="block text-xs text-violet-700">
+                      Avisa a los proveedores que la licitación finalizó. Se
+                      manda una sola vez. No cierra la licitación ni la pasa a
+                      selección de proveedores.
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t border-zinc-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setDecisionAbierta(false)}
+                className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+              >
+                Decidir después
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Ver oferta de proveedor ───────────────────────────────────── */}
       {modalProveedor && (
