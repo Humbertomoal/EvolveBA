@@ -117,9 +117,12 @@ export async function cerrarTodasLasRondasAction(
 
   // Solo se registra si ESTA llamada fue la que escribió.
   await registrarCambioEstado(id, "En Proceso", ESTADO_ESPERANDO_DECISION, usuarioId);
-  // El aviso lleva la ronda en la que se estaba, no maxRondas: para el proveedor
-  // la ronda que "concluyó" es la que él vio abierta, no las que se omitieron.
-  await publicarAvisoRonda(id, { tipo: "cierre", ultimaRonda: lic.rondaActual });
+
+  // NO se avisa al proveedor. Este botón omite las rondas que faltan y deja la
+  // licitación esperando decisión, pero eso no es "la licitación terminó": el
+  // comprador todavía puede agregar otra ronda. El aviso de finalización sale
+  // de UN solo sitio, `enviarAvisoFinalizacionAction`, cuando el comprador lo
+  // decide con el botón "Finalizar licitación".
 
   revalidatePath(`${basePath}/comprador/licitaciones-proceso`);
   revalidatePath(`${basePath}/comprador/licitaciones-proceso/${id}`);
@@ -179,7 +182,9 @@ export async function forzarAvanceRondaAction(
         ESTADO_ESPERANDO_DECISION,
         await getUsuarioIdActual()
       );
-      await publicarAvisoRonda(id, { tipo: "cierre", ultimaRonda: lic.rondaActual });
+      // Sin aviso, por lo mismo que en `cerrarTodasLasRondasAction`: forzar el
+      // cierre de la última ronda deja la licitación esperando decisión, no la
+      // termina. Lo único que anuncia el final es el botón "Finalizar".
     }
   }
 
