@@ -399,9 +399,10 @@ export default function DetalleLicitacion({
     if (
       !window.confirm(
         "¿Avisar a los proveedores que la licitación finalizó?\n\n" +
-          "Recibirán el mensaje de cierre en el chat. Esto NO cierra la " +
-          "licitación ni la pasa a selección de proveedores.\n\n" +
-          "El aviso se manda una sola vez."
+          "Lo ÚNICO que hace es mandarles el mensaje de cierre en el chat, " +
+          "una sola vez.\n\n" +
+          "NO cierra la licitación ni la pasa a Selección de Proveedores: " +
+          "eso lo hace el botón \"Cerrar licitación\", que es otro."
       )
     ) {
       return;
@@ -530,10 +531,10 @@ export default function DetalleLicitacion({
                 onClick={handleFinalizar}
                 disabled={forzando}
                 className="flex items-center gap-2 rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 transition-colors hover:bg-violet-100 disabled:opacity-50"
-                title="Avisa a los proveedores que la licitación finalizó"
+                title="Les manda el mensaje de cierre por chat. No cierra la licitación."
               >
                 <IconMailCheck className="h-4 w-4" />
-                Finalizar licitación
+                Avisar a proveedores que finalizó
               </button>
             </>
           )}
@@ -1043,7 +1044,7 @@ export default function DetalleLicitacion({
                   <IconMailCheck className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
                   <span>
                     <span className="block text-sm font-medium text-violet-900">
-                      Finalizar licitación
+                      Avisar a proveedores que finalizó
                     </span>
                     <span className="block text-xs text-violet-700">
                       Avisa a los proveedores que la licitación finalizó. Se
