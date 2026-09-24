@@ -451,17 +451,27 @@ export default function LicitacionCotizacion({
     rondaVistaRef.current = rondaActual;
     esperandoVistoRef.current = esperandoDecision;
 
-    // El cierre manda: si en el mismo refresco avanzó la ronda Y se cerró,
-    // lo relevante para el proveedor es que ya no puede cotizar.
+    // La pausa manda: si en el mismo refresco avanzó la ronda Y se pausó, lo
+    // relevante para el proveedor es que ya no puede cotizar.
     if (cerroAhora) {
-      // OJO: se usa la ronda PREVIA vista, no `rondaActual`. El botón "cerrar
-      // todas las rondas" salta rondaActual hasta maxRondas, pero el servidor
-      // publica en el chat `ultimaRonda: <la ronda en que estaba>`
-      // (rondasActions.ts:119). Tomar el valor fresco haría que el chat dijera
-      // "la tercera ronda ha concluido" y el modal "la séptima".
+      // NO se anuncia "finalizada", y el texto es PROPIO, no
+      // `textoAvisoRonda({tipo:"cierre"})`.
+      //
+      // `esperandoDecision` significa "se agotaron las rondas y el comprador
+      // está decidiendo", no "se acabó": desde ahí el comprador puede agregar
+      // otra ronda y la competencia sigue —pasó en la 0025, que se pausó, ganó
+      // una cuarta ronda y siguió—. Dar eso por finalizado es mentirle al
+      // proveedor, y además contradice el mensaje real de cierre que puede
+      // llegarle después.
+      //
+      // El "finalizado" de verdad sale de UN solo sitio y lo decide el
+      // comprador: `enviarAvisoFinalizacionAction`, que lo publica en el chat.
+      // Este modal no lo adelanta ni lo suplanta.
       setAvisoRonda({
-        titulo: "Licitación finalizada",
-        texto: textoAvisoRonda({ tipo: "cierre", ultimaRonda: rondaPreviaVista }),
+        titulo: "Recepción de ofertas en pausa",
+        texto:
+          "El comprador está revisando los resultados. Si abre otra ronda, " +
+          "podrás volver a cotizar.",
       });
     } else if (avanzoAhora) {
       setAvisoRonda({
