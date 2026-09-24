@@ -323,6 +323,31 @@ export function flagsSimilar(
   };
 }
 
+/**
+ * Cuánto puede surtir DE VERDAD el proveedor de una partida.
+ *
+ * El proveedor registra su propia cantidad (`OfertaItem.cantidadDisponible`)
+ * y no tiene por qué coincidir con la solicitada: quien marca "producto
+ * similar" suele necesitar OTRA cantidad —un panel de 720 W cubre la misma
+ * obra con menos piezas que uno de 715 W—.
+ *
+ * Es un `min` y no la cantidad del proveedor a secas: si ofrece de más, el
+ * comprador no va a comprar el excedente, así que tampoco debe pagarlo en
+ * el comparativo. Misma fórmula que ya usan la pantalla de asignación
+ * (AsignacionForm) y el total que el propio proveedor ve al cotizar
+ * (LicitacionCotizacion) — vive aquí para que las tres no puedan divergir.
+ *
+ * Multiplicar por la cantidad SOLICITADA infla el total de quien ofrece
+ * menos y lo hace parecer más caro de lo que es: castiga justo al que
+ * propone la alternativa eficiente.
+ */
+export function cantidadOfertada(
+  cantidadDisponible: number,
+  cantidadSolicitada: number
+): number {
+  return Math.min(cantidadDisponible, cantidadSolicitada);
+}
+
 /** ¿Este estado se guarda con precio 0 y sin cantidad? */
 export function estadoSinCosto(estado: EstadoPartida): boolean {
   return estado !== "cotizo";

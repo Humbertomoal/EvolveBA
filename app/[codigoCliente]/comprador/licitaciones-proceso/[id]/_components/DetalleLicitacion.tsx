@@ -57,6 +57,16 @@ export type OfertaDetalle = {
   productoSimilarDetalle: string | null;
 };
 
+/**
+ * Partida en la que el proveedor ofrece MENOS de lo solicitado. Distinto de
+ * "no cotizó esta partida": aquí sí cotizó, pero no cubre la cantidad.
+ */
+export type PartidaParcial = {
+  productoNombre: string;
+  ofrecida: number;
+  solicitada: number;
+};
+
 export type RondaHistorial = {
   ronda: number;
   totalCotizado: number;
@@ -76,6 +86,13 @@ export type ProveedorParticipante = {
   variacionPct: number | null;
   historialRondas: RondaHistorial[];
   ofertaDetalle: OfertaDetalle[];
+  /**
+   * Partidas donde la cantidad ofrecida es MENOR que la solicitada. El total
+   * ya se calcula con la cantidad del proveedor, así que es correcto — pero un
+   * total más bajo por cubrir menos cantidad no es comparable con uno que
+   * cubre la partida entera, y eso hay que decirlo.
+   */
+  partidasParciales: PartidaParcial[];
   /** Partidas con oferta VÁLIDA de este proveedor (excluye "no dispongo"). */
   partidasCotizadas: number;
   /** Partidas de la licitación. Si no coincide con la anterior, el total es parcial. */
@@ -644,6 +661,22 @@ export default function DetalleLicitacion({
                                 Incompleto {p.partidasCotizadas}/{p.partidasTotales}
                               </span>
                             )}
+                            {/* Distinto del anterior y pueden salir juntos:
+                                "Incompleto" = no cotizó todas las partidas;
+                                este = sí cotizó, pero por menos cantidad. El
+                                detalle va en el `title` para no engordar una
+                                tabla que ya tiene 8 columnas. */}
+                            {p.partidasParciales.length > 0 && (
+                              <span
+                                className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+                                title={`Ofrece menos de lo solicitado en ${p.partidasParciales.length} partida${p.partidasParciales.length === 1 ? "" : "s"}. El total corresponde a esa cantidad menor.\n\n${p.partidasParciales
+                                  .map((q: PartidaParcial) => `${q.productoNombre}: ${q.ofrecida} de ${q.solicitada}`)
+                                  .join("\n")}`}
+                              >
+                                ⚠ {p.partidasParciales.length} parcial
+                                {p.partidasParciales.length === 1 ? "" : "es"}
+                              </span>
+                            )}
                           </>
                         ) : (
                           "—"
@@ -1125,8 +1158,25 @@ export default function DetalleLicitacion({
                       <td className="py-2 text-right text-zinc-600">
                         {d.cantidadSolicitada}
                       </td>
-                      <td className="py-2 text-right text-zinc-600">
+                      {/* Cantidad ofrecida. Se resalta cuando no cubre lo
+                          solicitado: la columna de al lado ya trae la cifra
+                          pedida, pero comparar dos números a ojo fila por fila
+                          es justo lo que se pasa por alto. */}
+                      <td
+                        className={`py-2 text-right ${
+                          d.cantidadDisponible != null &&
+                          d.cantidadDisponible < d.cantidadSolicitada
+                            ? "font-medium text-amber-600"
+                            : "text-zinc-600"
+                        }`}
+                      >
                         {d.cantidadDisponible ?? "—"}
+                        {d.cantidadDisponible != null &&
+                          d.cantidadDisponible < d.cantidadSolicitada && (
+                            <span className="ml-1 text-[10px] font-normal text-amber-500">
+                              de {d.cantidadSolicitada}
+                            </span>
+                          )}
                       </td>
                       <td className="py-2 text-right">
                         {d.precioUnitario != null ? (

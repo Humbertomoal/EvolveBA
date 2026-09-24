@@ -4,7 +4,11 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import { getDatosInvitacion } from "@/src/lib/datosInvitacion";
-import { mejorOfertaValida, soloOfertasValidas } from "@/src/lib/ofertaValida";
+import {
+  cantidadOfertada,
+  mejorOfertaValida,
+  soloOfertasValidas,
+} from "@/src/lib/ofertaValida";
 import {
   calcularAnalisisPorItem,
   calcularResumenAhorro,
@@ -181,7 +185,10 @@ export default async function DetalleLicitacionProcesoPage({
         ofertasPrimeraRondaProveedor.length > 0
           ? ofertasPrimeraRondaProveedor.reduce((sum: number, o: any) => {
               const item = itemsPorId.get(o.licitacionItemId);
-              const subtotal = o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+              // Cantidad del PROVEEDOR, no la solicitada. Ver `cantidadOfertada`.
+              const subtotal =
+                o.precioUnitario *
+                cantidadOfertada(o.cantidadDisponible, item?.cantidadSolicitada ?? 0);
               return sum + convertirAMoneda(subtotal, item?.moneda ?? "MXN", monedaConsolidacion, tiposCambio);
             }, 0)
           : null;
@@ -192,18 +199,54 @@ export default async function DetalleLicitacionProcesoPage({
       const itemIdsCotizados = [
         ...new Set(ofertasProveedor.map((o) => o.licitacionItemId)),
       ];
+      // La mejor oferta de cada partida, COMPLETA. Antes se sacaba un
+      // `Math.min` de precios sueltos, que perdía el resto de la fila — y hace
+      // falta su `cantidadDisponible` para saber cuánto puede surtir de verdad.
+      // `mejorOfertaValida` además deja explícito el mínimo en vez de deducirlo
+      // del orden de la consulta (mismo criterio que la tabla de mejores precios).
+      const mejoresPorItem = itemIdsCotizados
+        .map((itemId: string) => {
+          const item = itemsPorId.get(itemId);
+          const mejor = mejorOfertaValida(
+            ofertasProveedor.filter((o) => o.licitacionItemId === itemId)
+          );
+          if (!item || !mejor) return null;
+          return {
+            item,
+            mejor,
+            cantidad: cantidadOfertada(
+              mejor.cantidadDisponible,
+              item.cantidadSolicitada
+            ),
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
       const mejorTotalActual =
-        itemIdsCotizados.length > 0
-          ? itemIdsCotizados.reduce((sum: number, itemId: string) => {
-              const item = itemsPorId.get(itemId);
-              const preciosItem = ofertasProveedor
-                .filter((o) => o.licitacionItemId === itemId)
-                .map((o) => o.precioUnitario);
-              const mejor = Math.min(...preciosItem);
-              const subtotal = mejor * (item?.cantidadSolicitada ?? 0);
-              return sum + convertirAMoneda(subtotal, item?.moneda ?? "MXN", monedaConsolidacion, tiposCambio);
-            }, 0)
+        mejoresPorItem.length > 0
+          ? mejoresPorItem.reduce(
+              (sum: number, { item, mejor, cantidad }) =>
+                sum +
+                convertirAMoneda(
+                  mejor.precioUnitario * cantidad,
+                  item.moneda ?? "MXN",
+                  monedaConsolidacion,
+                  tiposCambio
+                ),
+              0
+            )
           : null;
+
+      // Partidas donde ofrece MENOS de lo pedido. Alimenta la bandera de la
+      // tabla: el total ya es correcto, pero un total más bajo por cubrir menos
+      // cantidad no es comparable con uno que cubre la partida entera.
+      const partidasParciales = mejoresPorItem
+        .filter(({ item, cantidad }) => cantidad < item.cantidadSolicitada)
+        .map(({ item, cantidad }) => ({
+          productoNombre: item.producto.nombre,
+          ofrecida: cantidad,
+          solicitada: item.cantidadSolicitada,
+        }));
 
       const variacionPct =
         totalInicial != null && mejorTotalActual != null && totalInicial > 0
@@ -219,7 +262,9 @@ export default async function DetalleLicitacionProcesoPage({
         const ofertasEnRonda = ofertasProveedor.filter((o: any) => o.ronda === r);
         const totalCotizado = ofertasEnRonda.reduce((sum: number, o: any) => {
           const item = itemsPorId.get(o.licitacionItemId);
-          const subtotal = o.precioUnitario * (item?.cantidadSolicitada ?? 0);
+          const subtotal =
+            o.precioUnitario *
+            cantidadOfertada(o.cantidadDisponible, item?.cantidadSolicitada ?? 0);
           return sum + convertirAMoneda(subtotal, item?.moneda ?? "MXN", monedaConsolidacion, tiposCambio);
         }, 0);
         const vsObjetivoMonto = totalCotizado - presupuestoObjetivoTotal;
@@ -254,6 +299,7 @@ export default async function DetalleLicitacionProcesoPage({
         // total, el comprador ve el total marcado como INCOMPLETO.
         partidasCotizadas: itemIdsCotizados.length,
         partidasTotales: licitacion.items.length,
+        partidasParciales,
         ofertaDetalle: licitacion.items.map((item: any) => {
           const oferta = ofertasProveedorRondaActual.find(
             (o: any) => o.licitacionItemId === item.id
