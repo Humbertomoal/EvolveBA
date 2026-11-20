@@ -217,8 +217,13 @@ export default function CatalogoView({
     );
   }
 
+  // SUMA los materiales mostrados a la selección. Antes la REEMPLAZABA: con un
+  // filtro activo (una familia, una búsqueda) se perdían en silencio los
+  // materiales ya elegidos fuera del filtro, y al guardar se borraban del
+  // catálogo. Quitar es otro botón, explícito, y solo afecta lo mostrado.
   function seleccionarTodos() {
-    setSelTemp(productosFiltrados.map((p: any)=> p.id));
+    const filtradosIds = productosFiltrados.map((p: any) => p.id);
+    setSelTemp((prev) => [...new Set([...prev, ...filtradosIds])]);
   }
 
   function deseleccionarTodos() {
@@ -677,22 +682,24 @@ export default function CatalogoView({
               </div>
             )}
 
-            {/* Select all / Deselect all */}
+            {/* Agregar / quitar los mostrados: los dos actúan SOLO sobre la lista filtrada */}
             <div className="flex shrink-0 items-center gap-3 border-b border-zinc-100 px-5 py-2">
               <button
                 type="button"
                 onClick={seleccionarTodos}
+                title="Agrega a tu selección los materiales de la lista; no quita los que ya tenías"
                 className="text-xs font-medium text-[var(--color-primario)] hover:underline"
               >
-                Seleccionar todos
+                Agregar los {productosFiltrados.length} mostrados
               </button>
               <span className="text-zinc-300">|</span>
               <button
                 type="button"
                 onClick={deseleccionarTodos}
+                title="Quita de tu selección solo los materiales de la lista; los demás se conservan"
                 className="text-xs font-medium text-zinc-500 hover:underline"
               >
-                Deseleccionar todos
+                Quitar los {productosFiltrados.length} mostrados
               </button>
             </div>
 

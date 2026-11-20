@@ -51,6 +51,7 @@ import {
 import {
   fichasDeProveedor,
   filtrarItemsPorMaterialesProveedor,
+  veNingunaPartida,
 } from "@/src/lib/proveedorMateriales";
 import { prepararAdjuntosInvitacionAction } from "@/src/lib/adjuntosCorreoActions";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
@@ -817,13 +818,10 @@ export default function LicitacionForm({
   // aviso de "se agregó una partida" y no encuentra nada: una partida que nadie
   // puede cotizar y de la que nadie se entera.
   //
-  // OJO con la semántica del filtro, que NO es la obvia: es INDULGENTE. Un
-  // proveedor sin catálogo ve TODO, y uno cuyo catálogo no coincide con NINGUNA
-  // partida también ve todo (`filtrarItemsPorMaterialesProveedor` devuelve la
-  // lista completa en ambos casos). Así que un chequeo ingenuo del estilo
-  // `!catalogo.includes(productoId)` daría falsas alarmas constantes. Por eso
-  // aquí se corre el filtro DE VERDAD, el mismo que corre el portal, y se mira
-  // si la partida sobrevivió.
+  // OJO con la semántica del filtro: un proveedor SIN catálogo ve TODO, así
+  // que un chequeo ingenuo del estilo `!catalogo.includes(productoId)` daría
+  // falsas alarmas con él. Por eso aquí se corre el filtro DE VERDAD, el mismo
+  // que corre el portal, y se mira si la partida sobrevivió.
   const partidasNoVisibles = useMemo(() => {
     if (!modoEdicion || inicial?.estado !== "En Proceso") return [];
     if (modoLicitacion !== "Proveedores") return [];
@@ -872,6 +870,23 @@ export default function LicitacionForm({
   // ── Proveedores modal helpers ────────────────────────────────────────────────
 
   const productosEnLicitacion = itemsActivos.map((i) => i.productoId).filter(Boolean);
+
+  // Invitados que abrirían el portal y no verían NINGUNA partida: tienen
+  // catálogo y nada de esta licitación está en él (ver `veNingunaPartida`).
+  // Antes no podía pasar —el filtro les mostraba todo—, así que no había aviso.
+  // Es un aviso, no un bloqueo: quizá se les va a agregar el material al
+  // catálogo antes de lanzar. Pero el comprador tiene que saberlo.
+  const partidasConProducto = itemsActivos.filter((i) => i.productoId);
+  const quedariaSinPartidas = (proveedorId: string) =>
+    modoLicitacion === "Proveedores" &&
+    veNingunaPartida(partidasConProducto, proveedorMateriales[proveedorId] ?? []);
+  const invitadosSinPartidas = proveedoresSeleccionados
+    .filter(quedariaSinPartidas)
+    .map(
+      (id) =>
+        (proveedores as { id: string; razonSocial: string }[]).find((p) => p.id === id)
+          ?.razonSocial ?? "Proveedor sin nombre"
+    );
 
   function proveedorTieneMateriales(p: any) {
     return (proveedorMateriales[p.id] ?? []).some((matId) =>
@@ -989,10 +1004,10 @@ Asistente de Inteligencia Artificial`;
     return { destinatarios: [...new Set(conCorreo)], excluidos };
   }
 
-  // Si se pasa proveedorId, filtra a solo los items que corresponden al
-  // catálogo de ese proveedor (misma lógica que ve el proveedor en el
-  // portal) — con fallback a todos los items si no tiene catálogo asignado
-  // o ninguno coincide.
+  // Si se pasa proveedorId, filtra a los items que ese proveedor ve en el
+  // portal (`filtrarItemsPorMaterialesProveedor`): todos si no tiene catálogo,
+  // solo los que coinciden si lo tiene (pueden ser cero; ver
+  // `invitadosSinPartidas`).
   function itemsParaTablaMateriales(proveedorId?: string): ItemTablaMaterial[] {
     // `itemsActivos`: la tabla del correo no lista partidas retiradas.
     const itemsValidos = itemsActivos.filter((i) => i.productoId);
@@ -1938,6 +1953,27 @@ Asistente de Inteligencia Artificial`;
 
         </div>
       </div>
+
+      {invitadosSinPartidas.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-900">
+                {invitadosSinPartidas.length === 1
+                  ? "Un invitado no verá ninguna partida"
+                  : `${invitadosSinPartidas.length} invitados no verán ninguna partida`}
+              </p>
+              <p className="mt-1 text-xs text-amber-800">
+                <strong>{invitadosSinPartidas.join(", ")}</strong>
+                {invitadosSinPartidas.length === 1 ? " tiene" : " tienen"} catálogo de materiales
+                y ninguna partida de esta licitación está en él: abriría la licitación vacía en
+                el portal. Quítalo de los participantes o agrega los materiales a su catálogo.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mode toggle */}
       {!modoEdicion && (
@@ -3141,6 +3177,14 @@ Asistente de Inteligencia Artificial`;
                             className="h-4 w-4 shrink-0 text-emerald-600"
                             title="Tiene los materiales de esta licitación"
                           />
+                        )}
+                        {quedariaSinPartidas(p.id) && (
+                          <span
+                            className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                            title="Su catálogo no incluye ningún material de esta licitación: no vería ninguna partida en el portal"
+                          >
+                            Sin partidas
+                          </span>
                         )}
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${

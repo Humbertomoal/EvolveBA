@@ -37,6 +37,11 @@
  * · Todo en UNA transacción (catálogo + productos): o queda todo o nada. El
  *   @unique de Producto.codigo detiene la carga si alguien creó el mismo código
  *   entre la lectura y la escritura.
+ * · CATÁLOGO DE PROVEEDORES: cada producto creado se asigna (ProveedorMaterial)
+ *   a los proveedores que ya tienen su familia asignada, en la misma
+ *   transacción y con la misma regla que crearProducto
+ *   (src/lib/catalogoPorFamilia.ts). Sin esto, los productos nacían fuera del
+ *   catálogo de todos y el portal no se los mostraba a quien los surte.
  */
 import "dotenv/config";
 import { readFileSync } from "node:fs";
@@ -44,6 +49,7 @@ import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from ".prisma/client/default";
+import { familiasAsignadasPorProveedor, filasCatalogoPorFamilia } from "../src/lib/catalogoPorFamilia";
 import {
   extraerConsecutivo,
   formatearConsecutivo,
@@ -390,6 +396,17 @@ async function main() {
   const plan = await armarPlan(filas);
   imprimirPlan(plan);
 
+  // Catálogo de proveedores: a quién se le asignaría cada familia a crear.
+  const familiasPorProveedor = await familiasAsignadasPorProveedor(prisma);
+  console.log("\n── Asignación automática al catálogo de proveedores (por familia) ──");
+  for (const [fam, n] of Object.entries(contarPor(plan.altas, (a) => a.familia))) {
+    const proveedores = [...familiasPorProveedor.values()].filter((fs) => fs.includes(fam)).length;
+    console.log(
+      `  ${fam.padEnd(46)} ${String(n).padStart(3)} producto(s) × ${proveedores} proveedor(es) = ${n * proveedores} fila(s)` +
+        (proveedores === 0 ? "  ⚠ nadie tiene esta familia: los productos quedan fuera de todo catálogo" : "")
+    );
+  }
+
   const { altasCatalogo, altas, omitidas, rechazadas, errores } = plan;
   const resumen = (verbo: string) =>
     `\n${verbo}: ${altas.length} · OMITIDOS: ${omitidas.length} · RECHAZADOS: ${rechazadas.length}` +
@@ -462,13 +479,26 @@ async function main() {
       if (count !== altas.length) {
         throw new Error(`createMany insertó ${count} de ${altas.length}; se revierte todo.`);
       }
-      return count;
+
+      // Catálogo de proveedores, en la MISMA transacción: los productos recién
+      // creados se asignan a quien ya tiene su familia (catalogoPorFamilia.ts).
+      const nuevos = await tx.producto.findMany({
+        where: { codigo: { in: altas.map((a) => a.codigo) } },
+        select: { id: true, familia: true },
+      });
+      const filasCatalogo = await filasCatalogoPorFamilia(tx, nuevos);
+      const asignados =
+        filasCatalogo.length > 0
+          ? (await tx.proveedorMaterial.createMany({ data: filasCatalogo, skipDuplicates: true })).count
+          : 0;
+      return { count, asignados };
     },
     { timeout: 30_000 }
   );
 
-  console.log(resumen("CREADOS").replace(`CREADOS: ${altas.length}`, `CREADOS: ${creados}`));
+  console.log(resumen("CREADOS").replace(`CREADOS: ${altas.length}`, `CREADOS: ${creados.count}`));
   console.log(`Catálogo: ${altasCatalogo.length} valor(es) dado(s) de alta.`);
+  console.log(`Catálogo de proveedores: ${creados.asignados} asignación(es) por familia.`);
   console.log("\n✓ Listo. Correrlo de nuevo debe reportar 0 creados.\n");
 }
 

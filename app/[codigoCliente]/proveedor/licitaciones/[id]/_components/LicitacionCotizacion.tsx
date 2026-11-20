@@ -213,6 +213,7 @@ export default function LicitacionCotizacion({
   tiposCambio,
   monedaConsolidacion = "MXN",
   noLeidosInicial = 0,
+  ocultasPorCatalogo = false,
   nombreComprador = "Comprador",
 }: {
   id: string;
@@ -235,6 +236,12 @@ export default function LicitacionCotizacion({
   tiposCambio?: unknown;
   monedaConsolidacion?: string;
   noLeidosInicial?: number;
+  /**
+   * true = la licitación SÍ tiene partidas, pero ninguna está en el catálogo
+   * de este proveedor. El comprador recibe un aviso al invitarlo; si aun así
+   * entra, se le explica por qué no ve nada.
+   */
+  ocultasPorCatalogo?: boolean;
   nombreComprador?: string;
 }) {
   const router = useRouter();
@@ -898,7 +905,9 @@ export default function LicitacionCotizacion({
 
         {items.length === 0 && (
           <div className="rounded-lg border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-400">
-            Esta licitación no tiene productos registrados.
+            {ocultasPorCatalogo
+              ? "Ninguna partida de esta licitación corresponde a los materiales de tu catálogo. Si crees que sí puedes surtir alguna, revisa tu catálogo o contacta al comprador por el chat."
+              : "Esta licitación no tiene productos registrados."}
           </div>
         )}
 

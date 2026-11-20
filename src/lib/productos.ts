@@ -6,6 +6,7 @@ import {
   formatearConsecutivo,
 } from "@/src/lib/generarCodigoProducto";
 import { copiarArchivo, eliminarArchivo } from "@/src/lib/supabaseStorage";
+import { filasCatalogoPorFamilia } from "@/src/lib/catalogoPorFamilia";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -269,15 +270,22 @@ export async function crearProducto(
         },
         select: PRODUCTO_SELECT,
       });
-      if (proveedoresBase.length > 0) {
-        await tx.proveedorMaterial.createMany({
-          data: proveedoresBase.map((p) => ({
-            proveedorId: p.proveedorId,
-            productoId: creado.id,
-            familias: p.familias,
-          })),
-          skipDuplicates: true,
-        });
+      // Catálogo de proveedores del material nuevo:
+      //   · al duplicar, los proveedores del material base;
+      //   · SIEMPRE, los proveedores que ya tienen asignada su familia
+      //     (catalogoPorFamilia.ts). Sin esto el material nacía fuera del
+      //     catálogo de todos y el portal no se lo mostraba a quien lo surte.
+      // Un proveedor que está en las dos listas entra una vez: manda la fila
+      // del material base, que trae sus familias tal como estaban.
+      const filas = new Map<string, { proveedorId: string; productoId: string; familias: string | null }>();
+      for (const f of await filasCatalogoPorFamilia(tx, [{ id: creado.id, familia: creado.familia }])) {
+        filas.set(f.proveedorId, f);
+      }
+      for (const p of proveedoresBase) {
+        filas.set(p.proveedorId, { proveedorId: p.proveedorId, productoId: creado.id, familias: p.familias });
+      }
+      if (filas.size > 0) {
+        await tx.proveedorMaterial.createMany({ data: [...filas.values()], skipDuplicates: true });
       }
       return creado;
     });

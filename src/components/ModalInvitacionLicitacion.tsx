@@ -41,6 +41,41 @@ import { formatFechaMexico } from "@/src/lib/dateUtils";
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 import type { DatosInvitacionLicitacion } from "@/src/lib/datosInvitacionTypes";
 
+/**
+ * Aviso del modal: proveedores excluidos por no tener correo y, desde que el
+ * filtro por catálogo distingue "sin catálogo" de "nada coincide", destinatarios
+ * que no verían NINGUNA partida. Es el mismo aviso que muestra el formulario al
+ * invitar, aquí para el reenvío desde el detalle o desde Lanzamiento. Avisa,
+ * no bloquea.
+ *
+ * `itemsPorProveedor` ya viene filtrado en el servidor con la regla del portal
+ * (datosInvitacion.ts): una lista vacía es exactamente "no vería nada". Una
+ * licitación sin partidas no cuenta.
+ */
+function avisoInvitacion(datos: DatosInvitacionLicitacion): string | undefined {
+  const partes: string[] = [];
+  if (datos.excluidos > 0) {
+    partes.push(
+      `${datos.excluidos} proveedor${datos.excluidos === 1 ? "" : "es"} sin correo de contacto ${datos.excluidos === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
+    );
+  }
+  const sinPartidas =
+    datos.items.length > 0
+      ? datos.destinatarios
+          .filter((correo) => datos.itemsPorProveedor[correo]?.length === 0)
+          .map((correo) => datos.nombrePorDestinatario[correo] ?? correo)
+      : [];
+  if (sinPartidas.length > 0) {
+    partes.push(
+      `${sinPartidas.join(", ")} no ${sinPartidas.length === 1 ? "verá" : "verán"} ninguna partida: ` +
+        `${sinPartidas.length === 1 ? "su catálogo no incluye" : "sus catálogos no incluyen"} ningún material de esta licitación ` +
+        `y el correo le${sinPartidas.length === 1 ? "" : "s"} llegaría con "Sin materiales." ` +
+        `Quítalo${sinPartidas.length === 1 ? "" : "s"} de los destinatarios o completa su catálogo.`
+    );
+  }
+  return partes.length > 0 ? partes.join(" ") : undefined;
+}
+
 /** Variables {tablaMateriales, cantidadMateriales, enlacesFichas} por destinatario. */
 function variablesInvitacionPorDestinatario(
   datos: DatosInvitacionLicitacion,
@@ -322,11 +357,7 @@ export default function ModalInvitacionLicitacion({
       destinatarios={datos.destinatarios}
       adjuntos={adjuntos.adjuntos}
       adjuntosPorDestinatario={adjuntos.adjuntosPorDestinatario}
-      aviso={
-        datos.excluidos > 0
-          ? `${datos.excluidos} proveedor${datos.excluidos === 1 ? "" : "es"} sin correo de contacto ${datos.excluidos === 1 ? "fue excluido" : "fueron excluidos"} del envío.`
-          : undefined
-      }
+      aviso={avisoInvitacion(datos)}
       variablesPorDestinatario={variablesInvitacionPorDestinatario(
         datos,
         adjuntos.enlacesPorDestinatario
