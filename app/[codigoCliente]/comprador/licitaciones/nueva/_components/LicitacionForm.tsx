@@ -1021,6 +1021,7 @@ Asistente de Inteligencia Artificial`;
     // conserva ese orden, así que generarTablaMateriales puede cortar por
     // grupo igual que con el payload del servidor.
     return itemsFiltrados.map((i) => ({
+      productoId: i.productoId,
       producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
       cantidad: parseFloat(i.cantidadSolicitada) || 0,
       unidad: i.unidadMedida,

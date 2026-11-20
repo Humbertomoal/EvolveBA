@@ -132,7 +132,7 @@ export async function getDatosInvitacion(
     if (!correo) continue;
     const materialesIds = mapaMaterialesProveedores[(lp as any).proveedor.id] ?? [];
     const itemsFiltrados = filtrarItemsPorMaterialesProveedor(itemsConProductoId, materialesIds);
-    itemsPorProveedor[correo] = itemsFiltrados.map(({ productoId: _productoId, ...resto }) => resto);
+    itemsPorProveedor[correo] = itemsFiltrados;
     nombrePorDestinatario[correo] = (lp as any).proveedor.razonSocial;
     // Mismo filtro por catálogo que la tabla de materiales, para que los
     // adjuntos y la tabla del correo hablen de los mismos materiales.
@@ -148,7 +148,7 @@ export async function getDatosInvitacion(
     fechaFin: licitacion.fechaFinLicitacion?.toISOString() ?? null,
     instrucciones: licitacion.instrucciones ?? "",
     archivosAdjuntos: parsearArchivosAdjuntos(licitacion.archivosAdjuntos),
-    items: itemsConProductoId.map(({ productoId: _productoId, ...resto }) => resto),
+    items: itemsConProductoId,
     itemsPorProveedor,
     nombrePorDestinatario,
     fichasPorDestinatario,

@@ -175,6 +175,12 @@ export function renderizarPlantilla(
 // una vez pasado por convertirTextoAHtml (saltos de línea → <br>).
 
 export type ItemTablaMaterial = {
+  /**
+   * Producto de la partida: es la llave del resumen consolidado. Sin él se
+   * consolida por nombre + unidad (dos productos homónimos con la misma
+   * unidad se sumarían; por eso los llamadores lo pasan siempre).
+   */
+  productoId?: string | null;
   producto: string;
   cantidad: number;
   unidad: string;
@@ -184,7 +190,41 @@ export type ItemTablaMaterial = {
 };
 
 function lineaMaterial(item: ItemTablaMaterial): string {
-  return `- ${item.producto}: ${item.cantidad.toLocaleString("es-MX")} ${item.unidad} · Fecha requerida: ${formatFechaDia(item.fechaRequerida)}`;
+  return `- ${item.producto}: ${formatCantidad(item.cantidad)} ${item.unidad} · Fecha requerida: ${formatFechaDia(item.fechaRequerida)}`;
+}
+
+function formatCantidad(n: number): string {
+  // Redondeo a 6 decimales: la suma de cantidades con decimales (0.1 + 0.2)
+  // no debe asomar como 0.30000000000000004 en el correo.
+  return (Math.round(n * 1e6) / 1e6).toLocaleString("es-MX");
+}
+
+export const TITULO_RESUMEN_MATERIALES = "RESUMEN POR MATERIAL (total de todos los sitios de entrega)";
+export const TITULO_DESGLOSE_GRUPOS = "DESGLOSE POR SITIO DE ENTREGA";
+
+/**
+ * Cada material una sola vez, con la cantidad sumada de todos sus grupos, en
+ * el orden de su PRIMERA aparición (o sea, el mismo orden de `items`). Las
+ * fechas no se consolidan: pueden variar por sitio y están en el desglose.
+ */
+export function resumenPorMaterial(
+  items: ItemTablaMaterial[]
+): { producto: string; unidad: string; cantidad: number; sitios: number }[] {
+  const porLlave = new Map<
+    string,
+    { producto: string; unidad: string; cantidad: number; grupos: Set<string> }
+  >();
+  for (const item of items) {
+    const llave = item.productoId ? `id:${item.productoId}` : `nombre:${item.producto}|${item.unidad}`;
+    let fila = porLlave.get(llave);
+    if (!fila) {
+      fila = { producto: item.producto, unidad: item.unidad, cantidad: 0, grupos: new Set() };
+      porLlave.set(llave, fila);
+    }
+    fila.cantidad += item.cantidad;
+    fila.grupos.add(item.grupo?.id ?? "");
+  }
+  return [...porLlave.values()].map(({ grupos, ...resto }) => ({ ...resto, sitios: grupos.size }));
 }
 
 /**
@@ -193,20 +233,41 @@ function lineaMaterial(item: ItemTablaMaterial): string {
  * y domicilio de entrega, separado por una línea en blanco, y "Sin grupo" al
  * final si hace falta. `items` debe venir en ORDEN_PARTIDAS (y, si se filtró
  * por catálogo, conservando ese orden): aquí no se reordena.
+ *
+ * Con DOS o más secciones, antes del desglose va un resumen consolidado por
+ * material (para cotizar por volumen). Con una sola sección el resumen
+ * repetiría el desglose, así que no se pone.
  */
 export function generarTablaMateriales(items: ItemTablaMaterial[]): string {
   if (items.length === 0) return "Sin materiales.";
   const { hayGrupos, secciones } = agruparPartidas(items, (i) => i.grupo);
   if (!hayGrupos) return items.map(lineaMaterial).join("\n");
-  return secciones
+  const desglose = secciones
     .map(({ grupo, items: delGrupo }) => {
       const domicilio = domicilioDeGrupo(grupo);
       const encabezado = grupo
         ? `${grupo.nombre}${domicilio ? ` — Entrega en: ${domicilio}` : ""}`
         : `${ETIQUETA_SIN_GRUPO} (sin domicilio de entrega)`;
+      // Si todo el sitio comparte la fecha, va una vez en el encabezado y no
+      // en cada línea. Con fechas distintas dentro del sitio, por línea.
+      const fechas = new Set(delGrupo.map((i) => formatFechaDia(i.fechaRequerida)));
+      if (fechas.size === 1) {
+        const [fecha] = fechas;
+        return [
+          `${encabezado} · Fecha requerida: ${fecha}`,
+          ...delGrupo.map((i) => `- ${i.producto}: ${formatCantidad(i.cantidad)} ${i.unidad}`),
+        ].join("\n");
+      }
       return [encabezado, ...delGrupo.map(lineaMaterial)].join("\n");
     })
     .join("\n\n");
+  if (secciones.length < 2) return desglose;
+  const resumen = resumenPorMaterial(items).map(
+    (m) =>
+      `- ${m.producto}: ${formatCantidad(m.cantidad)} ${m.unidad}` +
+      (m.sitios > 1 ? ` (${m.sitios} sitios)` : "")
+  );
+  return [TITULO_RESUMEN_MATERIALES, ...resumen, "", TITULO_DESGLOSE_GRUPOS, desglose].join("\n");
 }
 
 /**
