@@ -20,9 +20,9 @@
  *   (traslados, tarifas locales).
  * · La copia queda marcada (`copiadoDe`). Mientras conserve la marca, sigue
  *   al origen: si el proveedor corrige el precio del origen (tecleó 12 en vez
- *   de 120), la copia se corrige también. En cuanto edita el precio o el
- *   estado de la copia, la marca se va (ver `setFila`) y deja de seguirlo para
- *   siempre. Si el origen se queda sin precio (lo borra, o pasa a "No
+ *   de 120), la copia se corrige también. Cualquier acción deliberada del
+ *   proveedor sobre la copia (precio, estado o "similar") le quita la marca
+ *   (ver `setFila`) y deja de seguir al origen para siempre. Si el origen se queda sin precio (lo borra, o pasa a "No
  *   dispongo"/"Sin costo"), sus copias CONSERVAN su valor y solo pierden la
  *   marca: nada desaparece de la pantalla sin que el proveedor lo haga, y "No
  *   dispongo" habla de ESE sitio, no de que el precio no valga en los demás.

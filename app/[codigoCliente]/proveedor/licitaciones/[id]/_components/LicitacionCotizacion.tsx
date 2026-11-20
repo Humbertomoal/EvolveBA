@@ -120,18 +120,25 @@ type FilaState = {
   productoSimilarDetalle: string;
   /**
    * Si el precio se copió de otra partida del mismo producto, de cuál. Se
-   * borra en cuanto el proveedor edita el precio o el estado de esta fila.
-   * Ver src/lib/autollenadoPrecios.ts.
+   * borra con cualquier acción del proveedor sobre esta fila (precio, estado o
+   * similar). Ver src/lib/autollenadoPrecios.ts.
    */
   copiadoDe: CopiaDe | null;
 };
 
 /**
- * Campos cuya edición manual convierte una copia en captura propia. "Es
- * producto similar" NO está: el autollenado no la copia ni la lee, así que
- * marcarla no cambia de quién es el precio.
+ * Campos cuya edición manual convierte una copia en captura propia: cualquier
+ * acción deliberada del proveedor sobre la fila la vuelve suya. Incluye "Es
+ * producto similar": si marcó que ahí ofrece otro producto, ya se hizo cargo
+ * del renglón y su precio no debe moverse solo desde otro sitio. (En el
+ * ORIGEN, en cambio, la casilla no dispara ninguna copia.)
  */
-const CAMPOS_QUE_QUITAN_COPIA: (keyof FilaState)[] = ["precioUnitario", "estado"];
+const CAMPOS_QUE_QUITAN_COPIA: (keyof FilaState)[] = [
+  "precioUnitario",
+  "estado",
+  "esProductoSimilar",
+  "productoSimilarDetalle",
+];
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
