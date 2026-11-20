@@ -119,20 +119,19 @@ type FilaState = {
   esProductoSimilar: boolean;
   productoSimilarDetalle: string;
   /**
-   * Si el precio (y la marca de similar) se copió de otra partida del mismo
-   * producto, de cuál. Se borra en cuanto el proveedor toca precio, estado o
-   * similar en esta fila. Ver src/lib/autollenadoPrecios.ts.
+   * Si el precio se copió de otra partida del mismo producto, de cuál. Se
+   * borra en cuanto el proveedor edita el precio o el estado de esta fila.
+   * Ver src/lib/autollenadoPrecios.ts.
    */
   copiadoDe: CopiaDe | null;
 };
 
-/** Campos cuya edición manual convierte una copia en captura propia. */
-const CAMPOS_QUE_QUITAN_COPIA: (keyof FilaState)[] = [
-  "precioUnitario",
-  "estado",
-  "esProductoSimilar",
-  "productoSimilarDetalle",
-];
+/**
+ * Campos cuya edición manual convierte una copia en captura propia. "Es
+ * producto similar" NO está: el autollenado no la copia ni la lee, así que
+ * marcarla no cambia de quién es el precio.
+ */
+const CAMPOS_QUE_QUITAN_COPIA: (keyof FilaState)[] = ["precioUnitario", "estado"];
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -688,11 +687,11 @@ export default function LicitacionCotizacion({
 
   /**
    * Copia el precio de la partida `idx` a las otras partidas del mismo
-   * producto que sigan vacías (ver src/lib/autollenadoPrecios.ts). Se llama al
-   * TERMINAR de capturar (onBlur del precio y de la descripción) y al cambiar
-   * la casilla de similar o el estado; nunca con cada tecla, para no copiar un
-   * "1" a medio escribir "125". Resuelve por id dentro del updater, sobre el
-   * estado más reciente.
+   * producto con el precio vacío (ver src/lib/autollenadoPrecios.ts). Se llama
+   * al TERMINAR de capturar el precio (onBlur) y al cambiar el estado; nunca
+   * con cada tecla, para no copiar un "1" a medio escribir "125". La casilla de
+   * similar no la dispara. Resuelve por id dentro del updater, sobre el estado
+   * más reciente.
    */
   function autollenarDesde(idx: number) {
     const itemId = items[idx]?.licitacionItemId;
@@ -1247,14 +1246,13 @@ export default function LicitacionCotizacion({
                                   <input
                                     type="checkbox"
                                     checked={fila.esProductoSimilar}
-                                    onChange={(e) => {
+                                    onChange={(e) =>
                                       setFila(
                                         idx,
                                         "esProductoSimilar",
                                         e.target.checked
-                                      );
-                                      autollenarDesde(idx);
-                                    }}
+                                      )
+                                    }
                                     className="h-3.5 w-3.5 shrink-0 rounded border-zinc-300 accent-[var(--color-primario)]"
                                   />
                                   <span className="font-medium">Es producto similar</span>
@@ -1374,7 +1372,6 @@ export default function LicitacionCotizacion({
                                       e.target.value
                                     )
                                   }
-                                  onBlur={() => autollenarDesde(idx)}
                                   placeholder="¿Qué producto ofreces? Ej.: modelo 720 en lugar del 715"
                                   aria-label="Descripción del producto similar"
                                   className={`mt-1 w-full rounded-md border px-3 py-1.5 text-sm leading-snug text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
