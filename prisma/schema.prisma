@@ -135,6 +135,7 @@ model Licitacion {
   ordenes              OrdenCompra[]
   mensajes             ChatMensaje[]
   estadoLogs           LicitacionEstadoLog[]
+  grupos               LicitacionGrupo[]
 }
 
 // Bitácora de cambios de estado de una licitación — una fila por transición.
@@ -194,12 +195,66 @@ model LicitacionItem {
   // partida oculta SIGUE siendo una referencia real en la base.
   eliminado          Boolean    @default(false)
   eliminadoEn        DateTime?
+  // Grupo (proyecto/sitio) al que va la partida. null = sin grupo: todas las
+  // licitaciones anteriores a los grupos, y las partidas sueltas ("Sin grupo")
+  // de una licitación agrupada. El orden de lectura es
+  // `[{ grupo: { orden: "asc" } }, { posicion: "asc" }, { id: "asc" }]`:
+  // Prisma lo resuelve con LEFT JOIN y en ASC Postgres deja los nulos AL FINAL,
+  // así que una licitación sin grupos conserva exactamente su orden por
+  // `posicion`. `posicion` sigue siendo GLOBAL a la licitación.
+  //
+  // RESTRICT explícito: el default de Prisma para una relación opcional es
+  // SetNull, que al borrar un grupo dejaría sus partidas sueltas en silencio.
+  grupoId            String?
+  grupo              LicitacionGrupo? @relation(fields: [grupoId], references: [id], onDelete: Restrict)
 
   ofertas      OfertaItem[]
   asignaciones AsignacionMaterial[]
   seleccionesPrecio SeleccionPrecioComprador[]
 
   @@index([licitacionId, posicion])
+  @@index([grupoId])
+}
+
+// Grupo de partidas de una licitación: el proyecto o sitio al que viaja el
+// material (La Mesa, Planta Pilas…). Flete y seguro son partidas normales
+// dentro de su grupo.
+//
+// INVARIANTE (la mantiene el guardado, no la base): si el grupo está oculto,
+// TODAS sus partidas lo están. Por eso las lecturas no necesitan un filtro de
+// grupo: el `eliminado: false` de partidas que ya llevan basta.
+//
+// nombre/domicilio/coordenadas son del grupo, no de un catálogo. Si después
+// hay un catálogo de sitios por cliente, el grupo apuntará a él con un
+// `sitioId` opcional y CONSERVARÁ su propia copia de estos campos: editar el
+// catálogo no debe cambiar el destino de licitaciones ya publicadas.
+//
+// En la base hay un CHECK (`grupo_coordenadas_coherentes`): latitud y longitud
+// van las dos o ninguna, y dentro de rango. El nombre único entre grupos vivos
+// de una licitación se valida en código (un @@unique chocaría con los ocultos).
+model LicitacionGrupo {
+  id           String     @id @default(cuid())
+  licitacionId String
+  licitacion   Licitacion @relation(fields: [licitacionId], references: [id])
+  nombre       String
+  // Obligatorio en el formulario; nullable en la base.
+  domicilio    String?
+  latitud      Float?
+  longitud     Float?
+  // Lugar del grupo en la licitación, base 0. SIN @default por la misma razón
+  // que LicitacionItem.posicion: un camino de escritura que lo olvide debe
+  // fallar al compilar, no en silencio.
+  orden        Int
+  // Soft-delete con las mismas reglas que las partidas: se oculta si le queda
+  // alguna partida (aunque sea oculta) apuntándole; si no, se borra.
+  eliminado    Boolean    @default(false)
+  eliminadoEn  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  items LicitacionItem[]
+
+  @@index([licitacionId, orden])
 }
 
 // Borrador de trabajo de la pantalla de Selección de Proveedores.
@@ -216,13 +271,22 @@ model LicitacionItem {
 // "ya asignado" y la pantalla saltaría de AsignacionForm a SeguimientoView.
 // Esto es trabajo en curso, que puede durar días de llamadas a proveedores.
 //
-// onDelete: Cascade coincide con el FK ya creado en la base. NO es el RESTRICT
-// por defecto de Prisma a propósito: editar una licitación borra y recrea sus
-// LicitacionItem, y con RESTRICT un borrador guardado haría fallar esa edición.
+// onDelete: Restrict, igual que el FK real de la base
+// (SeleccionPrecioComprador_licitacionItemId_fkey es RESTRICT, confirmado el
+// 2026-11-19). Antes fue CASCADE, y cada guardado de una licitación, que
+// borraba y recreaba todas sus partidas, se llevaba en silencio estos borradores.
+//
+// Consecuencia: una partida con precio capturado NO se puede borrar. Al
+// quitarla en el formulario se OCULTA (eliminado = true) y el borrador se
+// conserva. tieneDependencias() en src/lib/licitacionesActions.ts ya cuenta
+// `seleccionesPrecio` y manda esas partidas a ocultar, no a borrar.
+//
+// No volver a declararlo Cascade: un `prisma db push` alinearía la base al
+// schema, y borrar una partida eliminaría los precios del comprador sin aviso.
 model SeleccionPrecioComprador {
   id               String         @id @default(cuid())
   licitacionItemId String
-  licitacionItem   LicitacionItem @relation(fields: [licitacionItemId], references: [id], onDelete: Cascade)
+  licitacionItem   LicitacionItem @relation(fields: [licitacionItemId], references: [id], onDelete: Restrict)
   proveedorId      String
   ofertaItemId     String?
   precioNegociado  Float?
@@ -398,6 +462,11 @@ model OrdenCompraLinea {
   // de OfertaItem.
   esProductoSimilar      Boolean            @default(false)
   productoSimilarDetalle String?
+  // Snapshot del grupo (sitio de entrega) de la partida al generar la orden,
+  // con el mismo criterio que productoNombre: la OC es el documento de entrega
+  // y congela a dónde iba cada línea. null = la partida no tenía grupo.
+  grupoNombre            String?
+  grupoDomicilio         String?
   createdAt              DateTime           @default(now())
 }
 

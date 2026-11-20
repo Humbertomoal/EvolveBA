@@ -1,6 +1,12 @@
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { plantillasCorreo, type TipoCorreo } from "@/src/config/plantillasCorreo";
 import { formatFechaMexico } from "@/src/lib/dateUtils";
+import {
+  agruparPartidas,
+  domicilioDeGrupo,
+  ETIQUETA_SIN_GRUPO,
+  type GrupoLectura,
+} from "@/src/lib/agruparPartidas";
 import { formatImporte } from "@/src/lib/monedas";
 
 export type { TipoCorreo };
@@ -173,16 +179,34 @@ export type ItemTablaMaterial = {
   cantidad: number;
   unidad: string;
   fechaRequerida: Date | string | null;
+  /** Grupo (sitio de entrega). Ausente o null = sin grupo. */
+  grupo?: GrupoLectura | null;
 };
 
+function lineaMaterial(item: ItemTablaMaterial): string {
+  return `- ${item.producto}: ${item.cantidad.toLocaleString("es-MX")} ${item.unidad} · Fecha requerida: ${formatFechaMexico(item.fechaRequerida)}`;
+}
+
+/**
+ * Lista de materiales del correo. Sin grupos, idéntica a la de siempre: una
+ * línea por material. Con grupos, un bloque por grupo encabezado por su nombre
+ * y domicilio de entrega, separado por una línea en blanco, y "Sin grupo" al
+ * final si hace falta. `items` debe venir en ORDEN_PARTIDAS (y, si se filtró
+ * por catálogo, conservando ese orden): aquí no se reordena.
+ */
 export function generarTablaMateriales(items: ItemTablaMaterial[]): string {
   if (items.length === 0) return "Sin materiales.";
-  return items
-    .map(
-      (item) =>
-        `- ${item.producto}: ${item.cantidad.toLocaleString("es-MX")} ${item.unidad} · Fecha requerida: ${formatFechaMexico(item.fechaRequerida)}`
-    )
-    .join("\n");
+  const { hayGrupos, secciones } = agruparPartidas(items, (i) => i.grupo);
+  if (!hayGrupos) return items.map(lineaMaterial).join("\n");
+  return secciones
+    .map(({ grupo, items: delGrupo }) => {
+      const domicilio = domicilioDeGrupo(grupo);
+      const encabezado = grupo
+        ? `${grupo.nombre}${domicilio ? ` — Entrega en: ${domicilio}` : ""}`
+        : `${ETIQUETA_SIN_GRUPO} (sin domicilio de entrega)`;
+      return [encabezado, ...delGrupo.map(lineaMaterial)].join("\n");
+    })
+    .join("\n\n");
 }
 
 /**

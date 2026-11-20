@@ -32,6 +32,12 @@ import { convertirAMoneda, parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { textoAvisoRonda } from "@/src/lib/plantillasChat";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
+import FilaEncabezadoGrupo from "@/src/components/FilaEncabezadoGrupo";
+import {
+  agruparPartidas,
+  encabezadosPorIndice,
+  type GrupoLectura,
+} from "@/src/lib/agruparPartidas";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -45,6 +51,12 @@ export type ItemDetalle = {
   moneda: string;
   especificacionesTecnicas: string | null;
   archivosEspecificaciones: string[];
+  /**
+   * Grupo (sitio de entrega) de la partida, o null si no tiene. Las partidas
+   * llegan ordenadas por grupo (ORDEN_PARTIDAS) y ya filtradas al catálogo del
+   * proveedor: un grupo sin partidas visibles no produce encabezado.
+   */
+  grupo: GrupoLectura | null;
   oferta: {
     precioUnitario: number;
     cantidadDisponible: number;
@@ -289,6 +301,15 @@ export default function LicitacionCotizacion({
   }
 
   const [filas, setFilas] = useState<FilaState[]>(() => items.map(filaInicial));
+
+  // Encabezados de grupo por índice de fila: la tabla lleva su estado por
+  // índice, así que el encabezado se inserta ANTES de la fila donde empieza
+  // cada sección, sin cambiar la numeración. Sin grupos el mapa queda vacío y
+  // la tabla es idéntica a la de antes.
+  const encabezadoEn = useMemo(
+    () => encabezadosPorIndice(agruparPartidas(items, (i) => i.grupo)),
+    [items]
+  );
 
   // ── Re-sincronizar `filas` cuando cambia la lista de partidas ─────────────
   //
@@ -911,6 +932,9 @@ export default function LicitacionCotizacion({
                     const o = item.oferta;
                     return (
                       <Fragment key={item.licitacionItemId}>
+                        {encabezadoEn.has(idx) && (
+                          <FilaEncabezadoGrupo grupo={encabezadoEn.get(idx)!.grupo} colSpan={8} />
+                        )}
                         <tr className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors duration-150">
                           <td className="px-3 py-2.5 align-top">
                             <p className="font-medium text-zinc-800">{item.nombre}</p>
@@ -977,6 +1001,9 @@ export default function LicitacionCotizacion({
 
                   return (
                     <Fragment key={item.licitacionItemId}>
+                      {encabezadoEn.has(idx) && (
+                        <FilaEncabezadoGrupo grupo={encabezadoEn.get(idx)!.grupo} colSpan={8} />
+                      )}
                       <tr className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 transition-colors duration-150">
                         {/* Producto */}
                         <td className="px-3 py-2.5 align-top">

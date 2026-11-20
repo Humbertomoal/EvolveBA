@@ -20,6 +20,12 @@ import { ETIQUETA_GRATIS, textoPrecioGanador } from "@/src/lib/monedas";
 import CountdownTimer from "@/src/components/CountdownTimer";
 import ChatWidget from "@/src/components/Chat/ChatWidget";
 import MarcaSimilar from "@/src/components/MarcaSimilar";
+import FilaEncabezadoGrupo from "@/src/components/FilaEncabezadoGrupo";
+import {
+  agruparPartidas,
+  encabezadosPorIndice,
+  type GrupoLectura,
+} from "@/src/lib/agruparPartidas";
 import { useRefrescoAutomatico } from "@/src/components/useRefrescoAutomatico";
 import {
   agregarRondaExtraAction,
@@ -42,6 +48,8 @@ import type { DatosInvitacionLicitacion } from "@/src/lib/datosInvitacionTypes";
 
 export type OfertaDetalle = {
   productoNombre: string;
+  /** Grupo (sitio de entrega) de la partida; null = sin grupo. */
+  grupo: GrupoLectura | null;
   unidadMedida: string;
   cantidadSolicitada: number;
   precioUnitario: number | null;
@@ -101,6 +109,8 @@ export type ProveedorParticipante = {
 
 export type AnalisisProductoItem = {
   productoNombre: string;
+  /** Grupo (sitio de entrega) de la partida; null = sin grupo. */
+  grupo: GrupoLectura | null;
   moneda: string;
   cantidadSolicitada: number;
   objetivoUnitario: number | null;
@@ -129,6 +139,8 @@ export type ResumenAhorro = {
 
 export type MejorPrecioItem = {
   productoNombre: string;
+  /** Grupo (sitio de entrega) de la partida; null = sin grupo. */
+  grupo: GrupoLectura | null;
   cantidadSolicitada: number;
   unidadMedida: string;
   mejor: {
@@ -156,6 +168,15 @@ export type MejorPrecioItem = {
 export type { DatosInvitacionLicitacion };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Encabezados de grupo de una tabla por partida: índice → grupo que empieza
+ * ahí. Vacío si la licitación no tiene grupos (la tabla queda como siempre).
+ * Las tres tablas por partida vienen en el orden de ORDEN_PARTIDAS.
+ */
+function encabezadosDe<T extends { grupo: GrupoLectura | null }>(filas: T[]) {
+  return encabezadosPorIndice(agruparPartidas(filas, (f) => f.grupo));
+}
 
 function fmtFechaHoraCorreo(iso: string | null): string {
   if (!iso) return "";
@@ -312,6 +333,11 @@ export default function DetalleLicitacion({
     useState<ProveedorParticipante | null>(null);
   const [modalHistorial, setModalHistorial] =
     useState<ProveedorParticipante | null>(null);
+
+  // Encabezados de grupo de las tres tablas por partida (vacíos sin grupos).
+  const encabezadosAnalisis = encabezadosDe(analisisPorProducto);
+  const encabezadosMejorPrecio = encabezadosDe(mejoresPrecioItems);
+  const encabezadosModal = encabezadosDe(modalProveedor?.ofertaDetalle ?? []);
   const [chatProveedorId, setChatProveedorId] = useState<string | null>(null);
   const [forzando, setForzando] = useState(false);
   const [reenvioAbierto, setReenvioAbierto] = useState(false);
@@ -818,7 +844,11 @@ export default function DetalleLicitacion({
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
                     {analisisPorProducto.map((a, i) => (
-                      <tr key={i} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                      <Fragment key={i}>
+                      {encabezadosAnalisis.has(i) && (
+                        <FilaEncabezadoGrupo grupo={encabezadosAnalisis.get(i)!.grupo} colSpan={6} />
+                      )}
+                      <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                         <td className="px-4 py-3 font-medium text-zinc-800">
                           {a.productoNombre}
                         </td>
@@ -852,6 +882,7 @@ export default function DetalleLicitacion({
                             : "—"}
                         </td>
                       </tr>
+                      </Fragment>
                     ))}
                   </tbody>
                   <tfoot>
@@ -917,6 +948,9 @@ export default function DetalleLicitacion({
               <tbody className="divide-y divide-zinc-100">
                 {mejoresPrecioItems.map((item, i) => (
                   <Fragment key={i}>
+                    {encabezadosMejorPrecio.has(i) && (
+                      <FilaEncabezadoGrupo grupo={encabezadosMejorPrecio.get(i)!.grupo} colSpan={7} />
+                    )}
                     {/* Fila principal — mejor precio */}
                     <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="px-4 py-3 font-medium text-zinc-800">
@@ -1142,7 +1176,11 @@ export default function DetalleLicitacion({
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
                   {modalProveedor.ofertaDetalle.map((d, i) => (
-                    <tr key={i} className="hover:bg-zinc-50/50 transition-colors duration-150">
+                    <Fragment key={i}>
+                    {encabezadosModal.has(i) && (
+                      <FilaEncabezadoGrupo grupo={encabezadosModal.get(i)!.grupo} colSpan={5} />
+                    )}
+                    <tr className="hover:bg-zinc-50/50 transition-colors duration-150">
                       <td className="py-2 font-medium text-zinc-800">
                         {d.productoNombre}
                         <span className="ml-1 text-xs text-zinc-400">
@@ -1214,6 +1252,7 @@ export default function DetalleLicitacion({
                         )}
                       </td>
                     </tr>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

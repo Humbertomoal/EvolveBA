@@ -11,6 +11,7 @@ import { getProveedorSessionSegura } from "@/src/lib/proveedorSessionSegura";
 import { ESTADO_ESPERANDO_VALIDACION } from "@/src/lib/seleccionTypes";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
+import { ORDEN_PARTIDAS, SELECT_GRUPO_LECTURA } from "@/src/lib/agruparPartidas";
 import LicitacionCotizacion, { type ItemDetalle } from "./_components/LicitacionCotizacion";
 import ResumenOfertasView, { type MejorOfertaItem } from "./_components/ResumenOfertasView";
 
@@ -54,8 +55,13 @@ export default async function DetalleLicitacionPage({
           // INSERT, así que todas las partidas de un guardado comparten el
           // milisegundo y el empate lo volvía a resolver el orden físico. Se
           // veía bien por casualidad, no por diseño.
-          orderBy: [{ posicion: "asc" }, { id: "asc" }],
+          //
+          // Con grupos: grupo, luego posición (ver ORDEN_PARTIDAS). Sin grupos
+          // es el mismo [posicion, id] de antes. El filtro por catálogo de
+          // abajo conserva este orden, así que cada grupo sigue contiguo.
+          orderBy: ORDEN_PARTIDAS,
           include: {
+            grupo: SELECT_GRUPO_LECTURA,
             producto: {
               select: {
                 nombre: true,
@@ -274,6 +280,7 @@ export default async function DetalleLicitacionPage({
       moneda: (item as any).moneda ?? "MXN",
       especificacionesTecnicas: item.producto.especificacionesTecnicas ?? null,
       archivosEspecificaciones: parsearJsonArray(item.producto.archivosEspecificaciones),
+      grupo: item.grupo ?? null,
       oferta: oferta
         ? {
             precioUnitario: oferta.precioUnitario,

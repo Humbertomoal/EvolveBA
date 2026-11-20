@@ -10,6 +10,7 @@ import { prisma } from "@/src/lib/prisma";
 import { fechaParaInput } from "@/src/lib/dateUtils";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import type { LicitacionBase } from "@/src/lib/licitacionBaseTypes";
+import { formatearCoordenadas } from "@/src/lib/licitacionGrupos";
 
 /** Fecha → valor de un <input type="date">. Mismo criterio que la pantalla de editar. */
 function toDateInput(d: Date | null): string {
@@ -69,8 +70,10 @@ export async function getLicitacionBase(id: string): Promise<LicitacionBase | nu
       monedaConsolidacion: true,
       items: {
         where: { eliminado: false },
-        orderBy: [{ posicion: "asc" }, { id: "asc" }],
+        // Mismo orden que el resto de las lecturas: grupo, luego posición.
+        orderBy: [{ grupo: { orden: "asc" } }, { posicion: "asc" }, { id: "asc" }],
         select: {
+          grupoId: true,
           productoId: true,
           especificacion: true,
           fechaEntrega: true,
@@ -79,6 +82,13 @@ export async function getLicitacionBase(id: string): Promise<LicitacionBase | nu
           moneda: true,
           producto: { select: { unidadMedida: true } },
         },
+      },
+      // Solo grupos vivos: si el grupo está oculto, todas sus partidas lo están,
+      // y las retiradas no se copian.
+      grupos: {
+        where: { eliminado: false },
+        orderBy: [{ orden: "asc" }, { id: "asc" }],
+        select: { id: true, nombre: true, domicilio: true, latitud: true, longitud: true },
       },
       proveedoresInvitados: { select: { proveedorId: true } },
     },
@@ -117,6 +127,15 @@ export async function getLicitacionBase(id: string): Promise<LicitacionBase | nu
       cantidadSolicitada: String(item.cantidadSolicitada),
       precioObjetivo: item.precioObjetivo !== null ? String(item.precioObjetivo) : "",
       moneda: item.moneda ?? "MXN",
+      grupoClave: item.grupoId ?? null,
+    })),
+    // Los grupos viajan SIN id: la copia los crea nuevos. Su clave es el id del
+    // original solo para enlazar las partidas copiadas.
+    grupos: licitacion.grupos.map((g) => ({
+      clave: g.id,
+      nombre: g.nombre,
+      domicilio: g.domicilio ?? "",
+      coordenadas: formatearCoordenadas(g.latitud, g.longitud),
     })),
     proveedoresInvitados: licitacion.proveedoresInvitados.map((p) => p.proveedorId),
     tiposCambio: parseTiposCambio(licitacion.tiposCambio),

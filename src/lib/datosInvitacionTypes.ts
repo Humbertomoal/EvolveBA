@@ -21,6 +21,12 @@ export type ItemInvitacion = {
   cantidad: number;
   unidad: string;
   fechaRequerida: string | null;
+  /**
+   * Grupo (sitio de entrega) de la partida, o null. Misma forma que
+   * `GrupoLectura` (agruparPartidas.ts); se repite aquí para que este módulo
+   * siga sin imports.
+   */
+  grupo: { id: string; nombre: string; domicilio: string | null } | null;
 };
 
 export type DatosInvitacionLicitacion = {

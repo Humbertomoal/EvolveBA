@@ -21,6 +21,7 @@ import {
   filtrarItemsPorMaterialesProveedor,
 } from "@/src/lib/proveedorMateriales";
 import { getMapaProveedorMateriales } from "@/src/lib/proveedorMaterialesData";
+import { ORDEN_PARTIDAS, SELECT_GRUPO_LECTURA } from "@/src/lib/agruparPartidas";
 import type {
   DatosInvitacionLicitacion,
   ItemInvitacion,
@@ -60,6 +61,7 @@ export async function getDatosInvitacion(
           productoId: true,
           cantidadSolicitada: true,
           fechaEntrega: true,
+          grupo: SELECT_GRUPO_LECTURA,
           producto: {
             select: {
               nombre: true,
@@ -70,8 +72,10 @@ export async function getDatosInvitacion(
             },
           },
         },
-        // Mismo orden que ve el comprador en pantalla (ver LicitacionItem.posicion).
-        orderBy: [{ posicion: "asc" }, { id: "asc" }],
+        // Mismo orden que ve el comprador en pantalla: grupo, luego posición
+        // (ver ORDEN_PARTIDAS). generarTablaMateriales corta por grupo sobre
+        // este orden, también después del filtro por catálogo.
+        orderBy: ORDEN_PARTIDAS,
       },
       proveedoresInvitados: {
         select: {
@@ -105,6 +109,7 @@ export async function getDatosInvitacion(
     cantidad: item.cantidadSolicitada,
     unidad: item.producto.unidadMedida,
     fechaRequerida: item.fechaEntrega?.toISOString() ?? null,
+    grupo: item.grupo ?? null,
   }));
 
   // Items filtrados al catálogo de cada proveedor invitado (misma lógica que

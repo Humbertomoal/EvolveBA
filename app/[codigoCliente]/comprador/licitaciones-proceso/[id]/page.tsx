@@ -4,6 +4,7 @@ import { verificarYActualizarEstado } from "@/src/lib/licitacionesLogica";
 import { prisma } from "@/src/lib/prisma";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import { getDatosInvitacion } from "@/src/lib/datosInvitacion";
+import { ORDEN_PARTIDAS, SELECT_GRUPO_LECTURA } from "@/src/lib/agruparPartidas";
 import {
   cantidadOfertada,
   mejorOfertaValida,
@@ -47,8 +48,10 @@ export default async function DetalleLicitacionProcesoPage({
         where: { eliminado: false },
         include: {
           producto: { select: { nombre: true, unidadMedida: true } },
+          grupo: SELECT_GRUPO_LECTURA,
         },
-        orderBy: [{ posicion: "asc" }, { id: "asc" }],
+        // Grupo, luego posición. Sin grupos es el [posicion, id] de antes.
+        orderBy: ORDEN_PARTIDAS,
       },
       proveedoresInvitados: {
         include: {
@@ -120,6 +123,7 @@ export default async function DetalleLicitacionProcesoPage({
   const analisisBase = calcularAnalisisPorItem(licitacion.items, todasLasOfertas);
   const analisisPorProducto: AnalisisProductoItem[] = analisisBase.map((a, i) => ({
     productoNombre: licitacion.items[i].producto.nombre,
+    grupo: licitacion.items[i].grupo ?? null,
     moneda: a.moneda,
     cantidadSolicitada: a.cantidadSolicitada,
     objetivoUnitario: a.objetivoUnitario,
@@ -306,6 +310,7 @@ export default async function DetalleLicitacionProcesoPage({
           );
           return {
             productoNombre: item.producto.nombre,
+            grupo: item.grupo ?? null,
             unidadMedida: item.producto.unidadMedida,
             cantidadSolicitada: item.cantidadSolicitada,
             precioUnitario: oferta?.precioUnitario ?? null,
@@ -365,6 +370,7 @@ export default async function DetalleLicitacionProcesoPage({
     if (sorted.length === 0) {
       return {
         productoNombre: item.producto.nombre,
+        grupo: item.grupo ?? null,
         cantidadSolicitada: item.cantidadSolicitada,
         unidadMedida: item.producto.unidadMedida,
         mejor: null,
@@ -379,6 +385,7 @@ export default async function DetalleLicitacionProcesoPage({
 
     return {
       productoNombre: item.producto.nombre,
+      grupo: item.grupo ?? null,
       cantidadSolicitada: item.cantidadSolicitada,
       unidadMedida: item.producto.unidadMedida,
       mejor: {

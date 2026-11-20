@@ -4,10 +4,14 @@ import {
   IconAlertTriangle,
   IconCheck,
   IconChevronDown,
+  IconChevronRight,
   IconChevronUp,
   IconCopy,
+  IconExternalLink,
   IconFileText,
+  IconFolderPlus,
   IconInfoCircle,
+  IconMapPin,
   IconPencil,
   IconPlus,
   IconRefresh,
@@ -18,7 +22,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import type { Producto } from "@/src/data/productos";
 import type { Proveedor } from "@/src/data/proveedores";
@@ -52,6 +56,28 @@ import { prepararAdjuntosInvitacionAction } from "@/src/lib/adjuntosCorreoAction
 import type { AdjuntoCorreo } from "@/src/lib/emailService";
 import type { UsuarioActual } from "@/src/lib/usuarioActual";
 import type { LicitacionBase } from "@/src/lib/licitacionBaseTypes";
+import {
+  agregarGrupo,
+  agregarPartida,
+  gruposParaPayload,
+  moverGrupo,
+  moverPartida,
+  moverPartidaAGrupo,
+  ordenarPorSecciones,
+  quitarGrupo,
+  restaurarGrupo,
+  restaurarPartida,
+  secciones,
+  seccionDe,
+  type GrupoFila,
+  type Transicion,
+} from "@/src/lib/formularioGrupos";
+import {
+  MAX_DOMICILIO_GRUPO,
+  MAX_NOMBRE_GRUPO,
+  parsearCoordenadas,
+  planearGrupos,
+} from "@/src/lib/licitacionGrupos";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import MaterialesResumenTabla from "@/src/components/MaterialesResumenTabla";
 import FileUpload from "@/src/components/FileUpload";
@@ -108,6 +134,8 @@ export type ItemFila = {
   cantidadSolicitada: string;
   precioObjetivo: string;
   moneda: string;
+  /** Clave del grupo (GrupoFila.clave). null/ausente = sin grupo. */
+  grupoClave?: string | null;
 };
 
 export type PreDatos = {
@@ -128,6 +156,8 @@ export type PreDatos = {
   estado: string;
   modoLicitacion: string;
   items: ItemFila[];
+  /** Grupos de la licitación, en su orden, incluidos los quitados (tachados). */
+  grupos?: GrupoFila[];
   proveedoresInvitados: string[];
   // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
   tiposCambio?: Record<string, number>;
@@ -332,21 +362,41 @@ export default function LicitacionForm({
   const [maxRondas, setMaxRondas] = useState(inicial?.maxRondas ?? base?.maxRondas ?? "3");
 
   // ── Section B state ──────────────────────────────────────────────────────────
+  // Grupos (proyecto/sitio). Editando: los de la licitación, también los
+  // quitados (tachados). Duplicando: los vivos de la original, SIN id, para que
+  // el servidor los cree en la copia. Nueva: ninguno.
+  const [grupos, setGrupos] = useState<GrupoFila[]>(
+    () => inicial?.grupos ?? base?.grupos.map((g) => ({ ...g })) ?? []
+  );
   const [items, setItems] = useState<ItemFila[]>(() => {
+    // `items` se mantiene SIEMPRE ordenado por sección (ver formularioGrupos.ts).
+    // Las cargas ya llegan así (grupo.orden, posicion); ordenar aquí es una red
+    // por si no, y con orden estable no mueve nada si ya venía bien.
+    const gruposIniciales = inicial?.grupos ?? base?.grupos ?? [];
     if (inicial?.items) {
-      return inicial.items.map((i) => ({
-        ...i,
-        moneda: (i as ItemFila & { moneda?: string }).moneda ?? "MXN",
-      }));
+      return ordenarPorSecciones(
+        inicial.items.map((i) => ({
+          ...i,
+          moneda: (i as ItemFila & { moneda?: string }).moneda ?? "MXN",
+        })),
+        gruposIniciales.map((g) => ({ ...g }))
+      );
     }
     // Duplicado: partidas SIN `id` (el servidor las crea, no las actualiza) y
     // sin `eliminado`/`tieneDependencias` — las retiradas de la original ni
-    // llegan aquí. El orden del arreglo es el orden de la original.
+    // llegan aquí. El orden del arreglo es el orden de la original. Cada una
+    // conserva la clave de su grupo copiado.
     if (base) {
-      return base.items.map((i) => ({ ...i, _id: nuevoId() }));
+      return ordenarPorSecciones(
+        base.items.map((i) => ({ ...i, _id: nuevoId() })),
+        gruposIniciales.map((g) => ({ ...g }))
+      );
     }
     return [];
   });
+  // Grupos colapsados en pantalla. Solo vista: no viaja al servidor.
+  const [gruposColapsados, setGruposColapsados] = useState<Set<string>>(() => new Set());
+  const hayGrupos = grupos.length > 0;
 
   // Partidas que CUENTAN. `items` es la lista completa (incluye las ocultas,
   // que se siguen dibujando tachadas para poder restaurarlas); `itemsActivos`
@@ -454,6 +504,10 @@ export default function LicitacionForm({
   // necesitar un ajuste aunque su fin ya haya pasado-, asi que se advierte y
   // se deja decidir.
   const [modalConfirmarRondas, setModalConfirmarRondas] = useState(false);
+  // Lanzar con grupos y partidas sin grupo: advertencia con confirmación.
+  const [modalConfirmarSinGrupo, setModalConfirmarSinGrupo] = useState(false);
+  const [intencionPendienteSinGrupo, setIntencionPendienteSinGrupo] =
+    useState<IntencionGuardado | null>(null);
   const [intencionPendienteRondas, setIntencionPendienteRondas] =
     useState<IntencionGuardado | null>(null);
   const [modalInstruccionesAbierto, setModalInstruccionesAbierto] = useState(false);
@@ -528,21 +582,73 @@ export default function LicitacionForm({
 
   // ── Item helpers ─────────────────────────────────────────────────────────────
 
-  function agregarItem() {
-    setItems((prev) => [
-      ...prev,
-      {
-        _id: nuevoId(),
-        // Sin `id`: el servidor la reconoce como partida nueva y la CREA.
-        productoId: "",
-        unidadMedida: "",
-        especificacion: "",
-        fechaEntrega: fechaInicioRango || "",
-        cantidadSolicitada: "",
-        precioObjetivo: "",
-        moneda: catalogos?.monedas?.[0]?.codigo ?? MONEDAS[0].codigo,
-      },
-    ]);
+  /**
+   * Aplica una transición de formularioGrupos.ts. Si cambió el orden relativo
+   * de las partidas, enciende `reordenado` para que el servidor renumere la
+   * `posicion` global desde el orden del arreglo. Sin eso, una partida movida a
+   * otro grupo conservaría su posicion vieja y al releer quedaría en otro lugar
+   * (el bug del orden de septiembre). Cubierto por scripts/pruebas/grupos.ts.
+   */
+  function aplicarTransicion(t: Transicion<ItemFila>) {
+    setItems(t.items);
+    setGrupos(t.grupos);
+    if (t.reordena) setReordenado(true);
+    setBannerInfo(null);
+  }
+
+  /** Agrega una partida vacía al final de una sección (null = sin grupo). */
+  function agregarItem(grupoClave: string | null = null) {
+    aplicarTransicion(
+      agregarPartida(
+        { items, grupos },
+        {
+          _id: nuevoId(),
+          // Sin `id`: el servidor la reconoce como partida nueva y la CREA.
+          productoId: "",
+          unidadMedida: "",
+          especificacion: "",
+          fechaEntrega: fechaInicioRango || "",
+          cantidadSolicitada: "",
+          precioObjetivo: "",
+          moneda: catalogos?.monedas?.[0]?.codigo ?? MONEDAS[0].codigo,
+        },
+        grupoClave
+      )
+    );
+  }
+
+  // ── Grupos ───────────────────────────────────────────────────────────────────
+
+  function agregarGrupoNuevo() {
+    const clave = nuevoId();
+    aplicarTransicion(
+      agregarGrupo({ items, grupos }, { clave, nombre: "", domicilio: "", coordenadas: "" })
+    );
+  }
+
+  function cambiarGrupo(clave: string, campo: "nombre" | "domicilio" | "coordenadas", valor: string) {
+    setGrupos((prev) => prev.map((g) => (g.clave === clave ? { ...g, [campo]: valor } : g)));
+  }
+
+  function quitarGrupoDeLista(clave: string) {
+    const t = quitarGrupo({ items, grupos }, clave);
+    aplicarTransicion(t);
+    aplicarAutollenado(t.items.filter((i) => !i.eliminado));
+  }
+
+  function restaurarGrupoDeLista(clave: string) {
+    const t = restaurarGrupo({ items, grupos }, clave);
+    aplicarTransicion(t);
+    aplicarAutollenado(t.items.filter((i) => !i.eliminado));
+  }
+
+  function alternarColapso(clave: string) {
+    setGruposColapsados((prev) => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(clave)) siguiente.delete(clave);
+      else siguiente.add(clave);
+      return siguiente;
+    });
   }
 
   // Escribe el Presupuesto Objetivo autollenado y recuerda ese mismo valor en el
@@ -619,7 +725,8 @@ export default function LicitacionForm({
   }
 
   /**
-   * Sube o baja una partida una posición. El orden vive SOLO en el estado del
+   * Sube o baja una partida una posición DENTRO de su grupo (sin grupos, en la
+   * lista completa, como siempre). El orden vive SOLO en el estado del
    * formulario hasta que se aprieta Guardar; ahí `reordenado` le dice al
    * servidor que derive las posiciones del orden de este arreglo.
    *
@@ -627,24 +734,20 @@ export default function LicitacionForm({
    * se restauren. No se recalcula el presupuesto autollenado, porque la suma no
    * depende del orden.
    */
-  function moverItem(indice: number, direccion: -1 | 1) {
-    const destino = indice + direccion;
-    if (destino < 0 || destino >= items.length) return;
-    setItems((prev) => {
-      const siguiente = [...prev];
-      [siguiente[indice], siguiente[destino]] = [siguiente[destino], siguiente[indice]];
-      return siguiente;
-    });
-    setReordenado(true);
-    setBannerInfo(null);
+  function moverItem(id: string, direccion: -1 | 1) {
+    aplicarTransicion(moverPartida({ items, grupos }, id, direccion));
   }
 
+  /** Cambia una partida de grupo: queda al final de su grupo nuevo. */
+  function moverItemAGrupo(id: string, grupoClave: string | null) {
+    aplicarTransicion(moverPartidaAGrupo({ items, grupos }, id, grupoClave));
+  }
+
+  /** Restaura una partida; si su grupo estaba quitado, lo restaura también. */
   function restaurarItem(id: string) {
-    const newItems = items.map((item) =>
-      item._id === id ? { ...item, eliminado: false } : item
-    );
-    setItems(newItems);
-    aplicarAutollenado(newItems.filter((i) => !i.eliminado));
+    const t = restaurarPartida({ items, grupos }, id);
+    aplicarTransicion(t);
+    aplicarAutollenado(t.items.filter((i) => !i.eliminado));
   }
 
   function handleFechaFinLicitacionChange(valor: string) {
@@ -895,12 +998,27 @@ Asistente de Inteligencia Artificial`;
     const itemsFiltrados = proveedorId
       ? filtrarItemsPorMaterialesProveedor(itemsValidos, proveedorMateriales[proveedorId] ?? [])
       : itemsValidos;
-    return itemsFiltrados.map((i) => ({
-      producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
-      cantidad: parseFloat(i.cantidadSolicitada) || 0,
-      unidad: i.unidadMedida,
-      fechaRequerida: i.fechaEntrega ? new Date(i.fechaEntrega) : null,
-    }));
+    // `items` ya está ordenado por sección (formularioGrupos.ts) y el filtro
+    // conserva ese orden, así que generarTablaMateriales puede cortar por
+    // grupo igual que con el payload del servidor. La clave del grupo sirve
+    // de id: solo se usa para distinguir una sección de otra.
+    return itemsFiltrados.map((i) => {
+      const clave = seccionDe(i, grupos);
+      const g = clave !== null ? grupos.find((x) => x.clave === clave) : undefined;
+      return {
+        producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
+        cantidad: parseFloat(i.cantidadSolicitada) || 0,
+        unidad: i.unidadMedida,
+        fechaRequerida: i.fechaEntrega ? new Date(i.fechaEntrega) : null,
+        grupo: g
+          ? {
+              id: g.clave,
+              nombre: g.nombre.trim() || "Grupo sin nombre",
+              domicilio: g.domicilio.trim() || null,
+            }
+          : null,
+      };
+    });
   }
 
   /** proveedorId → correo, en el mismo orden/filtro que destinatariosSeleccionados(). */
@@ -1017,6 +1135,9 @@ Asistente de Inteligencia Artificial`;
       // la base). Antes se tiraban los dos y el servidor se quedaba sin forma
       // de casar filas — de ahí el borrar-y-recrear.
       items: items.map(({ _id, ...rest }) => rest),
+      // SIEMPRE se manda (aunque sea []): así el servidor sabe que este
+      // formulario ya conoce los grupos. Sin el campo, no los tocaría.
+      grupos: gruposParaPayload(grupos),
       // El ORDEN del arreglo es la única señal de posición que manda el cliente;
       // el servidor deriva los números. Ver LicitacionInput.reordenado.
       reordenado,
@@ -1265,13 +1386,26 @@ Asistente de Inteligencia Artificial`;
     }
   }
 
-  async function guardar(intencion: IntencionGuardado) {
+  /**
+   * `sinGrupoConfirmado`: el comprador ya aceptó el modal de partidas sin grupo.
+   * El modal vuelve a llamar aquí con true para que sigan los demás chequeos
+   * (fecha, rondas) en vez de saltarlos.
+   */
+  async function guardar(intencion: IntencionGuardado, sinGrupoConfirmado = false) {
     if (hayErrores) {
       setIntentoGuardar(true);
       setTimeout(
         () => bannerErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
         50
       );
+      return;
+    }
+    // Lanzar con grupos y partidas sueltas: se advierte y se pide confirmar,
+    // sin bloquear (una partida general, como un seguro de todo, puede ir sin
+    // grupo a propósito). El proveedor verá esas partidas en "Sin grupo".
+    if (!sinGrupoConfirmado && intencion === "preparar_lanzamiento" && partidasSinGrupo > 0) {
+      setIntencionPendienteSinGrupo(intencion);
+      setModalConfirmarSinGrupo(true);
       return;
     }
     if (
@@ -1385,6 +1519,24 @@ Asistente de Inteligencia Artificial`;
     (m) => !(parseFloat(tiposCambio[m]) > 0)
   );
 
+  // Grupos: la MISMA validación que hace el servidor (planearGrupos es puro), así
+  // el comprador ve el problema antes de guardar y el mensaje es idéntico. Se
+  // pasan solo las partidas con producto, igual que el servidor, para que el
+  // "partida N" de los mensajes coincida.
+  const erroresGrupos = hayGrupos
+    ? planearGrupos(
+        [],
+        gruposParaPayload(grupos),
+        items.filter((i) => i.productoId !== "")
+      ).errores
+    : [];
+  // Partidas vivas sin grupo cuando la licitación SÍ tiene grupos vivos: se
+  // permiten, pero al lanzar se advierte.
+  const hayGruposVivos = grupos.some((g) => !g.eliminado);
+  const partidasSinGrupo = hayGruposVivos
+    ? itemsActivos.filter((i) => seccionDe(i, grupos) === null).length
+    : 0;
+
   const errores: Record<string, string | null> = {
     numero: !numero.trim() ? "Número de Licitación requerido" : null,
     jerarquia: !jerarquia.trim() ? "Criticidad requerida" : null,
@@ -1427,6 +1579,7 @@ Asistente de Inteligencia Artificial`;
     tiposCambio: faltanTasas
       ? "Captura un tipo de cambio válido (> 0) para cada moneda distinta de MXN"
       : null,
+    grupos: erroresGrupos.length > 0 ? erroresGrupos.join(" ") : null,
     // BLOQUEA al crear y al duplicar. Duplicar cuenta como creacion: usa
     // `base`, que no enciende `modoEdicion`. En edicion NO entra aqui, se
     // resuelve con el modal de confirmacion de `guardar()`.
@@ -2074,7 +2227,7 @@ Asistente de Inteligencia Artificial`;
           <p className="text-xs text-red-500">{errores.items}</p>
         )}
 
-        {items.length === 0 ? (
+        {items.length === 0 && !hayGrupos ? (
           <p
             className={`rounded-lg border border-dashed py-10 text-center text-sm ${
               intentoGuardar && errores.items
@@ -2085,229 +2238,457 @@ Asistente de Inteligencia Artificial`;
             Sin productos. Usa el botón de abajo para agregar el primero.
           </p>
         ) : (
-          <div className="w-full overflow-x-auto rounded-card border border-border bg-white shadow-card">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
-                  <th className="px-2 py-2.5 w-14">
-                    Orden
-                    <span className="sr-only">
-                      {" "}
-                      — usa los botones subir y bajar de cada fila para cambiarlo
-                    </span>
-                  </th>
-                  <th className="px-2 py-2.5 w-44">Producto</th>
-                  <th className="px-2 py-2.5 w-40">Especificación</th>
-                  <th className="px-2 py-2.5 w-36">Fecha de entrega</th>
-                  <th className="px-2 py-2.5 w-20">Unidad</th>
-                  <th className="px-2 py-2.5 w-28">Moneda</th>
-                  <th className="px-2 py-2.5 w-24">Cantidad</th>
-                  <th className="px-2 py-2.5 w-28">Precio obj.</th>
-                  <th className="px-2 py-2.5 w-28 text-right">Subtotal</th>
-                  <th className="px-2 py-2.5 w-10" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {items.map((item: any, indice: number) => {
-                  const subtotal =
-                    (parseFloat(item.cantidadSolicitada) || 0) *
-                    (parseFloat(item.precioObjetivo) || 0);
-                  // Una partida retirada no se valida: no cuenta para nada y
-                  // exigirle campos completos impediría guardar.
-                  const retirada = Boolean(item.eliminado);
-                  const rowHasError =
-                    !retirada &&
-                    intentoGuardar &&
-                    (!item.productoId ||
-                      !item.fechaEntrega ||
-                      !item.cantidadSolicitada ||
-                      item.precioObjetivo === "");
-                  const nombreProducto = productos.find((p: any) => p.id === item.productoId)?.nombre;
-                  return (
-                    <tr
-                      key={item._id}
-                      className={`transition-colors duration-150 ${
-                        retirada
-                          ? "bg-zinc-50 text-zinc-400 line-through opacity-60"
-                          : `hover:bg-zinc-50/50 ${rowHasError ? "bg-red-50/40" : ""}`
-                      }`}
-                      title={
-                        retirada
-                          ? "Partida retirada: no cuenta para totales, ganador ni el portal del proveedor. Sus ofertas se conservan."
-                          : undefined
-                      }
-                    >
-                      {/* Orden: número de fila + subir/bajar. Las retiradas
-                          también se mueven, para conservar su lugar. */}
-                      <td className="px-2 py-2 no-underline">
-                        <div className="flex items-center gap-1">
-                          <span className="w-4 shrink-0 text-xs tabular-nums text-zinc-400">
-                            {indice + 1}
-                          </span>
-                          <div className="flex flex-col">
-                            <button
-                              type="button"
-                              onClick={() => moverItem(indice, -1)}
-                              disabled={indice === 0}
-                              aria-label={`Subir ${
-                                nombreProducto ?? `la partida ${indice + 1}`
-                              } al lugar ${indice}`}
-                              title="Subir una posición"
-                              className="rounded p-2 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
-                            >
-                              <IconChevronUp className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moverItem(indice, 1)}
-                              disabled={indice === items.length - 1}
-                              aria-label={`Bajar ${
-                                nombreProducto ?? `la partida ${indice + 1}`
-                              } al lugar ${indice + 2}`}
-                              title="Bajar una posición"
-                              className="rounded p-2 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
-                            >
-                              <IconChevronDown className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <select
-                          value={item.productoId}
-                          onChange={(e) =>
-                            cambiarItem(item._id, "productoId", e.target.value)
-                          }
-                          title={nombreProducto}
-                          className={cellInputClass(intentoGuardar && !item.productoId, "w-44 max-w-44 truncate")}
+          (() => {
+            // Sin grupos la tabla es la de siempre: una sola sección sin
+            // encabezado. Con grupos, una sección por grupo (encabezado con
+            // nombre, domicilio y coordenadas) y "Sin grupo" al final si hace
+            // falta. `items` ya está ordenado por sección (formularioGrupos.ts).
+            const columnas = hayGrupos ? 11 : 10;
+            const filaIncompleta = (f: ItemFila | undefined) =>
+              !!f &&
+              (!f.productoId ||
+                !f.fechaEntrega ||
+                !(parseFloat(f.cantidadSolicitada) > 0) ||
+                !(parseFloat(f.precioObjetivo) > 0));
+
+            const renderFila = (
+              item: ItemFila,
+              indice: number,
+              esPrimera: boolean,
+              esUltima: boolean
+            ) => {
+              const subtotal =
+                (parseFloat(item.cantidadSolicitada) || 0) *
+                (parseFloat(item.precioObjetivo) || 0);
+              // Una partida retirada no se valida: no cuenta para nada y
+              // exigirle campos completos impediría guardar.
+              const retirada = Boolean(item.eliminado);
+              const rowHasError =
+                !retirada &&
+                intentoGuardar &&
+                (!item.productoId ||
+                  !item.fechaEntrega ||
+                  !item.cantidadSolicitada ||
+                  item.precioObjetivo === "");
+              const nombreProducto = productos.find((p: any) => p.id === item.productoId)?.nombre;
+              const claveGrupo = seccionDe(item, grupos);
+              const grupoDeFila = grupos.find((g) => g.clave === claveGrupo);
+              // El domicilio va UNA vez, en el grupo: la especificación ya no
+              // necesita repetirlo. Solo orienta, no copia ni bloquea nada.
+              const ayudaEspecificacion = grupoDeFila?.domicilio.trim()
+                ? `El domicilio ya va en el grupo «${grupoDeFila.nombre.trim() || "este grupo"}»`
+                : "Detalles adicionales…";
+              return (
+                <tr
+                  key={item._id}
+                  className={`transition-colors duration-150 ${
+                    retirada
+                      ? "bg-zinc-50 text-zinc-400 line-through opacity-60"
+                      : `hover:bg-zinc-50/50 ${rowHasError ? "bg-red-50/40" : ""}`
+                  }`}
+                  title={
+                    retirada
+                      ? "Partida retirada: no cuenta para totales, ganador ni el portal del proveedor. Sus ofertas se conservan."
+                      : undefined
+                  }
+                >
+                  {/* Orden: número de fila + subir/bajar DENTRO de su grupo.
+                      Las retiradas también se mueven, para conservar su lugar. */}
+                  <td className="px-2 py-2 no-underline">
+                    <div className="flex items-center gap-1">
+                      <span className="w-4 shrink-0 text-xs tabular-nums text-zinc-400">
+                        {indice + 1}
+                      </span>
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={() => moverItem(item._id, -1)}
+                          disabled={esPrimera}
+                          aria-label={`Subir ${nombreProducto ?? `la partida ${indice + 1}`} una posición`}
+                          title="Subir una posición"
+                          className="rounded p-2 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
                         >
-                          <option value="">Seleccionar…</option>
-                          {productos
-                            .filter((p: any) => p.activo !== false || p.id === item.productoId)
-                            .map((p: any) => (
-                              <option key={p.id} value={p.id}>
-                                {p.nombre}
-                              </option>
-                            ))}
-                        </select>
-                      </td>
-                      <td className="px-2 py-2">
+                          <IconChevronUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moverItem(item._id, 1)}
+                          disabled={esUltima}
+                          aria-label={`Bajar ${nombreProducto ?? `la partida ${indice + 1}`} una posición`}
+                          title="Bajar una posición"
+                          className="rounded p-2 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
+                        >
+                          <IconChevronDown className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={item.productoId}
+                      onChange={(e) => cambiarItem(item._id, "productoId", e.target.value)}
+                      title={nombreProducto}
+                      className={cellInputClass(intentoGuardar && !item.productoId, "w-44 max-w-44 truncate")}
+                    >
+                      <option value="">Seleccionar…</option>
+                      {productos
+                        .filter((p: any) => p.activo !== false || p.id === item.productoId)
+                        .map((p: any) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
+                          </option>
+                        ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="text"
+                      value={item.especificacion}
+                      onChange={(e) => cambiarItem(item._id, "especificacion", e.target.value)}
+                      placeholder={ayudaEspecificacion}
+                      title={item.especificacion || (grupoDeFila?.domicilio.trim() ? ayudaEspecificacion : undefined)}
+                      className={cellInputClass(false, "w-40")}
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="date"
+                      value={item.fechaEntrega}
+                      min={fechaInicioRango || undefined}
+                      onChange={(e) => cambiarItem(item._id, "fechaEntrega", e.target.value)}
+                      className={cellInputClass(intentoGuardar && !item.fechaEntrega, "w-36")}
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <span className="block w-20 truncate rounded-md bg-zinc-100 px-2 py-2 text-zinc-500">
+                      {item.unidadMedida || "—"}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={item.moneda}
+                      onChange={(e) => cambiarItem(item._id, "moneda" as keyof ItemFila, e.target.value)}
+                      className={cellInputClass(false, "w-28")}
+                    >
+                      {(catalogos?.monedas && catalogos.monedas.length > 0
+                        ? catalogos.monedas
+                        : MONEDAS
+                      ).map((m) => (
+                        <option key={m.codigo} value={m.codigo}>{m.codigo}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.cantidadSolicitada}
+                      onChange={(e) => cambiarItem(item._id, "cantidadSolicitada", e.target.value)}
+                      className={cellInputClass(intentoGuardar && !item.cantidadSolicitada, "w-24")}
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <div className="relative w-28">
+                      <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-zinc-400">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.precioObjetivo}
+                        onChange={(e) => cambiarItem(item._id, "precioObjetivo", e.target.value)}
+                        className={`${cellInputClass(intentoGuardar && item.precioObjetivo === "", "w-28")} pl-6`}
+                      />
+                    </div>
+                  </td>
+                  <td className="w-28 px-2 py-2 text-right tabular-nums text-zinc-500">
+                    {item.cantidadSolicitada && item.precioObjetivo !== ""
+                      ? `$${fmt(subtotal)}`
+                      : "—"}
+                  </td>
+                  {hayGrupos && (
+                    <td className="px-2 py-2">
+                      {/* Mover a otro grupo: queda al final del grupo destino
+                          y enciende `reordenado` (ver formularioGrupos.ts). */}
+                      <select
+                        value={claveGrupo ?? ""}
+                        onChange={(e) => moverItemAGrupo(item._id, e.target.value || null)}
+                        disabled={retirada}
+                        aria-label={`Grupo de ${nombreProducto ?? `la partida ${indice + 1}`}`}
+                        className={cellInputClass(false, "w-36")}
+                      >
+                        <option value="">Sin grupo</option>
+                        {grupos
+                          .filter((g) => !g.eliminado || g.clave === claveGrupo)
+                          .map((g) => (
+                            <option key={g.clave} value={g.clave}>
+                              {g.nombre.trim() || "(grupo sin nombre)"}
+                            </option>
+                          ))}
+                      </select>
+                    </td>
+                  )}
+                  <td className="px-2 py-2">
+                    {retirada ? (
+                      <button
+                        type="button"
+                        onClick={() => restaurarItem(item._id)}
+                        aria-label="Restaurar partida"
+                        title="Restaurar esta partida"
+                        className="rounded-md p-1.5 text-zinc-400 no-underline transition-colors duration-150 hover:bg-emerald-50 hover:text-emerald-600"
+                      >
+                        <IconRotateClockwise className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => eliminarItem(item._id)}
+                        aria-label="Eliminar fila"
+                        title={
+                          item.tieneDependencias
+                            ? "Retirar esta partida (tiene ofertas: se conserva el histórico y se puede restaurar)"
+                            : "Eliminar fila"
+                        }
+                        className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500"
+                      >
+                        <IconTrash className="h-4 w-4" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            };
+
+            const renderEncabezadoGrupo = (g: GrupoFila, posicion: number, cuantas: number) => {
+              const colapsado = gruposColapsados.has(g.clave);
+              const coords = parsearCoordenadas(g.coordenadas);
+              const enlaceMapa =
+                coords.ok && coords.valor
+                  ? `https://www.google.com/maps?q=${coords.valor.latitud},${coords.valor.longitud}`
+                  : null;
+              const etiqueta = g.nombre.trim() || `el grupo ${posicion + 1}`;
+              return (
+                <tr
+                  key={`grupo_${g.clave}`}
+                  className={`border-t-2 border-zinc-200 ${g.eliminado ? "bg-zinc-50 opacity-60" : "bg-emerald-50/50"}`}
+                  title={
+                    g.eliminado
+                      ? "Grupo quitado: sus partidas tienen ofertas y se conservan ocultas. Se puede restaurar."
+                      : undefined
+                  }
+                >
+                  <td colSpan={columnas} className="px-2 py-2">
+                    <div className="flex flex-wrap items-start gap-2">
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={() => aplicarTransicion(moverGrupo({ items, grupos }, g.clave, -1))}
+                          disabled={posicion === 0}
+                          aria-label={`Subir ${etiqueta}`}
+                          title="Subir el grupo"
+                          className="rounded p-1.5 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
+                        >
+                          <IconChevronUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => aplicarTransicion(moverGrupo({ items, grupos }, g.clave, 1))}
+                          disabled={posicion === grupos.length - 1}
+                          aria-label={`Bajar ${etiqueta}`}
+                          title="Bajar el grupo"
+                          className="rounded p-1.5 leading-none text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
+                        >
+                          <IconChevronDown className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => alternarColapso(g.clave)}
+                        aria-expanded={!colapsado}
+                        aria-label={colapsado ? `Mostrar partidas de ${etiqueta}` : `Ocultar partidas de ${etiqueta}`}
+                        title={colapsado ? "Mostrar partidas" : "Ocultar partidas"}
+                        className="mt-1.5 rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-100"
+                      >
+                        {colapsado ? <IconChevronRight className="h-4 w-4" /> : <IconChevronDown className="h-4 w-4" />}
+                      </button>
+                      <IconMapPin className="mt-2.5 h-4 w-4 shrink-0 text-emerald-700" />
+                      <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-[minmax(9rem,13rem)_minmax(14rem,1fr)_minmax(10rem,14rem)]">
                         <input
                           type="text"
-                          value={item.especificacion}
-                          onChange={(e) =>
-                            cambiarItem(item._id, "especificacion", e.target.value)
-                          }
-                          placeholder="Detalles adicionales…"
-                          title={item.especificacion || undefined}
-                          className={cellInputClass(false, "w-40")}
+                          value={g.nombre}
+                          onChange={(e) => cambiarGrupo(g.clave, "nombre", e.target.value)}
+                          disabled={g.eliminado}
+                          maxLength={MAX_NOMBRE_GRUPO}
+                          placeholder="Nombre (ej. La Mesa)"
+                          aria-label={`Nombre de ${etiqueta}`}
+                          className={`${cellInputClass(intentoGuardar && !g.eliminado && !g.nombre.trim(), "w-full")} font-medium ${g.eliminado ? "line-through" : ""}`}
                         />
-                      </td>
-                      <td className="px-2 py-2">
                         <input
-                          type="date"
-                          value={item.fechaEntrega}
-                          min={fechaInicioRango || undefined}
-                          onChange={(e) =>
-                            cambiarItem(item._id, "fechaEntrega", e.target.value)
-                          }
-                          className={cellInputClass(intentoGuardar && !item.fechaEntrega, "w-36")}
+                          type="text"
+                          value={g.domicilio}
+                          onChange={(e) => cambiarGrupo(g.clave, "domicilio", e.target.value)}
+                          disabled={g.eliminado}
+                          maxLength={MAX_DOMICILIO_GRUPO}
+                          placeholder="Domicilio de entrega"
+                          aria-label={`Domicilio de ${etiqueta}`}
+                          title={g.domicilio || undefined}
+                          className={cellInputClass(intentoGuardar && !g.eliminado && !g.domicilio.trim(), "w-full")}
                         />
-                      </td>
-                      <td className="px-2 py-2">
-                        <span className="block w-20 truncate rounded-md bg-zinc-100 px-2 py-2 text-zinc-500">
-                          {item.unidadMedida || "—"}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2">
-                        <select
-                          value={item.moneda}
-                          onChange={(e) =>
-                            cambiarItem(item._id, "moneda" as keyof ItemFila, e.target.value)
-                          }
-                          className={cellInputClass(false, "w-28")}
-                        >
-                          {(catalogos?.monedas && catalogos.monedas.length > 0
-                            ? catalogos.monedas
-                            : MONEDAS
-                          ).map((m) => (
-                            <option key={m.codigo} value={m.codigo}>{m.codigo}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          value={item.cantidadSolicitada}
-                          onChange={(e) =>
-                            cambiarItem(item._id, "cantidadSolicitada", e.target.value)
-                          }
-                          className={cellInputClass(intentoGuardar && !item.cantidadSolicitada, "w-24")}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="relative w-28">
-                          <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-zinc-400">
-                            $
-                          </span>
+                        <div className="flex items-center gap-1">
                           <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.precioObjetivo}
-                            onChange={(e) =>
-                              cambiarItem(item._id, "precioObjetivo", e.target.value)
-                            }
-                            className={`${cellInputClass(intentoGuardar && item.precioObjetivo === "", "w-28")} pl-6`}
+                            type="text"
+                            value={g.coordenadas}
+                            onChange={(e) => cambiarGrupo(g.clave, "coordenadas", e.target.value)}
+                            disabled={g.eliminado}
+                            placeholder="Coordenadas (opcional)"
+                            aria-label={`Coordenadas de ${etiqueta}`}
+                            title={coords.ok ? "Latitud, longitud — p. ej. 20.853501, -104.486565" : coords.error}
+                            className={cellInputClass(!coords.ok, "w-full")}
                           />
+                          {enlaceMapa && (
+                            <a
+                              href={enlaceMapa}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Ver en el mapa"
+                              aria-label={`Ver ${etiqueta} en el mapa`}
+                              className="shrink-0 rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                            >
+                              <IconExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
                         </div>
-                      </td>
-                      <td className="w-28 px-2 py-2 text-right tabular-nums text-zinc-500">
-                        {item.cantidadSolicitada && item.precioObjetivo !== ""
-                          ? `$${fmt(subtotal)}`
-                          : "—"}
-                      </td>
-                      <td className="px-2 py-2">
-                        {retirada ? (
-                          <button
-                            type="button"
-                            onClick={() => restaurarItem(item._id)}
-                            aria-label="Restaurar partida"
-                            title="Restaurar esta partida"
-                            className="rounded-md p-1.5 text-zinc-400 no-underline transition-colors duration-150 hover:bg-emerald-50 hover:text-emerald-600"
-                          >
-                            <IconRotateClockwise className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => eliminarItem(item._id)}
-                            aria-label="Eliminar fila"
-                            title={
-                              item.tieneDependencias
-                                ? "Retirar esta partida (tiene ofertas: se conserva el histórico y se puede restaurar)"
-                                : "Eliminar fila"
+                      </div>
+                      <span className="mt-2 shrink-0 text-xs tabular-nums text-zinc-500">
+                        {cuantas} {cuantas === 1 ? "partida" : "partidas"}
+                      </span>
+                      {g.eliminado ? (
+                        <button
+                          type="button"
+                          onClick={() => restaurarGrupoDeLista(g.clave)}
+                          className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                          <IconRotateClockwise className="h-4 w-4" />
+                          Restaurar grupo
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const vivas = items.filter((i) => !i.eliminado && seccionDe(i, grupos) === g.clave).length;
+                            if (
+                              vivas === 0 ||
+                              window.confirm(
+                                `¿Quitar el grupo «${etiqueta}» y sus ${vivas} ${vivas === 1 ? "partida" : "partidas"}? ` +
+                                  "Las que ya tienen ofertas se conservan ocultas y se pueden restaurar."
+                              )
+                            ) {
+                              quitarGrupoDeLista(g.clave);
                             }
-                            className="rounded-md p-1.5 text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-500"
-                          >
-                            <IconTrash className="h-4 w-4" />
-                          </button>
-                        )}
-                      </td>
+                          }}
+                          className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                        >
+                          <IconTrash className="h-4 w-4" />
+                          Quitar grupo
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            };
+
+            const seccionesVista = secciones(items, grupos);
+            return (
+              <div className="w-full overflow-x-auto rounded-card border border-border bg-white shadow-card">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
+                      <th className="px-2 py-2.5 w-14">
+                        Orden
+                        <span className="sr-only">
+                          {" "}
+                          — usa los botones subir y bajar de cada fila para cambiarlo
+                        </span>
+                      </th>
+                      <th className="px-2 py-2.5 w-44">Producto</th>
+                      <th className="px-2 py-2.5 w-40">Especificación</th>
+                      <th className="px-2 py-2.5 w-36">Fecha de entrega</th>
+                      <th className="px-2 py-2.5 w-20">Unidad</th>
+                      <th className="px-2 py-2.5 w-28">Moneda</th>
+                      <th className="px-2 py-2.5 w-24">Cantidad</th>
+                      <th className="px-2 py-2.5 w-28">Precio obj.</th>
+                      <th className="px-2 py-2.5 w-28 text-right">Subtotal</th>
+                      {hayGrupos && <th className="px-2 py-2.5 w-36">Grupo</th>}
+                      <th className="px-2 py-2.5 w-10" />
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {seccionesVista.map((sec) => {
+                      const g = sec.grupo;
+                      const colapsado = g ? gruposColapsados.has(g.clave) : false;
+                      const ultima = sec.items[sec.items.length - 1]?.item;
+                      return (
+                        <Fragment key={g ? `seccion_${g.clave}` : "seccion_sin_grupo"}>
+                          {g &&
+                            renderEncabezadoGrupo(
+                              g,
+                              grupos.findIndex((x) => x.clave === g.clave),
+                              sec.items.filter(({ item }) => !item.eliminado).length
+                            )}
+                          {!g && hayGrupos && (
+                            <tr className="border-t-2 border-zinc-200 bg-amber-50/50">
+                              <td colSpan={columnas} className="px-3 py-2 text-xs text-amber-900">
+                                <span className="font-semibold">Sin grupo</span> ·{" "}
+                                {sec.items.length} {sec.items.length === 1 ? "partida" : "partidas"} — el
+                                proveedor las verá sin domicilio de entrega. Usa la columna «Grupo» para
+                                moverlas.
+                              </td>
+                            </tr>
+                          )}
+                          {!colapsado &&
+                            sec.items.map(({ item, indice }, i) =>
+                              renderFila(item, indice, i === 0, i === sec.items.length - 1)
+                            )}
+                          {g && !colapsado && !g.eliminado && (
+                            <tr>
+                              <td colSpan={columnas} className="px-3 py-2">
+                                <button
+                                  type="button"
+                                  onClick={() => agregarItem(g.clave)}
+                                  disabled={filaIncompleta(ultima)}
+                                  title={
+                                    filaIncompleta(ultima)
+                                      ? "Completa todos los campos del producto anterior antes de agregar uno nuevo"
+                                      : undefined
+                                  }
+                                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <IconPlus className="h-3.5 w-3.5" />
+                                  Agregar producto a «{g.nombre.trim() || "este grupo"}»
+                                </button>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()
         )}
 
         {/* Add row button + price summary */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {(() => {
-            const ultimaFila = items[items.length - 1];
+            // La última partida SIN GRUPO (sin grupos: la última de la lista),
+            // que es donde cae este botón.
+            const sueltas = items.filter((i) => seccionDe(i, grupos) === null);
+            const ultimaFila = sueltas[sueltas.length - 1];
             const bloqueado =
               !!ultimaFila &&
               (!ultimaFila.productoId ||
@@ -2315,17 +2696,28 @@ Asistente de Inteligencia Artificial`;
                 !(parseFloat(ultimaFila.cantidadSolicitada) > 0) ||
                 !(parseFloat(ultimaFila.precioObjetivo) > 0));
             return (
-              <span title={bloqueado ? "Completa todos los campos del producto anterior antes de agregar uno nuevo" : undefined}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span title={bloqueado ? "Completa todos los campos del producto anterior antes de agregar uno nuevo" : undefined}>
+                  <button
+                    type="button"
+                    onClick={() => agregarItem(null)}
+                    disabled={bloqueado}
+                    className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <IconPlus className="h-4 w-4" />
+                    {hayGrupos ? "Agregar producto sin grupo" : "Agregar producto"}
+                  </button>
+                </span>
                 <button
                   type="button"
-                  onClick={agregarItem}
-                  disabled={bloqueado}
-                  className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={agregarGrupoNuevo}
+                  title="Agrupa partidas por proyecto o sitio de entrega, con su domicilio"
+                  className="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
                 >
-                  <IconPlus className="h-4 w-4" />
-                  Agregar producto
+                  <IconFolderPlus className="h-4 w-4" />
+                  Agregar grupo
                 </button>
-              </span>
+              </div>
             );
           })()}
 
@@ -2963,6 +3355,72 @@ Asistente de Inteligencia Artificial`;
                 className={`${BTN_PRIMARIO} disabled:opacity-60`}
               >
                 {guardando === "edicion" ? "Guardando…" : "Sí, cambiar fecha"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: lanzar con grupos y partidas sin grupo. Advierte, no bloquea. */}
+      {modalConfirmarSinGrupo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-md flex-col rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-zinc-900">
+                {partidasSinGrupo === 1 ? "Hay 1 partida sin grupo" : `Hay ${partidasSinGrupo} partidas sin grupo`}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalConfirmarSinGrupo(false);
+                  setIntencionPendienteSinGrupo(null);
+                }}
+                aria-label="Cerrar"
+                className="rounded-md p-1 text-zinc-400 hover:text-zinc-700"
+              >
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-5">
+              <div className="flex items-start gap-3">
+                <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                <div className="space-y-2 text-sm text-zinc-700">
+                  <p>
+                    Esta licitación tiene grupos, pero{" "}
+                    {partidasSinGrupo === 1 ? "una partida no está" : `${partidasSinGrupo} partidas no están`} en
+                    ninguno. Los proveedores {partidasSinGrupo === 1 ? "la" : "las"} verán en la sección
+                    «Sin grupo», sin domicilio de entrega.
+                  </p>
+                  <p>
+                    Si es a propósito (por ejemplo, un seguro de todos los materiales), puedes lanzar
+                    así. Si no, cancela y asígnales un grupo con la columna «Grupo».
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-zinc-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalConfirmarSinGrupo(false);
+                  setIntencionPendienteSinGrupo(null);
+                }}
+                className={BTN_SECUNDARIO}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={guardando !== null}
+                onClick={async () => {
+                  setModalConfirmarSinGrupo(false);
+                  // Sigue por los demás chequeos (fecha, rondas), ya con este confirmado.
+                  await guardar(intencionPendienteSinGrupo ?? "preparar_lanzamiento", true);
+                  setIntencionPendienteSinGrupo(null);
+                }}
+                className={`${BTN_PRIMARIO} disabled:opacity-60`}
+              >
+                {guardando !== null ? "Guardando…" : "Lanzar de todos modos"}
               </button>
             </div>
           </div>

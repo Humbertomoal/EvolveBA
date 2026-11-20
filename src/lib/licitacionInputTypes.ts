@@ -59,6 +59,41 @@ export type ItemInput = {
   cantidadSolicitada: string;
   precioObjetivo: string;
   moneda: string;
+  /**
+   * `clave` del grupo (ver GrupoInput) al que va la partida. null o "" = sin
+   * grupo. Solo se interpreta cuando el payload trae `grupos`; sin `grupos`
+   * (formulario anterior a los grupos) el grupo de la partida no se toca.
+   */
+  grupoClave?: string | null;
+};
+
+/**
+ * Un grupo de partidas (proyecto/sitio) del formulario.
+ *
+ * ── `clave` vs `id` ────────────────────────────────────────────────────────
+ * `id` es el id real en la base, ausente en un grupo recién agregado. `clave`
+ * existe SIEMPRE y es lo que las partidas usan para decir a qué grupo van
+ * (`ItemInput.grupoClave`): un grupo nuevo todavía no tiene id, y sus partidas
+ * necesitan apuntarle igual. Para un grupo existente, clave = id.
+ *
+ * El ORDEN del arreglo `LicitacionInput.grupos` es el `orden` del grupo: igual
+ * que con las partidas, el cliente dice "este es el orden", no el número.
+ */
+export type GrupoInput = {
+  /** Id real en la base. `undefined` = grupo nuevo, aún no persistido. */
+  id?: string;
+  clave: string;
+  nombre: string;
+  domicilio: string;
+  /** Texto tal como se capturó, ej. "20.853501, -104.486565". "" = sin coordenadas. */
+  coordenadas: string;
+  /**
+   * true = el comprador quitó el grupo. Sus partidas deben venir también
+   * marcadas `eliminado` (si el grupo está oculto, todas sus partidas lo están).
+   * Viaja explícito por la misma razón que en las partidas: el formulario sigue
+   * mostrando los grupos retirados, tachados, para poder restaurarlos.
+   */
+  eliminado?: boolean;
 };
 
 export type LicitacionInput = {
@@ -106,6 +141,15 @@ export type LicitacionInput = {
    */
   baseId?: string;
   items: ItemInput[];
+  /**
+   * Grupos de partidas, en el orden de la pantalla.
+   *
+   * OPCIONAL A PROPÓSITO. `undefined` = payload de un formulario anterior a los
+   * grupos (una pestaña abierta durante el despliegue): el servidor NO toca los
+   * grupos ni el grupo de ninguna partida. `[]` = la licitación no tiene grupos
+   * (y si los tenía, se quitan). No confundir los dos.
+   */
+  grupos?: GrupoInput[];
   proveedoresInvitados: string[];
   // Tipos de cambio congelados (respecto a MXN), ej. { USD: 17.2 }. MXN no se guarda.
   tiposCambio?: Record<string, number>;

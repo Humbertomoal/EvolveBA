@@ -8,6 +8,7 @@ import { fechaParaInput } from "@/src/lib/dateUtils";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
+import { formatearCoordenadas } from "@/src/lib/licitacionGrupos";
 import LicitacionForm, { type PreDatos, type UnidadDuracion } from "../../nueva/_components/LicitacionForm";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -62,7 +63,24 @@ export default async function EditarLicitacionPage({
         // todas las partidas de un guardado comparten el milisegundo, así que el
         // empate lo resolvía el orden físico y cada UPDATE las barajaba. `id`
         // desempata para que el resultado sea determinista.
-        orderBy: [{ posicion: "asc" }, { id: "asc" }],
+        //
+        // Con grupos: primero el orden del grupo (sin grupo al final, porque en
+        // ASC Postgres deja los nulos al final), luego la posición. Es el orden
+        // en que el formulario agrupa, así que lo que se ve es lo que se guarda.
+        orderBy: [{ grupo: { orden: "asc" } }, { posicion: "asc" }, { id: "asc" }],
+      },
+      // Todos los grupos, también los quitados: como las partidas ocultas, se
+      // muestran tachados para poder restaurarlos.
+      grupos: {
+        orderBy: [{ orden: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          nombre: true,
+          domicilio: true,
+          latitud: true,
+          longitud: true,
+          eliminado: true,
+        },
       },
       proveedoresInvitados: true,
     },
@@ -123,6 +141,16 @@ export default async function EditarLicitacionPage({
       cantidadSolicitada: String(item.cantidadSolicitada),
       precioObjetivo: item.precioObjetivo !== null ? String(item.precioObjetivo) : "",
       moneda: item.moneda ?? "MXN",
+      // Para un grupo existente, la clave ES su id.
+      grupoClave: item.grupoId ?? null,
+    })),
+    grupos: licitacion.grupos.map((g) => ({
+      clave: g.id,
+      id: g.id,
+      nombre: g.nombre,
+      domicilio: g.domicilio ?? "",
+      coordenadas: formatearCoordenadas(g.latitud, g.longitud),
+      eliminado: g.eliminado,
     })),
     proveedoresInvitados: licitacion.proveedoresInvitados.map((p: any) => p.proveedorId),
     tiposCambio: parseTiposCambio(licitacion.tiposCambio),

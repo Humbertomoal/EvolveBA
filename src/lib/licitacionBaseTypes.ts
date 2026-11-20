@@ -30,6 +30,22 @@ export type ItemLicitacionBase = {
   cantidadSolicitada: string;
   precioObjetivo: string;
   moneda: string;
+  /** Clave del grupo copiado al que va (ver GrupoLicitacionBase). null = sin grupo. */
+  grupoClave: string | null;
+};
+
+/**
+ * Un grupo copiado. SIN `id` a propósito, igual que las partidas: el servidor
+ * lo CREA como grupo nuevo de la copia. La `clave` es el id del grupo ORIGINAL,
+ * solo para que las partidas copiadas sepan a qué grupo van; nunca se escribe
+ * sobre él. Solo se copian grupos vivos (un grupo quitado solo tiene partidas
+ * retiradas, que tampoco se copian).
+ */
+export type GrupoLicitacionBase = {
+  clave: string;
+  nombre: string;
+  domicilio: string;
+  coordenadas: string;
 };
 
 export type LicitacionBase = {
@@ -53,6 +69,8 @@ export type LicitacionBase = {
   archivosAdjuntos: string[];
   modoLicitacion: string;
   items: ItemLicitacionBase[];
+  /** Grupos vivos de la original, en su orden. */
+  grupos: GrupoLicitacionBase[];
   proveedoresInvitados: string[];
   /** Tipos de cambio CONGELADOS de la original (no los actuales de Settings). */
   tiposCambio: Record<string, number>;

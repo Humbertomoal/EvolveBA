@@ -13,6 +13,13 @@ import {
   sentenciaPosicionesPartidas,
   type PosicionPartida,
 } from "@/src/lib/posicionesPartidas";
+import {
+  decidirRetiroGrupos,
+  destinoDeItem,
+  planearGrupos,
+  type DestinoGrupo,
+  type PlanGrupos,
+} from "@/src/lib/licitacionGrupos";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { copiarArchivo, eliminarArchivo } from "@/src/lib/supabaseStorage";
 
@@ -182,6 +189,7 @@ type ItemEnBase = {
   moneda: string;
   posicion: number;
   eliminado: boolean;
+  grupoId: string | null;
   producto: { nombre: string };
   _count: { ofertas: number; asignaciones: number; seleccionesPrecio: number };
 };
@@ -215,11 +223,34 @@ function tieneDependencias(fila: ItemEnBase): boolean {
 type DatosUpdateItem = ReturnType<typeof normalizarItem> & {
   eliminado?: boolean;
   eliminadoEn?: Date | null;
+  /** Solo presente si la partida cambia a un grupo EXISTENTE o a "sin grupo". */
+  grupoId?: string | null;
 };
 
+/**
+ * A qué grupo va cada partida del payload. null = payload sin `grupos`
+ * (formulario anterior a los grupos): el grupo de las partidas no se toca.
+ */
+type ResolverDestino = ((item: ItemInput) => DestinoGrupo) | null;
+
 type Reconciliacion = {
-  /** Partida nueva + la posición que le toca (al final de las que ya hay). */
-  aCrear: { item: ItemInput; posicion: number }[];
+  /**
+   * Partida nueva + la posición que le toca (al final de las que ya hay) + su
+   * grupo (null = payload sin grupos: se crea sin grupo).
+   */
+  aCrear: { item: ItemInput; posicion: number; destino: DestinoGrupo | null }[];
+  /**
+   * Partidas EXISTENTES que pasan a un grupo NUEVO, por clave del grupo. No van
+   * en `aActualizar` porque el grupo todavía no tiene id: se enlazan con un
+   * `connect` dentro del create anidado del grupo.
+   */
+  conectarAGrupoNuevo: Map<string, string[]>;
+  /**
+   * Grupo con el que queda cada partida existente que CAMBIA de grupo (id, null
+   * = sin grupo, o una marca "nuevo:<clave>"). Las que no aparecen se quedan
+   * con el que tenían. Lo usa decidirRetiroGrupos.
+   */
+  grupoFinalPorItem: Map<string, string | null>;
   aActualizar: { id: string; datos: DatosUpdateItem }[];
   /**
    * Partidas EXISTENTES que cambian de lugar. Van aparte de `aActualizar`
@@ -252,10 +283,13 @@ function reconciliarItems(
    * `itemsPayload`, que llega en el orden de la pantalla. false = nadie se
    * movió y cada partida conserva la `posicion` que ya tiene.
    */
-  reordenado: boolean
+  reordenado: boolean,
+  destinoDe: ResolverDestino
 ): Reconciliacion {
   const porId = new Map(itemsEnBase.map((i) => [i.id, i]));
   const aCrear: Reconciliacion["aCrear"] = [];
+  const conectarAGrupoNuevo = new Map<string, string[]>();
+  const grupoFinalPorItem = new Map<string, string | null>();
   // Las partidas nuevas se van al FINAL: max de las que ya hay, +1 en adelante.
   // Se calcula con lo ya cargado en memoria (incluidas las ocultas, que siguen
   // ocupando su lugar), sin consultas extra. Sin partidas previas arranca en 0.
@@ -291,6 +325,7 @@ function reconciliarItems(
       aCrear.push({
         item,
         posicion: posicionDeseada ?? siguientePosicion++,
+        destino: destinoDe ? destinoDe(item) : null,
       });
       cambios.agregadas++;
       continue;
@@ -336,8 +371,33 @@ function reconciliarItems(
       continue;
     }
 
+    // ── Cambio de grupo ────────────────────────────────────────────────────
+    // Permitido aunque haya ofertas (no es como cambiar el producto), pero
+    // CUENTA como cambio avisable: el material va a otro destino. A un grupo
+    // existente o a "sin grupo" viaja en el update; a un grupo NUEVO, por
+    // `connect` en el create del grupo, que todavía no tiene id.
+    let grupoIdNuevo: string | null | undefined; // undefined = no se toca
+    let grupoCambio = false;
+    if (destinoDe) {
+      const destino = destinoDe(item);
+      if (destino.tipo === "nuevo") {
+        grupoCambio = true;
+        const lista = conectarAGrupoNuevo.get(destino.clave) ?? [];
+        lista.push(fila.id);
+        conectarAGrupoNuevo.set(destino.clave, lista);
+        grupoFinalPorItem.set(fila.id, `nuevo:${destino.clave}`);
+      } else {
+        const objetivo = destino.tipo === "existente" ? destino.id : null;
+        if (objetivo !== fila.grupoId) {
+          grupoCambio = true;
+          grupoIdNuevo = objetivo;
+          grupoFinalPorItem.set(fila.id, objetivo);
+        }
+      }
+    }
+
     const cantidadCambio = datos.cantidadSolicitada !== fila.cantidadSolicitada;
-    const otroCambio =
+    const otroCambioDatos =
       datos.productoId !== fila.productoId ||
       datos.especificacion !== fila.especificacion ||
       (datos.fechaEntrega?.getTime() ?? null) !== (fila.fechaEntrega?.getTime() ?? null) ||
@@ -345,17 +405,20 @@ function reconciliarItems(
       datos.moneda !== fila.moneda;
 
     if (cantidadCambio) cambios.cantidadCambiada++;
-    else if (otroCambio) cambios.modificadas++;
+    else if (otroCambioDatos || grupoCambio) cambios.modificadas++;
 
     // Se escribe solo si de verdad cambió algo: un guardado que no toca la
     // partida no debe moverle nada (ni disparar avisos). Un cambio de SOLO
     // posición no genera update: va por la sentencia de posiciones. Y tampoco
     // toca los contadores de `cambios`, así que reordenar no dispara el correo
     // ni el chat de ajuste — al proveedor no le cambia nada de lo que cotiza.
-    if (restaurar || cantidadCambio || otroCambio) {
+    // Pasar SOLO a un grupo nuevo tampoco genera update: lo hace el `connect`.
+    if (restaurar || cantidadCambio || otroCambioDatos || grupoIdNuevo !== undefined) {
+      const conGrupo: DatosUpdateItem =
+        grupoIdNuevo !== undefined ? { ...datos, grupoId: grupoIdNuevo } : datos;
       aActualizar.push({
         id: fila.id,
-        datos: restaurar ? { ...datos, eliminado: false, eliminadoEn: null } : datos,
+        datos: restaurar ? { ...conGrupo, eliminado: false, eliminadoEn: null } : conGrupo,
       });
     }
   }
@@ -377,7 +440,42 @@ function reconciliarItems(
     aBorrar.push(fila.id);
   }
 
-  return { aCrear, aActualizar, posiciones, aOcultar, aBorrar, bloqueos, cambios };
+  return {
+    aCrear,
+    conectarAGrupoNuevo,
+    grupoFinalPorItem,
+    aActualizar,
+    posiciones,
+    aOcultar,
+    aBorrar,
+    bloqueos,
+    cambios,
+  };
+}
+
+/**
+ * Rechazo del guardado por grupos inválidos, con el mismo formato que los
+ * bloqueos de partidas. null = los grupos están bien.
+ */
+function rechazoPorGrupos(plan: PlanGrupos): ResultadoGuardar | null {
+  if (plan.errores.length === 0) return null;
+  return {
+    ok: false,
+    error: [
+      "No se guardaron los cambios porque hay problemas con los grupos:",
+      ...plan.errores.map((e) => `• ${e}`),
+    ].join(" "),
+  };
+}
+
+/**
+ * `grupoId` con el que se CREA una partida cuyo grupo ya tiene id (existente o
+ * "sin grupo"). undefined = no mandar el campo (payload sin grupos). Las que
+ * van a un grupo NUEVO no pasan por aquí: se crean anidadas en su grupo.
+ */
+function grupoIdDirecto(destino: DestinoGrupo | null): string | null | undefined {
+  if (destino === null) return undefined;
+  return destino.tipo === "existente" ? destino.id : null;
 }
 
 export async function crearLicitacionAction(
@@ -386,6 +484,16 @@ export async function crearLicitacionAction(
 ): Promise<ResultadoGuardar> {
   const sesion = await exigirCompradorSesion();
   validarFechas(datos);
+
+  const itemsValidos = datos.items.filter((item) => item.productoId !== "");
+
+  // Grupos: se validan ANTES de cualquier escritura, incluida la copia de
+  // adjuntos en Storage. Sin `grupos` en el payload no hay nada que validar y
+  // las partidas nacen sin grupo, como siempre. Al DUPLICAR, los grupos de la
+  // original llegan como grupos NUEVOS: este mismo camino los crea.
+  const planGrupos = datos.grupos ? planearGrupos([], datos.grupos, itemsValidos) : null;
+  const rechazo = planGrupos ? rechazoPorGrupos(planGrupos) : null;
+  if (rechazo) return rechazo;
 
   // El DUEÑO sale de la sesión firmada, no de la cookie de alcance. Antes se
   // leía `cyrgo_comprador_id` y, si valía "__todos__" o faltaba, se estampaba el
@@ -475,13 +583,12 @@ export async function crearLicitacionAction(
     archivosAdjuntosFinales = datos.archivosAdjuntos.map((u) => copias.get(u) ?? u);
   }
 
-  const itemsValidos = datos.items.filter((item) => item.productoId !== "");
-
-  // Cabecera + partidas + invitados en UNA transacción: o queda la licitación
-  // completa, o no queda nada. Antes eran tres escrituras sueltas y un fallo a
-  // media tanda dejaba una licitación sin partidas o sin invitados. Es
-  // interactiva porque las partidas necesitan el id que asigna el create; son 3
-  // sentencias (~300 ms medidos), muy por debajo del timeout de 5 s.
+  // Cabecera + grupos + partidas + invitados en UNA transacción: o queda la
+  // licitación completa, o no queda nada. Antes eran tres escrituras sueltas y
+  // un fallo a media tanda dejaba una licitación sin partidas o sin invitados.
+  // Es interactiva porque las partidas necesitan el id que asigna el create; son
+  // 3 sentencias (~300 ms medidos) más una por grupo (uno por sitio, típicamente
+  // 4 o 5), muy por debajo del timeout de 5 s.
   let licitacion;
   try {
     licitacion = await prisma.$transaction(async (tx) => {
@@ -516,14 +623,30 @@ export async function crearLicitacionAction(
         },
       });
 
+      // Grupos antes que partidas: las partidas necesitan su id.
+      const idPorClave = new Map<string, string>();
+      for (const g of planGrupos?.aCrear ?? []) {
+        const grupo = await tx.licitacionGrupo.create({
+          data: { licitacionId: creada.id, ...g.datos, orden: g.orden },
+          select: { id: true },
+        });
+        idPorClave.set(g.clave, grupo.id);
+      }
+      const grupoIdAlCrear = (item: ItemInput): string | null => {
+        if (!planGrupos) return null;
+        const destino = destinoDeItem(item, planGrupos.destinoPorClave);
+        return destino?.tipo === "nuevo" ? (idPorClave.get(destino.clave) ?? null) : null;
+      };
+
       if (itemsValidos.length > 0) {
         await tx.licitacionItem.createMany({
           // El índice del arreglo ES el orden de captura: el formulario agrega
           // siempre al final y nunca reordena solo. Se deriva aquí en vez de
           // aceptarlo del cliente. Al duplicar, ese orden es el de la original.
-          data: itemsValidos.map((item: any, indice: number) => ({
+          data: itemsValidos.map((item: ItemInput, indice: number) => ({
             licitacionId: creada.id,
             posicion: indice,
+            grupoId: grupoIdAlCrear(item),
             productoId: item.productoId,
             especificacion: item.especificacion || null,
             fechaEntrega: item.fechaEntrega ? new Date(item.fechaEntrega) : null,
@@ -674,12 +797,41 @@ export async function actualizarLicitacionAction(
       // necesita ninguna consulta extra.
       posicion: true,
       eliminado: true,
+      grupoId: true,
       producto: { select: { nombre: true } },
       _count: { select: { ofertas: true, asignaciones: true, seleccionesPrecio: true } },
     },
   });
   const itemsValidos = datos.items.filter((item) => item.productoId !== "");
-  const plan = reconciliarItems(itemsEnBase, itemsValidos, fechaCambio, datos.reordenado);
+
+  // ── Grupos: también se PLANEAN antes de escribir ─────────────────────────
+  // Un payload sin `grupos` (formulario anterior a los grupos) no toca ni los
+  // grupos ni el grupo de ninguna partida.
+  let planGrupos: PlanGrupos | null = null;
+  if (datos.grupos) {
+    const gruposEnBase = await prisma.licitacionGrupo.findMany({
+      where: { licitacionId: id },
+      select: {
+        id: true,
+        nombre: true,
+        domicilio: true,
+        latitud: true,
+        longitud: true,
+        orden: true,
+        eliminado: true,
+      },
+    });
+    planGrupos = planearGrupos(gruposEnBase, datos.grupos, itemsValidos);
+    const rechazo = rechazoPorGrupos(planGrupos);
+    if (rechazo) return rechazo;
+  }
+  const pg = planGrupos;
+  // Ya validado: toda clave que llega aquí existe en el plan.
+  const destinoDe: ResolverDestino = pg
+    ? (item) => destinoDeItem(item, pg.destinoPorClave) ?? { tipo: "sinGrupo" }
+    : null;
+
+  const plan = reconciliarItems(itemsEnBase, itemsValidos, fechaCambio, datos.reordenado, destinoDe);
 
   if (plan.bloqueos.length > 0) {
     return {
@@ -690,6 +842,25 @@ export async function actualizarLicitacionAction(
       ].join(" "),
     };
   }
+
+  // Grupos quitados: se ocultan si les sigue apuntando alguna partida (aunque
+  // sea oculta), se borran si no. Depende del plan de partidas.
+  const retiroGrupos = pg
+    ? decidirRetiroGrupos(pg.aRetirar, itemsEnBase, plan.grupoFinalPorItem, new Set(plan.aBorrar))
+    : { aOcultar: [], aBorrar: [] };
+
+  // Cambiar domicilio o coordenadas de un grupo con partidas vivas cambia el
+  // destino (y el precio del flete): se avisa. Solo el nombre o el orden, no.
+  const destinoGrupoCambiado =
+    !!pg &&
+    !!destinoDe &&
+    pg.destinoCambiado.some((grupoId) =>
+      itemsValidos.some((item) => {
+        if (item.eliminado) return false;
+        const destino = destinoDe(item);
+        return destino.tipo === "existente" && destino.id === grupoId;
+      })
+    );
 
   // Entrar a "En Proceso" marca el inicio real de la licitación. Se sella solo
   // en la TRANSICIÓN: antes bastaba con que el estado enviado fuera "En
@@ -751,31 +922,84 @@ export async function actualizarLicitacionAction(
   // el guardado de partidas es todo-o-nada. Antes eran `await` sueltos y un
   // reorden interrumpido a medias dejaba posiciones repetidas.
   //
-  // Son 4 o 5 sentencias, no una por partida: TODAS las posiciones caben en la
+  // Son 4 o 5 sentencias, no una por partida (más una por grupo que cambie, se
+  // cree o se retire; son pocos, uno por sitio): TODAS las posiciones caben en la
   // primera (ver posicionesPartidas.ts, con la medición que lo justifica). Eso
   // importa porque al lote le aplica el timeout de 5 s de Prisma, que no se
   // puede subir: con un update por partida, un reorden de 50 reventaba.
   //
   // La cabecera (licitacion.update) queda FUERA a propósito: ya se escribió
   // arriba con su propio manejo de número duplicado.
+  //
+  // ── Grupos dentro del mismo lote ─────────────────────────────────────────
+  // Un grupo NUEVO no tiene id hasta crearse, y en un lote ninguna operación
+  // puede usar el resultado de otra. Por eso se crea con escritura ANIDADA:
+  // el create del grupo enlaza (`connect`) las partidas existentes que pasan a
+  // él y crea (`createMany`) las nuevas que van en él. Prisma genera el id y
+  // todo sigue siendo un solo lote. Orden de las operaciones: los grupos se
+  // retiran AL FINAL, cuando ya se movieron o borraron las partidas que les
+  // apuntaban (la FK es RESTRICT).
   const sentenciaPosiciones = sentenciaPosicionesPartidas(id, plan.posiciones);
+  const crearDirecto = plan.aCrear.filter((c) => c.destino?.tipo !== "nuevo");
   const operaciones = [
     // Primero las posiciones, en una sola sentencia. Ausente si nadie se movió.
     ...(sentenciaPosiciones ? [sentenciaPosiciones] : []),
+    // Grupos existentes que cambian datos, orden, o se restauran.
+    ...(pg?.aActualizar ?? []).map(({ id: grupoId, datos: cambiosGrupo }) =>
+      prisma.licitacionGrupo.update({
+        where: { id: grupoId, licitacionId: id },
+        data: cambiosGrupo,
+      })
+    ),
     ...plan.aActualizar.map(({ id: itemId, datos: cambiosItem }) =>
       prisma.licitacionItem.update({ where: { id: itemId }, data: cambiosItem })
     ),
-    ...(plan.aCrear.length > 0
+    ...(crearDirecto.length > 0
       ? [
           prisma.licitacionItem.createMany({
-            data: plan.aCrear.map(({ item, posicion }) => ({
-              licitacionId: id,
-              posicion,
-              ...normalizarItem(item),
-            })),
+            data: crearDirecto.map(({ item, posicion, destino }) => {
+              const grupoId = grupoIdDirecto(destino);
+              return {
+                licitacionId: id,
+                posicion,
+                ...normalizarItem(item),
+                ...(grupoId !== undefined ? { grupoId } : {}),
+              };
+            }),
           }),
         ]
       : []),
+    // Grupos nuevos, con sus partidas enlazadas y creadas dentro.
+    ...(pg?.aCrear ?? []).map(({ clave, datos: datosGrupo, orden }) => {
+      const conectar = plan.conectarAGrupoNuevo.get(clave) ?? [];
+      const nuevas = plan.aCrear.filter(
+        (c) => c.destino?.tipo === "nuevo" && c.destino.clave === clave
+      );
+      return prisma.licitacionGrupo.create({
+        data: {
+          licitacionId: id,
+          ...datosGrupo,
+          orden,
+          items: {
+            ...(conectar.length > 0
+              ? { connect: conectar.map((itemId) => ({ id: itemId })) }
+              : {}),
+            ...(nuevas.length > 0
+              ? {
+                  createMany: {
+                    data: nuevas.map(({ item, posicion }) => ({
+                      licitacionId: id,
+                      posicion,
+                      ...normalizarItem(item),
+                    })),
+                  },
+                }
+              : {}),
+          },
+        },
+        select: { id: true },
+      });
+    }),
     ...(plan.aOcultar.length > 0
       ? [
           // Soft-delete: la partida deja de contar en TODOS los cálculos (cada
@@ -793,6 +1017,23 @@ export async function actualizarLicitacionAction(
           // de precio: las tres FK son RESTRICT, así que un borrado indebido
           // fallaría.
           prisma.licitacionItem.deleteMany({ where: { id: { in: plan.aBorrar } } }),
+        ]
+      : []),
+    // Grupos quitados, AL FINAL. Ocultar: les sigue apuntando alguna partida
+    // (que este mismo guardado dejó oculta). Borrar: ya nadie les apunta.
+    ...(retiroGrupos.aOcultar.length > 0
+      ? [
+          prisma.licitacionGrupo.updateMany({
+            where: { id: { in: retiroGrupos.aOcultar }, licitacionId: id },
+            data: { eliminado: true, eliminadoEn: new Date() },
+          }),
+        ]
+      : []),
+    ...(retiroGrupos.aBorrar.length > 0
+      ? [
+          prisma.licitacionGrupo.deleteMany({
+            where: { id: { in: retiroGrupos.aBorrar }, licitacionId: id },
+          }),
         ]
       : []),
   ];
@@ -849,7 +1090,8 @@ export async function actualizarLicitacionAction(
     plan.cambios.restauradas > 0 ||
     plan.cambios.cantidadCambiada > 0 ||
     plan.cambios.modificadas > 0 ||
-    plan.cambios.fechaCambiada;
+    plan.cambios.fechaCambiada ||
+    destinoGrupoCambiado;
   if (estadoPrevio === "En Proceso" && datos.modoLicitacion !== "Manual" && huboCambioAvisable) {
     await publicarAvisoRonda(id, { tipo: "cambio_licitacion" });
   }

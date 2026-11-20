@@ -16,7 +16,11 @@ export async function crearOrdenesCompraParaLicitacion(
     where: { licitacionId, ...(soloProveedorId ? { proveedorId: soloProveedorId } : {}) },
     include: {
       licitacionItem: {
-        include: { producto: { select: { nombre: true, unidadMedida: true } } },
+        include: {
+          producto: { select: { nombre: true, unidadMedida: true } },
+          // Para el snapshot grupoNombre/grupoDomicilio de la línea.
+          grupo: { select: { nombre: true, domicilio: true } },
+        },
       },
     },
     // De aquí sale el orden de las LÍNEAS de la orden de compra: se crean en
@@ -115,6 +119,12 @@ export async function crearOrdenesCompraParaLicitacion(
             fechaEntregaObjetivo: a.fechaObjetivo,
             fechaEstimadaProveedor: a.fechaEstimadaProveedor,
             subtotal: a.cantidadAsignada * a.precioUnitario,
+            // Snapshot del sitio de entrega, como productoNombre: la OC congela
+            // a dónde iba cada línea aunque después se edite o quite el grupo.
+            // null = la partida no tenía grupo. Un domicilio vacío se guarda
+            // como null, no como "".
+            grupoNombre: a.licitacionItem.grupo?.nombre ?? null,
+            grupoDomicilio: a.licitacionItem.grupo?.domicilio?.trim() || null,
           })),
         },
       },

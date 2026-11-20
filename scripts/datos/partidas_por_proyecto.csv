@@ -1,0 +1,238 @@
+﻿proyecto,subfamilia,material,unidad,cantidad,nota
+Planta Pilas,ALIMENTADOR A TRANSFORMADOR,CABLE 3/0 AWG VERDE,M,60,"Tierra, 1 por tubo"
+Planta Pilas,ALIMENTADOR A TRANSFORMADOR,CABLE 350 KCMIL THHW-LS,M,180,Nuevo: 4 juegos × 3 fases × 15 m (confirmar distancia)
+Planta Pilas,ALIMENTADOR A TRANSFORMADOR,"CODOS PVC CED 40 3""",PZ,8,Nuevo
+Planta Pilas,ALIMENTADOR A TRANSFORMADOR,"TUBO CONDUIT PVC CED 40 3""",TMO,20,Nuevo: 4 tubos × 15 m
+Planta Pilas,CANALIZACION,"CODOS PVC CED 40 1 1/2""",PZ,60,18 tubos × 3 + reserva
+Planta Pilas,CANALIZACION,"CONDULET LL 1 1/2""",PZ,25,Escalado
+Planta Pilas,CANALIZACION,"CONECTORES PVC CED 40 1 1/2""",PZ,65,Sin cambio
+Planta Pilas,CANALIZACION,"CONECTORES WP 1 1/2""",PZ,148,Escalado
+Planta Pilas,CANALIZACION,"COPLES ROSCA INTERNA 1 1/2""",PZ,74,Escalado con tubo metálico
+Planta Pilas,CANALIZACION,"GLÁNDULA PLÁSTICA 1 1/2""",PZ,74,Escalado
+Planta Pilas,CANALIZACION,LIJA DE LONA 220,PZ,10,Sin cambio
+Planta Pilas,CANALIZACION,"MONITOR 1 1/2""",PZ,51,Escalado
+Planta Pilas,CANALIZACION,PEGAMENTO P/PVC 1/4,PZ,2,Más tubería
+Planta Pilas,CANALIZACION,"TUBO CONDUIT METÁLICO 1 1/2""",TMO,25,Subidas al final de fila y llegada al cuarto
+Planta Pilas,CANALIZACION,"TUBO CONDUIT PVC CED 40 1 1/2""",TMO,216,"18 tubos (2 por fila, 9 filas), 617 m + 5 %"
+Planta Pilas,CHAROLA PORTACABLES,"CURVA HORIZONTAL A 90° DE ALUMINIO P/ CHAROLA DE 18""",PZ,2,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,GRAPA DE FIJACIÓN PARA CHAROLA (HOLD DOWN CLIP),PZ,20,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,PLACA DE UNIÓN ARTICULADA VERTICAL CON TORNILLERÍA,PZ,16,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,PLACA DE UNIÓN RECTA (SPLICE PLATE) CON TORNILLERÍA,PZ,24,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,PUENTE DE UNIÓN DE TIERRA (BONDING JUMPER) CON ZAPATAS,PZ,18,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"RONDANA DE PRESIÓN 3/8""",PZ,40,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"RONDANA PLANA 3/8""",PZ,40,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"TAQUETE DE EXPANSIÓN METÁLICO TIPO TX 3/8""",PZ,20,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"TE DE BAJADA VERTICAL (DROP-OUT) TRANSICIÓN DE CHAROLA 18"" A 6""",PZ,8,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"TORNILLO CABEZA HEXAGONAL 3/8"" × 1""",PZ,20,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"TRAMO RECTO DE CHAROLA DE ALUMINIO TIPO ESCALERA DE 18"" X 3.05 M",PZ,6,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"TRAMO RECTO DE CHAROLA DE ALUMINIO TIPO ESCALERA DE 6"" X 3.05 M",PZ,5,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"TUERCA DE RESORTE PARA UNICANAL 3/8""",PZ,20,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"TUERCA HEXAGONAL 3/8""",PZ,40,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,UNICANAL 4X4 TMO 3 M,PZ,5,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CHAROLA PORTACABLES,"VARILLA ROSCADA GALVANIZADA 3/8"" TMO 3 M",PZ,4,Sin cambio (mismo cuarto eléctrico)
+Planta Pilas,CORRIENTE ALTERNA,CABLE CAL 10 AWG VERDE,M,100,Sin cambio (puestas a tierra auxiliares)
+Planta Pilas,CORRIENTE ALTERNA,CABLE CAL 4 AWG VERDE,M,70,Tierra CA
+Planta Pilas,CORRIENTE ALTERNA,CABLE CAL 4/0 AWG THHW-LS,M,250,"Sin cambio: 5 inversores × 3 fases, inversor → tablero"
+Planta Pilas,CORRIENTE ALTERNA,"INTERRUPTOR GENERAL 3X1200 A, 440 V (CLASE 480 V)",PZ,1,"Nuevo: 5 × 165.4 A × 1.25 = 1,034 A"
+Planta Pilas,CORRIENTE ALTERNA,"INTERRUPTOR TERMOMAGNÉTICO 3X225 A, 440 V (CLASE 480 V)",PZ,5,1 por inversor. Original 7: confirmar si 2 eran de reserva
+Planta Pilas,CORRIENTE ALTERNA,TABLERO 3F 1500 A,PZ,1,Sin cambio
+Planta Pilas,CORRIENTE DIRECTA,CABLE CAL 10 AWG THHW-LS VERDE,M,650,"Tierra de equipos CD, 1 por tubo"
+Planta Pilas,CORRIENTE DIRECTA,"CABLE FV (PV WIRE) CAL 8 AWG, 2 kV, 90 °C, RESISTENTE A UV",M,11500,"70 strings × 2 conductores × 77.9 m prom. + 5 %: 5,750 m rojo + 5,750 m negro"
+Planta Pilas,CORRIENTE DIRECTA,CONECTORES MC4 P/CAL 8 FV,PAR,160,2 pares por string (campo e inversor) + 15 % de reserva
+Planta Pilas,CORRIENTE DIRECTA,"FUSIBLES CD 30 A gPV, 1100 Vcd, 10×38 mm",PZ,140,"Opcional: NOM 690-9, inversor sin fusibles"
+Planta Pilas,CORRIENTE DIRECTA,GABINETE METÁLICO 30X30X15 IP65,PZ,10,Opcional: solo si se instalan fusibles
+Planta Pilas,CORRIENTE DIRECTA,"PORTAFUSIBLES 10×38 mm, 1100 Vcd, RIEL DIN",PZ,140,Opcional: solo si se instalan fusibles
+Planta Pilas,CORRIENTE DIRECTA,RIEL DIN,M,10,Opcional: solo si se instalan fusibles
+Planta Pilas,OTROS,"CINCHOS PLÁSTICOS NEGROS 16"" (UV)",PZ,5000,Escalado: 70 strings sobre estructura
+Planta Pilas,OTROS,"CINCHOS PLÁSTICOS NEGROS 8"" (UV)",PZ,625,Escalado
+Planta Pilas,OTROS,"PIJA PUNTA DE BROCA 1 1/2""",PZ,50,Sin cambio
+Planta Pilas,OTROS,REGISTROS DE CONCRETO 40X40,PZ,12,1 por salida de fila + 2
+Planta Pilas,OTROS,TAPE AZUL,PZ,15,Sin cambio
+Planta Pilas,OTROS,TAPE BLANCO,PZ,15,Sin cambio
+Planta Pilas,OTROS,TAPE NEGRO,PZ,20,Sin cambio
+Planta Pilas,OTROS,TAPE ROJO,PZ,15,Sin cambio
+Planta Pilas,OTROS,TAPE VERDE,PZ,15,Sin cambio
+Planta Pilas,OTROS,"TAQUETES 3/8""",PZ,150,Sin cambio
+Planta Pilas,OTROS,"TORNILLO 3/8""",PZ,150,Sin cambio
+Planta Pilas,OTROS,"UÑA 2 1/2""",PZ,70,Sin cambio
+Planta Pilas,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 2/0 AWG,M,120,Sugerido: anillo del cuarto y bajada a transformador
+Planta Pilas,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 6 AWG,M,760,Unión de estructuras
+Planta Pilas,SISTEMA DE TIERRAS,CARGA DE SOLDADURA EXOTÉRMICA 90 G,PZ,20,Sugerido
+Planta Pilas,SISTEMA DE TIERRAS,"CONECTOR PARA VARILLA 5/8""",PZ,6,Sugerido
+Planta Pilas,SISTEMA DE TIERRAS,REGISTRO DE TIERRAS,PZ,2,Sugerido
+Planta Pilas,SISTEMA DE TIERRAS,"SUPRESOR DE PICOS SPD TIPO 1+2, 440 V",PZ,1,Tablero general
+Planta Pilas,SISTEMA DE TIERRAS,"VARILLA COPPERWELD 5/8"" × 3.05 M",PZ,6,Sugerido: sistema de electrodos
+Pringón,ALIMENTADOR A TRANSFORMADOR,CABLE 2 AWG VERDE,M,30,"Tierra, 1 por tubo"
+Pringón,ALIMENTADOR A TRANSFORMADOR,CABLE CAL 250 KCMIL THHW-LS,M,90,Alimentador a transformador
+Pringón,CANALIZACION,"CODOS O CURVAS 3""",PZ,4,
+Pringón,CANALIZACION,"CODOS PVC CED 40 1 1/2""",PZ,30,18 tubos × 3 + reserva
+Pringón,CANALIZACION,"CONDULET LL 1 1/2""",PZ,10,Escalado
+Pringón,CANALIZACION,"CONDULET LL 2 1/2""",PZ,4,Nuevo
+Pringón,CANALIZACION,"CONECTORES PVC CED 40 1 1/2""",PZ,30,Sin cambio
+Pringón,CANALIZACION,"CONECTORES WP 1 1/2""",PZ,48,Escalado
+Pringón,CANALIZACION,"CONECTORES WP 2 1/2""",PZ,8,Nuevo
+Pringón,CANALIZACION,"CONECTORES WP 3""",PZ,8,
+Pringón,CANALIZACION,"COPLES ROSCA INTERNA 1 1/2""",PZ,24,Escalado con tubo metálico
+Pringón,CANALIZACION,"COPLES WP 3""",PZ,10,
+Pringón,CANALIZACION,"GLÁNDULA PLÁSTICA 1 1/2""",PZ,12,Escalado
+Pringón,CANALIZACION,LIJA DE LONA 220,PZ,5,Sin cambio
+Pringón,CANALIZACION,"MONITOR 1 1/2""",PZ,16,2 por tubo
+Pringón,CANALIZACION,"MONITOR 3""",PZ,8,
+Pringón,CANALIZACION,PEGAMENTO P/PVC 1/4,PZ,1,Más tubería
+Pringón,CANALIZACION,"TUBO CONDUIT METÁLICO 1 1/2""",TMO,12,Subidas al final de fila y llegada al cuarto
+Pringón,CANALIZACION,"TUBO CONDUIT METÁLICO 2 1/2""",TMO,10,CA inversor → tablero
+Pringón,CANALIZACION,"TUBO CONDUIT METÁLICO 3""",TMO,10,Alimentador
+Pringón,CANALIZACION,"TUBO CONDUIT PVC CED 40 1 1/2""",TMO,83,"18 tubos (2 por fila, 9 filas), 617 m + 5 %"
+Pringón,CORRIENTE ALTERNA,CABLE CAL 10 AWG VERDE,M,290,Sin cambio (puestas a tierra auxiliares)
+Pringón,CORRIENTE ALTERNA,CABLE CAL 250 KCMIL THHW-LS,M,100,Inversor → tablero
+Pringón,CORRIENTE ALTERNA,CABLE CAL 4 AWG VERDE,M,35,Tierra CA
+Pringón,CORRIENTE ALTERNA,"INTERRUPTOR GENERAL 3X500 A, 440 V (CLASE 480 V)",PZ,1,Nuevo: 2 × 198.5 A × 1.25 = 496 A
+Pringón,CORRIENTE ALTERNA,INTERRUPTOR TERMOMAGNÉTICO 3X250 A,PZ,2,1 por inversor: 198.5 × 1.25 = 248 A
+Pringón,CORRIENTE ALTERNA,TABLERO 3F PARA 700 A,PZ,1,Sin cambio
+Pringón,CORRIENTE DIRECTA,"CABLE FV (PV WIRE) CAL 8 AWG, 2 kV, 90 °C, RESISTENTE A UV",M,4910,"70 strings × 2 conductores × 77.9 m prom. + 5 %: 5,750 m rojo + 5,750 m negro"
+Pringón,CORRIENTE DIRECTA,CONECTORES MC4 P/CAL 8 FV,PAR,75,2 pares por string (campo e inversor) + 15 % de reserva
+Pringón,CORRIENTE DIRECTA,"FUSIBLES CD 30 A gPV, 1100 Vcd, 10×38 mm",PZ,64,"Opcional: NOM 690-9, inversor sin fusibles"
+Pringón,CORRIENTE DIRECTA,GABINETE METÁLICO 50X50X25 IP65,PZ,4,Opcional: solo si se instalan fusibles
+Pringón,CORRIENTE DIRECTA,"PORTAFUSIBLES 10×38 mm, 1100 Vcd, RIEL DIN",PZ,64,Opcional: solo si se instalan fusibles
+Pringón,CORRIENTE DIRECTA,RIEL DIN,M,4,Opcional: solo si se instalan fusibles
+Pringón,CORRIENTE DIRECTA,TERMINALES TUBULARES (FÉRULAS) P/CAL 10,PZ,130,Opcional
+Pringón,OTROS,"CINCHOS PLÁSTICOS NEGROS 16"" (UV)",PZ,2250,Escalado: 70 strings sobre estructura
+Pringón,OTROS,"CINCHOS PLÁSTICOS NEGROS 8"" (UV)",PZ,240,Escalado
+Pringón,OTROS,"PIJA PUNTA DE BROCA 1 1/2""",PZ,30,Sin cambio
+Pringón,OTROS,REGISTROS DE CONCRETO 40X40,PZ,6,1 por salida de fila + 2
+Pringón,OTROS,TAPE AZUL,PZ,5,Sin cambio
+Pringón,OTROS,TAPE BLANCO,PZ,5,Sin cambio
+Pringón,OTROS,TAPE NEGRO,PZ,10,Sin cambio
+Pringón,OTROS,TAPE ROJO,PZ,5,Sin cambio
+Pringón,OTROS,TAPE VERDE,PZ,5,Sin cambio
+Pringón,OTROS,"TAQUETES 3/8""",PZ,40,Sin cambio
+Pringón,OTROS,"TORNILLO 3/8""",PZ,40,Sin cambio
+Pringón,OTROS,"UÑA 1 1/2""",PZ,36,Sin cambio
+Pringón,OTROS,"UÑA 3""",PZ,20,Sin cambio
+Pringón,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 2/0 AWG,M,80,Sugerido: anillo del cuarto y bajada a transformador
+Pringón,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 6 AWG,M,340,Unión de estructuras
+Pringón,SISTEMA DE TIERRAS,CARGA DE SOLDADURA EXOTÉRMICA 90 G,PZ,14,Sugerido
+Pringón,SISTEMA DE TIERRAS,"CONECTOR PARA VARILLA 5/8""",PZ,4,Sugerido
+Pringón,SISTEMA DE TIERRAS,REGISTRO DE TIERRAS,PZ,2,Sugerido
+Pringón,SISTEMA DE TIERRAS,"SUPRESOR DE PICOS SPD TIPO 1+2, 440 V",PZ,1,Tablero general
+Pringón,SISTEMA DE TIERRAS,"VARILLA COPPERWELD 5/8"" × 3.05 M",PZ,4,Sugerido: sistema de electrodos
+La Mesa,ALIMENTADOR A TRANSFORMADOR,CABLE 3/0 AWG VERDE,M,60,"Tierra, 1 por tubo"
+La Mesa,ALIMENTADOR A TRANSFORMADOR,CABLE 350 KCMIL THHW-LS,M,180,Nuevo: 4 juegos × 3 fases × 15 m (confirmar distancia)
+La Mesa,ALIMENTADOR A TRANSFORMADOR,"CODOS PVC CED 40 3""",PZ,8,Nuevo
+La Mesa,ALIMENTADOR A TRANSFORMADOR,"TUBO CONDUIT PVC CED 40 3""",TMO,20,Nuevo: 4 tubos × 15 m
+La Mesa,CANALIZACION,"CODOS PVC CED 40 1 1/2""",PZ,70,18 tubos × 3 + reserva
+La Mesa,CANALIZACION,"CONDULET LL 1 1/2""",PZ,30,Escalado
+La Mesa,CANALIZACION,"CONDULET LL 2 1/2""",PZ,10,Nuevo
+La Mesa,CANALIZACION,"CONECTORES PVC CED 40 1 1/2""",PZ,80,Sin cambio
+La Mesa,CANALIZACION,"CONECTORES WP 1 1/2""",PZ,180,Escalado
+La Mesa,CANALIZACION,"CONECTORES WP 2 1/2""",PZ,20,Nuevo
+La Mesa,CANALIZACION,"COPLES ROSCA INTERNA 1 1/2""",PZ,90,Escalado con tubo metálico
+La Mesa,CANALIZACION,"GLÁNDULA PLÁSTICA 1 1/2""",PZ,90,Escalado
+La Mesa,CANALIZACION,LIJA DE LONA 220,PZ,10,Sin cambio
+La Mesa,CANALIZACION,"MONITOR 1 1/2""",PZ,62,Escalado
+La Mesa,CANALIZACION,PEGAMENTO P/PVC 1/4,PZ,3,Más tubería
+La Mesa,CANALIZACION,"TUBO CONDUIT METÁLICO 1 1/2""",TMO,30,Subidas al final de fila y llegada al cuarto
+La Mesa,CANALIZACION,"TUBO CONDUIT METÁLICO 2 1/2""",TMO,25,CA inversor → tablero
+La Mesa,CANALIZACION,"TUBO CONDUIT PVC CED 40 1 1/2""",TMO,214,"18 tubos (2 por fila, 9 filas), 617 m + 5 %"
+La Mesa,CHAROLA PORTACABLES,"CURVA HORIZONTAL A 90° DE ALUMINIO P/ CHAROLA DE 18""",PZ,2,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,GRAPA DE FIJACIÓN PARA CHAROLA (HOLD DOWN CLIP),PZ,20,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,PLACA DE UNIÓN ARTICULADA VERTICAL CON TORNILLERÍA,PZ,16,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,PLACA DE UNIÓN RECTA (SPLICE PLATE) CON TORNILLERÍA,PZ,24,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,PUENTE DE UNIÓN DE TIERRA (BONDING JUMPER) CON ZAPATAS,PZ,18,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"RONDANA DE PRESIÓN 3/8""",PZ,40,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"RONDANA PLANA 3/8""",PZ,40,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"TAQUETE DE EXPANSIÓN METÁLICO TIPO TX 3/8""",PZ,20,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"TE DE BAJADA VERTICAL (DROP-OUT) TRANSICIÓN DE CHAROLA 18"" A 6""",PZ,8,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"TORNILLO CABEZA HEXAGONAL 3/8"" × 1""",PZ,20,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"TRAMO RECTO DE CHAROLA DE ALUMINIO TIPO ESCALERA DE 18"" X 3.05 M",PZ,6,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"TRAMO RECTO DE CHAROLA DE ALUMINIO TIPO ESCALERA DE 6"" X 3.05 M",PZ,5,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"TUERCA DE RESORTE PARA UNICANAL 3/8""",PZ,20,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"TUERCA HEXAGONAL 3/8""",PZ,40,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,UNICANAL 4X4 TMO 3 M,PZ,5,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CHAROLA PORTACABLES,"VARILLA ROSCADA GALVANIZADA 3/8"" TMO 3 M",PZ,4,Sin cambio (mismo cuarto eléctrico)
+La Mesa,CORRIENTE ALTERNA,CABLE CAL 10 AWG VERDE,M,100,Sin cambio (puestas a tierra auxiliares)
+La Mesa,CORRIENTE ALTERNA,CABLE CAL 250 KCMIL THHW-LS,M,200,Inversores 150 kW → tablero
+La Mesa,CORRIENTE ALTERNA,CABLE CAL 4 AWG VERDE,M,80,Tierra CA
+La Mesa,CORRIENTE ALTERNA,CABLE CAL 4/0 AWG THHW-LS,M,50,Inversor 124 kW → tablero
+La Mesa,CORRIENTE ALTERNA,"INTERRUPTOR GENERAL 3X1200 A, 440 V (CLASE 480 V)",PZ,1,"Nuevo: 5 × 165.4 A × 1.25 = 1,034 A"
+La Mesa,CORRIENTE ALTERNA,"INTERRUPTOR TERMOMAGNÉTICO 3X225 A, 440 V (CLASE 480 V)",PZ,1,1 por inversor. Original 7: confirmar si 2 eran de reserva
+La Mesa,CORRIENTE ALTERNA,INTERRUPTOR TERMOMAGNÉTICO 3X250 A,PZ,4,1 por inversor: 198.5 × 1.25 = 248 A
+La Mesa,CORRIENTE ALTERNA,TABLERO 3F 1500 A,PZ,1,Sin cambio
+La Mesa,CORRIENTE DIRECTA,CABLE CAL 10 AWG THHW-LS VERDE,M,650,"Tierra de equipos CD, 1 por tubo"
+La Mesa,CORRIENTE DIRECTA,"CABLE FV (PV WIRE) CAL 8 AWG, 2 kV, 90 °C, RESISTENTE A UV",M,12870,"70 strings × 2 conductores × 77.9 m prom. + 5 %: 5,750 m rojo + 5,750 m negro"
+La Mesa,CORRIENTE DIRECTA,CONECTORES MC4 P/CAL 8 FV,PAR,185,2 pares por string (campo e inversor) + 15 % de reserva
+La Mesa,CORRIENTE DIRECTA,"FUSIBLES CD 30 A gPV, 1100 Vcd, 10×38 mm",PZ,160,"Opcional: NOM 690-9, inversor sin fusibles"
+La Mesa,CORRIENTE DIRECTA,GABINETE METÁLICO 30X30X15 IP65,PZ,10,Opcional: solo si se instalan fusibles
+La Mesa,CORRIENTE DIRECTA,"PORTAFUSIBLES 10×38 mm, 1100 Vcd, RIEL DIN",PZ,160,Opcional: solo si se instalan fusibles
+La Mesa,CORRIENTE DIRECTA,RIEL DIN,M,10,Opcional: solo si se instalan fusibles
+La Mesa,OTROS,"CINCHOS PLÁSTICOS NEGROS 16"" (UV)",PZ,5700,Escalado: 70 strings sobre estructura
+La Mesa,OTROS,"CINCHOS PLÁSTICOS NEGROS 8"" (UV)",PZ,720,Escalado
+La Mesa,OTROS,"PIJA PUNTA DE BROCA 1 1/2""",PZ,50,Sin cambio
+La Mesa,OTROS,REGISTROS DE CONCRETO 40X40,PZ,10,1 por salida de fila + 2
+La Mesa,OTROS,TAPE AZUL,PZ,15,Sin cambio
+La Mesa,OTROS,TAPE BLANCO,PZ,15,Sin cambio
+La Mesa,OTROS,TAPE NEGRO,PZ,20,Sin cambio
+La Mesa,OTROS,TAPE ROJO,PZ,15,Sin cambio
+La Mesa,OTROS,TAPE VERDE,PZ,15,Sin cambio
+La Mesa,OTROS,"TAQUETES 3/8""",PZ,150,Sin cambio
+La Mesa,OTROS,"TORNILLO 3/8""",PZ,150,Sin cambio
+La Mesa,OTROS,"UÑA 2 1/2""",PZ,70,Sin cambio
+La Mesa,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 2/0 AWG,M,120,Sugerido: anillo del cuarto y bajada a transformador
+La Mesa,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 6 AWG,M,900,Unión de estructuras
+La Mesa,SISTEMA DE TIERRAS,CARGA DE SOLDADURA EXOTÉRMICA 90 G,PZ,20,Sugerido
+La Mesa,SISTEMA DE TIERRAS,"CONECTOR PARA VARILLA 5/8""",PZ,6,Sugerido
+La Mesa,SISTEMA DE TIERRAS,REGISTRO DE TIERRAS,PZ,2,Sugerido
+La Mesa,SISTEMA DE TIERRAS,"SUPRESOR DE PICOS SPD TIPO 1+2, 440 V",PZ,1,Tablero general
+La Mesa,SISTEMA DE TIERRAS,"VARILLA COPPERWELD 5/8"" × 3.05 M",PZ,6,Sugerido: sistema de electrodos
+Yerba Buena 3,ALIMENTADOR A TRANSFORMADOR,ABRAZADERA / FLEJE PARA POSTE,PZ,4,
+Yerba Buena 3,ALIMENTADOR A TRANSFORMADOR,"MUFA 2""",PZ,1,
+Yerba Buena 3,ALIMENTADOR A TRANSFORMADOR,"POSTE NUEVO PARA TRANSFORMADOR, A ≈2 M DEL POSTE DE CFE",PZ,1,"Altura, herrajes, cortacircuitos y apartarrayos según proyecto de MT"
+Yerba Buena 3,ALIMENTADOR A TRANSFORMADOR,"TUBO CONDUIT GALVANIZADO PARED GRUESA 2""",TMO,3,Bajada en poste
+Yerba Buena 3,CANALIZACION,CINTA VULCANIZABLE SUPER 23,PZ,1,Sin cambio
+Yerba Buena 3,CANALIZACION,"CODOS PVC CED 40 1 1/2""",PZ,8,18 tubos × 3 + reserva
+Yerba Buena 3,CANALIZACION,"CONDULET LL 1 1/2""",PZ,2,Escalado
+Yerba Buena 3,CANALIZACION,"CONDULET LR 2""",PZ,3,
+Yerba Buena 3,CANALIZACION,"CONECTORES PVC CED 40 1 1/2""",PZ,8,Sin cambio
+Yerba Buena 3,CANALIZACION,"CONECTORES WP 1 1/2""",PZ,8,Escalado
+Yerba Buena 3,CANALIZACION,"CONECTORES WP 2""",PZ,6,
+Yerba Buena 3,CANALIZACION,"COPLES ROSCA INTERNA 1 1/2""",PZ,6,Escalado con tubo metálico
+Yerba Buena 3,CANALIZACION,"GLÁNDULA PLÁSTICA 1 1/2""",PZ,2,Escalado
+Yerba Buena 3,CANALIZACION,"GLÁNDULA PLÁSTICA 2""",PZ,2,
+Yerba Buena 3,CANALIZACION,LIJA DE LONA 220,PZ,4,Sin cambio
+Yerba Buena 3,CANALIZACION,"MONITOR 1 1/2""",PZ,4,2 por tubo
+Yerba Buena 3,CANALIZACION,"MONITOR 2""",PZ,2,
+Yerba Buena 3,CANALIZACION,PEGAMENTO P/PVC 1/8,PZ,1,Sin cambio
+Yerba Buena 3,CANALIZACION,"TUBO CONDUIT METÁLICO 1 1/2""",TMO,2,Subidas al final de fila y llegada al cuarto
+Yerba Buena 3,CANALIZACION,"TUBO CONDUIT METÁLICO 2""",TMO,5,Corriente alterna
+Yerba Buena 3,CANALIZACION,"TUBO CONDUIT PVC CED 40 1 1/2""",TMO,7,"18 tubos (2 por fila, 9 filas), 617 m + 5 %"
+Yerba Buena 3,CORRIENTE ALTERNA,CABLE CAL 10 AWG VERDE,M,40,Sin cambio (puestas a tierra auxiliares)
+Yerba Buena 3,CORRIENTE ALTERNA,CABLE CAL 4 AWG VERDE,M,20,Tierra CA
+Yerba Buena 3,CORRIENTE ALTERNA,CABLE CAL 4/0 AWG THHW-LS,M,60,3 fases
+Yerba Buena 3,CORRIENTE ALTERNA,"GABINETE MOLDEADO 3F 225 A, 480 V",PZ,1,Sustituye al gabinete de 200 A
+Yerba Buena 3,CORRIENTE ALTERNA,"INTERRUPTOR TERMOMAGNÉTICO 3X225 A, 440 V (CLASE 480 V)",PZ,1,164.1 × 1.25 = 205 A → 225 A. Sustituye al 3×175 A
+Yerba Buena 3,CORRIENTE DIRECTA,"CABLE FV (PV WIRE) CAL 10 AWG, 2 kV, 90 °C, RESISTENTE A UV",M,680,8 strings × 2 conductores × 40.3 m prom. + 5 %: 340 m rojo + 340 m negro
+Yerba Buena 3,CORRIENTE DIRECTA,CONECTORES MC4 P/CAL 10 FV,PAR,20,2 pares por string (campo e inversor) + 15 %
+Yerba Buena 3,CORRIENTE DIRECTA,"FUSIBLES CD 30 A gPV, 1100 Vcd, 10×38 mm",PZ,16,"Opcional: NOM 690-9, inversor sin fusibles"
+Yerba Buena 3,CORRIENTE DIRECTA,GABINETE METÁLICO 30X30X15 IP65,PZ,1,Opcional: solo si se instalan fusibles
+Yerba Buena 3,CORRIENTE DIRECTA,"PORTAFUSIBLES 10×38 mm, 1100 Vcd, RIEL DIN",PZ,16,Opcional: solo si se instalan fusibles
+Yerba Buena 3,CORRIENTE DIRECTA,RIEL DIN,M,1,Opcional: solo si se instalan fusibles
+Yerba Buena 3,CORRIENTE DIRECTA,TERMINALES TUBULARES (FÉRULAS) P/CAL 10,PZ,35,Opcional
+Yerba Buena 3,OTROS,"CINCHOS PLÁSTICOS NEGROS 16"" (UV)",PZ,600,Escalado: 70 strings sobre estructura
+Yerba Buena 3,OTROS,"CINCHOS PLÁSTICOS NEGROS 8"" (UV)",PZ,100,Escalado
+Yerba Buena 3,OTROS,"PIJA PUNTA DE BROCA 1 1/2""",PZ,20,Sin cambio
+Yerba Buena 3,OTROS,REGISTROS DE CONCRETO 40X40,PZ,3,1 por salida de fila + 2
+Yerba Buena 3,OTROS,TAPE AZUL,PZ,2,Sin cambio
+Yerba Buena 3,OTROS,TAPE BLANCO,PZ,2,Sin cambio
+Yerba Buena 3,OTROS,TAPE NEGRO,PZ,4,Sin cambio
+Yerba Buena 3,OTROS,TAPE ROJO,PZ,2,Sin cambio
+Yerba Buena 3,OTROS,TAPE VERDE,PZ,2,Sin cambio
+Yerba Buena 3,OTROS,"TAQUETES 3/8""",PZ,20,Sin cambio
+Yerba Buena 3,OTROS,"TORNILLO 3/8""",PZ,20,Sin cambio
+Yerba Buena 3,OTROS,"UÑA 2""",PZ,10,"Más tubo metálico de 2"""
+Yerba Buena 3,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 2/0 AWG,M,40,Sugerido: anillo del cuarto y bajada a transformador
+Yerba Buena 3,SISTEMA DE TIERRAS,CABLE DE COBRE DESNUDO 6 AWG,M,100,Unión de estructuras
+Yerba Buena 3,SISTEMA DE TIERRAS,CARGA DE SOLDADURA EXOTÉRMICA 90 G,PZ,8,Sugerido
+Yerba Buena 3,SISTEMA DE TIERRAS,"CONECTOR PARA VARILLA 5/8""",PZ,2,Sugerido
+Yerba Buena 3,SISTEMA DE TIERRAS,REGISTRO DE TIERRAS,PZ,1,Sugerido
+Yerba Buena 3,SISTEMA DE TIERRAS,"SUPRESOR DE PICOS SPD TIPO 1+2, 440 V",PZ,1,El inversor ya trae SPD tipo II CA/CD
+Yerba Buena 3,SISTEMA DE TIERRAS,"VARILLA COPPERWELD 5/8"" × 3.05 M",PZ,2,Sugerido: sistema de electrodos
