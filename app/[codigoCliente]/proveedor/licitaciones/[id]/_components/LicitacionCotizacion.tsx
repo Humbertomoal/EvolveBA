@@ -47,7 +47,7 @@ export type ItemDetalle = {
   licitacionItemId: string;
   /** Agrupa las partidas del mismo producto para el autollenado de precios. */
   productoId: string;
-  /** false para flete y seguro (Servicios Profesionales): no se autollenan. */
+  /** false para flete y seguro (Servicios Profesionales) y Mano de Obra: no se autollenan. */
   autollenable: boolean;
   nombre: string;
   unidadMedida: string;

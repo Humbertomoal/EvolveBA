@@ -108,15 +108,32 @@ prueba("No dispongo / Sin costo no se copian; las vacías destino en esos estado
   assert.equal(propagarDesde(destino, items, "a1"), destino);
 });
 
-prueba("origen se queda sin precio (borrado o No dispongo) → sus copias vuelven a vacío", () => {
-  let filas = propagarDesde([F("a1", { precioUnitario: "125", esProductoSimilar: true, productoSimilarDetalle: "x" }), F("b1"), F("a2"), F("a3")], items, "a1");
-  const borrado = propagarDesde(filas.map((f) => (f.licitacionItemId === "a1" ? { ...f, precioUnitario: "" } : f)), items, "a1");
-  assert.deepEqual(
-    [por(borrado, "a2").precioUnitario, por(borrado, "a2").esProductoSimilar, por(borrado, "a2").copiadoDe],
-    ["", false, null]
-  );
-  filas = propagarDesde(filas.map((f) => (f.licitacionItemId === "a1" ? { ...f, estado: "no_dispongo" } : f)), items, "a1");
-  assert.equal(por(filas, "a3").precioUnitario, "");
+prueba("origen se queda sin precio → las copias CONSERVAN su valor y similar, solo pierden la marca", () => {
+  const base = propagarDesde([F("a1", { precioUnitario: "125", esProductoSimilar: true, productoSimilarDetalle: "Modelo 720" }), F("b1"), F("a2"), F("a3")], items, "a1");
+  const conOrigen = (cambio: Partial<Fila>) =>
+    propagarDesde(base.map((f) => (f.licitacionItemId === "a1" ? { ...f, ...cambio } : f)), items, "a1");
+  for (const [caso, cambio] of [
+    ["precio borrado", { precioUnitario: "" }],
+    ["No dispongo", { estado: "no_dispongo" }],
+    ["Sin costo", { estado: "no_aplica" }],
+  ] as const) {
+    const r = conOrigen(cambio);
+    for (const id of ["a2", "a3"]) {
+      const f = por(r, id);
+      assert.deepEqual(
+        [f.precioUnitario, f.esProductoSimilar, f.productoSimilarDetalle, f.copiadoDe],
+        ["125", true, "Modelo 720", null],
+        `${caso} / ${id}`
+      );
+    }
+    // Ya son del proveedor: si el origen vuelve a cotizar con otro precio, no se pisan.
+    const vuelve = propagarDesde(
+      r.map((f) => (f.licitacionItemId === "a1" ? { ...f, estado: "cotizo", precioUnitario: "99" } : f)),
+      items,
+      "a1"
+    );
+    assert.equal(por(vuelve, "a2").precioUnitario, "125", `${caso}: no se pisa al volver`);
+  }
 });
 
 prueba("misma moneda: no copia entre MXN y USD", () => {
@@ -125,8 +142,9 @@ prueba("misma moneda: no copia entre MXN y USD", () => {
   assert.equal(propagarDesde(filas, its, "a1"), filas);
 });
 
-prueba("flete y seguro (Servicios Profesionales) ni dan ni reciben", () => {
+prueba("flete, seguro (Servicios Profesionales) y Mano de Obra ni dan ni reciben", () => {
   assert.equal(esAutollenable("Servicios Profesionales"), false);
+  assert.equal(esAutollenable("Mano de Obra"), false);
   assert.equal(esAutollenable("Canalización"), true);
   assert.equal(esAutollenable(null), true);
   const its = [I("f1", "FLETE", "La Mesa", { autollenable: false }), I("f2", "FLETE", "Tepic", { autollenable: false })];

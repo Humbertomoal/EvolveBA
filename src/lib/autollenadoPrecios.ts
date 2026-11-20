@@ -14,7 +14,8 @@
  * · Solo precio + similar. Cantidad disponible, "¿Cumples la fecha?" y los
  *   estados "No dispongo" / "Sin costo" NO se copian: cambian por sitio.
  * · Partidas no autollenables (flete y seguro, familia Servicios
- *   Profesionales) ni dan ni reciben.
+ *   Profesionales; y Mano de Obra) ni dan ni reciben: cambian por sitio
+ *   (traslados, tarifas locales).
  * · La copia queda marcada (`copiadoDe`). Mientras conserve la marca es una
  *   copia VIVA: si el proveedor corrige el precio de la partida origen o marca
  *   después "similar", la copia se actualiza. Por eso el orden de captura (precio
@@ -22,7 +23,9 @@
  *   el proveedor toca precio, estado o similar en la copia, la marca se va
  *   (ver `setFila`) y la partida es suya: ya no se vuelve a tocar. Si el
  *   origen se queda sin precio (lo borra, o pasa a "No dispongo"/"Sin costo"),
- *   sus copias vivas vuelven a vacío.
+ *   sus copias CONSERVAN su valor y solo pierden la marca: pasan a ser del
+ *   proveedor. Nada desaparece de la pantalla sin que él lo haga, y "No
+ *   dispongo" habla de ESE sitio, no de que el precio no valga en los demás.
  * · Todo se resuelve por licitacionItemId, nunca por posición.
  *
  * Módulo puro: sin React ni Prisma, para poder probarlo aparte
@@ -49,7 +52,7 @@ export type ItemAutollenado = {
   grupo: { nombre: string } | null;
 };
 
-export const FAMILIAS_SIN_AUTOLLENADO = ["Servicios Profesionales"];
+export const FAMILIAS_SIN_AUTOLLENADO = ["Servicios Profesionales", "Mano de Obra"];
 
 export function esAutollenable(familia: string | null | undefined): boolean {
   return !FAMILIAS_SIN_AUTOLLENADO.includes(familia ?? "");
@@ -81,10 +84,11 @@ export function propagarDesde<F extends FilaAutollenado>(
   // Una copia que nadie ha tocado no es origen de nada: evita cadenas A→B→C.
   if (origen.copiadoDe) return filas;
   // El origen ya no tiene precio (lo borró, o pasó a "No dispongo" / "Sin
-  // costo"): sus copias vivas vuelven a quedar vacías. Esos estados no se
-  // copian, y dejar el precio viejo con "copiado de…" mentiría.
+  // costo"): sus copias se SUELTAN — conservan precio y similar y pierden la
+  // marca, porque "copiado de…" ya no sería cierto. No se vacían: nada
+  // desaparece de la pantalla sin que el proveedor lo haga.
   if (origen.estado !== "cotizo" || origen.precioUnitario.trim() === "") {
-    return vaciarCopiasDe(filas, origenId);
+    return soltarCopiasDe(filas, origenId);
   }
   const precio = Number(origen.precioUnitario);
   // Precio inválido (0, negativo): el validador de la fila lo marca; no se copia.
@@ -129,11 +133,9 @@ export function propagarDesde<F extends FilaAutollenado>(
   return cambio ? siguiente : filas;
 }
 
-function vaciarCopiasDe<F extends FilaAutollenado>(filas: F[], origenId: string): F[] {
+function soltarCopiasDe<F extends FilaAutollenado>(filas: F[], origenId: string): F[] {
   if (!filas.some((f) => f.copiadoDe?.licitacionItemId === origenId)) return filas;
   return filas.map((f) =>
-    f.copiadoDe?.licitacionItemId === origenId
-      ? { ...f, precioUnitario: "", esProductoSimilar: false, productoSimilarDetalle: "", copiadoDe: null }
-      : f
+    f.copiadoDe?.licitacionItemId === origenId ? { ...f, copiadoDe: null } : f
   );
 }

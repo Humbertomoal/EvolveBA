@@ -68,7 +68,7 @@ export default async function DetalleLicitacionPage({
                 nombre: true,
                 unidadMedida: true,
                 // Autollenado de precios: agrupa por producto y excluye flete
-                // y seguro (familia Servicios Profesionales).
+                // y seguro (Servicios Profesionales) y Mano de Obra.
                 familia: true,
                 especificacionesTecnicas: true,
                 archivosEspecificaciones: true,
