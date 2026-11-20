@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   IconDownload,
   IconEye,
@@ -217,7 +218,7 @@ export default function OrdenesTabla({
                   <td className={`${CELL} text-zinc-600`}>{o.licitacionNumero}</td>
                   <td className={`${CELL} text-zinc-600`}>{o.jerarquia ?? "—"}</td>
                   <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaCreacion)}</td>
-                  <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaEstimadaEntrega)}</td>
+                  <td className={`${CELL} text-zinc-600`}>{formatFechaDia(o.fechaEstimadaEntrega)}</td>
                   <td className={`${CELL} text-right font-medium text-zinc-800`}>
                     {formatMoneda(o.total, o.monedaConsolidacion)}
                   </td>

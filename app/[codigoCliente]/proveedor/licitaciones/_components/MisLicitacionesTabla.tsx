@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   IconAlertCircle,
   IconCircleCheck,
@@ -134,7 +135,7 @@ function ProgramadaRow({
       <td className={`${CELL} text-zinc-600`}>{formatFechaHora(l.fechaEjecucion)}</td>
       <td className={`${CELL} text-zinc-600`}>{l.jerarquia ?? "—"}</td>
       <td className={`${CELL} text-zinc-600`}>Comprador</td>
-      <td className={`${CELL} text-zinc-600`}>{formatFecha(l.fechaFinRangoEntrega)}</td>
+      <td className={`${CELL} text-zinc-600`}>{formatFechaDia(l.fechaFinRangoEntrega)}</td>
       <td className={`${CELL} text-center`}>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primario)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--color-primario)]">
           <IconUsers className="h-3.5 w-3.5" />

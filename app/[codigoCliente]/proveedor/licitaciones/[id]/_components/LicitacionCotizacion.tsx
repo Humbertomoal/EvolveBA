@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   IconMessageCircle,
   IconPaperclip,
@@ -164,15 +165,6 @@ const INPUT_ERR =
   "w-full rounded-md border border-red-500 px-3 py-2 text-sm text-zinc-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatFecha(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 function formatFechaHora(iso: string | null): string {
   if (!iso) return "—";
@@ -797,7 +789,7 @@ export default function LicitacionCotizacion({
           { label: "Comprador", valor: "Comprador 1" },
           { label: "Tipo de Compra", valor: tipoLicitacion ?? "—" },
           { label: "Inicio de Ronda", valor: formatFechaHora(fechaEjecucion) },
-          { label: "Fecha Obj. Entrega", valor: formatFecha(fechaFinRangoEntrega) },
+          { label: "Fecha Obj. Entrega", valor: formatFechaDia(fechaFinRangoEntrega) },
         ].map((card) => (
           <div key={card.label} className="rounded-lg bg-zinc-50 px-4 py-3">
             <p className="text-xs font-medium text-zinc-400">{card.label}</p>
@@ -952,7 +944,7 @@ export default function LicitacionCotizacion({
                             </span>
                           </td>
                           <td className="px-3 py-2.5 align-top text-zinc-600">
-                            {formatFecha(item.fechaEntrega)}
+                            {formatFechaDia(item.fechaEntrega)}
                           </td>
                           {o ? (
                             <>
@@ -981,7 +973,7 @@ export default function LicitacionCotizacion({
                         {o && !o.puedeCumplirFecha && o.fechaEstimadaEntrega && (
                           <tr className="border-b border-zinc-100 last:border-0 bg-amber-50/30 hover:bg-zinc-50/50 transition-colors duration-150">
                             <td colSpan={8} className="px-3 pb-2.5 pt-0 text-xs text-amber-700 pl-5">
-                              Fecha estimada de entrega: {formatFecha(o.fechaEstimadaEntrega)}
+                              Fecha estimada de entrega: {formatFechaDia(o.fechaEstimadaEntrega)}
                             </td>
                           </tr>
                         )}
@@ -1030,7 +1022,7 @@ export default function LicitacionCotizacion({
 
                         {/* Fecha requerida */}
                         <td className="px-3 py-2.5 align-top text-zinc-600">
-                          {formatFecha(item.fechaEntrega)}
+                          {formatFechaDia(item.fechaEntrega)}
                         </td>
 
                         {/* Cantidad disponible */}
@@ -1392,7 +1384,7 @@ export default function LicitacionCotizacion({
                       {!fila.puedeCumplirFecha && !rondaAbierta && fila.fechaEstimadaEntrega && (
                         <tr className="border-b border-zinc-100 last:border-0 bg-zinc-50/60 hover:bg-zinc-50/50 transition-colors duration-150">
                           <td colSpan={8} className="px-3 pb-2.5 pt-0 text-xs text-zinc-500 pl-5">
-                            Fecha estimada de entrega: {formatFecha(fila.fechaEstimadaEntrega)}
+                            Fecha estimada de entrega: {formatFechaDia(fila.fechaEstimadaEntrega)}
                           </td>
                         </tr>
                       )}

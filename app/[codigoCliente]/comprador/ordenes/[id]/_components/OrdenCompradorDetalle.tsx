@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useTransition, useState } from "react";
@@ -110,7 +111,7 @@ export default function OrdenCompradorDetalle({
           </div>
           <div>
             <p className="text-xs font-medium text-zinc-400">ETD</p>
-            <p className="mt-0.5 text-sm text-zinc-800">{formatFecha(orden.fechaEstimadaEntrega)}</p>
+            <p className="mt-0.5 text-sm text-zinc-800">{formatFechaDia(orden.fechaEstimadaEntrega)}</p>
           </div>
           <div className="col-span-2">
             <p className="text-xs font-medium text-zinc-400">Actualizar estatus</p>
@@ -164,8 +165,8 @@ export default function OrdenCompradorDetalle({
                     <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">{l.moneda}</span>
                   </td>
                   <td className="px-4 py-3 text-right text-zinc-600">{formatImporte(l.precioUnitario, l.moneda)}</td>
-                  <td className="px-4 py-3 text-zinc-600">{formatFecha(l.fechaEntregaObjetivo)}</td>
-                  <td className="px-4 py-3 text-zinc-600">{formatFecha(l.fechaEstimadaProveedor)}</td>
+                  <td className="px-4 py-3 text-zinc-600">{formatFechaDia(l.fechaEntregaObjetivo)}</td>
+                  <td className="px-4 py-3 text-zinc-600">{formatFechaDia(l.fechaEstimadaProveedor)}</td>
                   <td className="px-4 py-3 text-right font-medium text-zinc-800">{formatImporte(l.subtotal, l.moneda)}</td>
                 </tr>
               ))}

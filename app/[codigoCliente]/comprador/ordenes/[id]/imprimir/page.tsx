@@ -1,3 +1,4 @@
+import { formatFechaDia, formatFechaMexico } from "@/src/lib/dateUtils";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR, getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { prisma } from "@/src/lib/prisma";
@@ -13,15 +14,6 @@ import PrintTrigger from "./_components/PrintTrigger";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
-
-function formatFecha(d: Date | string | null | undefined): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 // Sin formatMoneda local: cada importe se muestra en la moneda CONTRACTUAL de
 // su línea (OrdenCompraLinea.moneda) con la equivalencia consolidada, vía
@@ -92,11 +84,9 @@ export default async function ImprimirOrdenCompradorPage({
     tiposCambio,
     monedaConsolidacion
   );
-  const hoy = new Date().toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  // Se genera en el servidor (UTC en Vercel): sin zona explícita, después de
+  // las 18:00 hora de México imprimía la fecha del día siguiente.
+  const hoy = formatFechaMexico(new Date());
 
   const badgeClass: Record<string, string> = {
     Pendiente:     "badge-pendiente",
@@ -199,11 +189,11 @@ export default async function ImprimirOrdenCompradorPage({
           </div>
           <div className="meta-item">
             <label>Fecha de creación</label>
-            <span>{formatFecha(orden.fechaCreacion as Date)}</span>
+            <span>{formatFechaMexico(orden.fechaCreacion as Date)}</span>
           </div>
           <div className="meta-item">
             <label>ETD</label>
-            <span>{formatFecha(orden.fechaEstimadaEntrega as Date | null)}</span>
+            <span>{formatFechaDia(orden.fechaEstimadaEntrega as Date | null)}</span>
           </div>
         </div>
 
@@ -244,8 +234,8 @@ export default async function ImprimirOrdenCompradorPage({
                     monedaConsolidacion
                   )}
                 </td>
-                <td>{formatFecha(l.fechaEntregaObjetivo as Date | null)}</td>
-                <td>{formatFecha(l.fechaEstimadaProveedor as Date | null)}</td>
+                <td>{formatFechaDia(l.fechaEntregaObjetivo as Date | null)}</td>
+                <td>{formatFechaDia(l.fechaEstimadaProveedor as Date | null)}</td>
                 <td className="text-right">
                   {formatMontoConEquivalencia(
                     l.subtotal as number,

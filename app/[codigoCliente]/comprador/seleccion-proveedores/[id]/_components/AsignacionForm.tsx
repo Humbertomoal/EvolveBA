@@ -33,7 +33,7 @@ import {
 import { getHistoricoPujas } from "@/src/lib/historicoPujasActions";
 import type { FilaHistoricoPuja } from "@/src/lib/historicoPujasExcel";
 import MarcaSimilar from "@/src/components/MarcaSimilar";
-import { formatFechaMexico } from "@/src/lib/dateUtils";
+import { formatFechaDia, formatFechaMexico } from "@/src/lib/dateUtils";
 import {
   prepararResultadoInternoAction,
   type DatosResultadoInterno,
@@ -52,15 +52,6 @@ import type {
   OfertaParaDropdown,
 } from "./types";
 import HistoricoPujas from "./HistoricoPujas";
-
-function formatFecha(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 // ── State types ───────────────────────────────────────────────────────────────
 
@@ -1242,7 +1233,7 @@ export default function AsignacionForm({
                       />
                     </td>
                     <td className={`${CELL} text-zinc-500`}>
-                      {formatFecha(item.fechaEntrega)}
+                      {formatFechaDia(item.fechaEntrega)}
                     </td>
                     <td className={CELL}>
                       {o1 ? (
@@ -1383,7 +1374,7 @@ export default function AsignacionForm({
                         />
                       </td>
                       <td className={`${CELL} text-xs text-zinc-400`}>
-                        {formatFecha(item.fechaEntrega)}
+                        {formatFechaDia(item.fechaEntrega)}
                       </td>
                       <td className={CELL}>
                         {o2 ? (

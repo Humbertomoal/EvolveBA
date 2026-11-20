@@ -1,3 +1,4 @@
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import { IconInfoCircle, IconPaperclip } from "@tabler/icons-react";
 
 export type MaterialResumen = {
@@ -18,17 +19,6 @@ function nombreDesdeUrl(url: string): string {
   } catch {
     return url;
   }
-}
-
-function formatFechaCorta(fecha: string | null): string {
-  if (!fecha) return "—";
-  const [y, m, d] = fecha.split("T")[0].split("-").map(Number);
-  if (!y || !m || !d) return "—";
-  return new Date(y, m - 1, d).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 }
 
 /** Tabla compacta y de solo lectura con los materiales de una licitación. */
@@ -77,7 +67,7 @@ export default function MaterialesResumenTabla({
                   </td>
                   <td className="px-3 py-2 text-zinc-500">{m.unidadMedida}</td>
                   <td className="px-3 py-2 text-zinc-500">
-                    {formatFechaCorta(m.fechaEntrega)}
+                    {formatFechaDia(m.fechaEntrega)}
                   </td>
                   <td className="px-3 py-2 text-zinc-500">{m.moneda}</td>
                   {mostrarEspecificaciones && (

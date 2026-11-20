@@ -11,6 +11,7 @@
 // cargan con import() dinámico y así sigue fuera del bundle inicial del cliente.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { fechaDiaParaExcel, fechaHoraMexicoParaExcel } from "@/src/lib/dateUtils";
 import { convertirAMXN, tasaDe, type TiposCambio } from "./conversionMoneda";
 
 /**
@@ -117,19 +118,10 @@ const FORMATO_POR_COLUMNA: Record<string, string> = {
   "Fecha/hora de la puja": FORMATO_FECHA_HORA,
 };
 
-/**
- * Excel guarda las fechas como número de serie SIN zona horaria: la celda
- * muestra el valor tal cual, como "hora de pared". Si se escribiera el instante
- * UTC, una puja de las 14:30 de México aparecería como 20:30. Se resta el
- * desfase de México (UTC-6 fijo; no hay horario de verano desde 2022) para que
- * la celda coincida con lo que se ve en pantalla.
- */
-function fechaExcelMexico(iso: string | null): Date | null {
-  if (!iso) return null;
-  const instante = new Date(iso);
-  if (Number.isNaN(instante.getTime())) return null;
-  return new Date(instante.getTime() - 6 * 60 * 60 * 1000);
-}
+// Las dos columnas de fecha van como NÚMERO DE SERIE de Excel, calculado a mano
+// en dateUtils (fechaDiaParaExcel, fechaHoraMexicoParaExcel). No se le pasa un
+// Date a `xlsx`, porque lo convierte con la zona del entorno y el resultado
+// cambiaba según si el archivo se generaba en el navegador o en el servidor.
 
 type ValorCelda = string | number | Date | null;
 
@@ -164,8 +156,8 @@ export function construirFilasExcel(
     "Variación %": f.variacionPct,
     "TC aplicado": tasaDe(f.moneda, tiposCambio),
     "¿Cumple fecha?": f.puedeCumplirFecha ? "Sí" : "No",
-    "Fecha estimada de entrega": fechaExcelMexico(f.fechaEstimadaEntrega),
-    "Fecha/hora de la puja": fechaExcelMexico(f.fechaPuja),
+    "Fecha estimada de entrega": fechaDiaParaExcel(f.fechaEstimadaEntrega),
+    "Fecha/hora de la puja": fechaHoraMexicoParaExcel(f.fechaPuja),
     // Texto y no booleano: en Excel un "Sí/No" se filtra de un clic y se
     // lee sin tener que saber que TRUE significa.
     "¿Producto similar?": f.esProductoSimilar ? "Sí" : "No",
