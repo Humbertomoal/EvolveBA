@@ -12,7 +12,12 @@
  * esa variable y Node arranca en la zona del sistema sin avisar.
  */
 import assert from "node:assert/strict";
-import { fechaDiaParaExcel, formatFechaDia, formatFechaMexico } from "../../src/lib/dateUtils";
+import {
+  fechaDiaParaExcel,
+  fechaHoraMexicoParaExcel,
+  formatFechaDia,
+  formatFechaMexico,
+} from "../../src/lib/dateUtils";
 
 const ZONAS = [
   "America/Mexico_City", // UTC-6: donde se ve el bug
@@ -83,6 +88,21 @@ prueba("Excel: número de serie entero del día guardado, sin depender de la zon
   assert.equal(fechaDiaParaExcel("2026-01-01"), 46023);
   assert.equal(fechaDiaParaExcel(null), null);
   assert.equal(fechaDiaParaExcel("basura"), null);
+});
+
+prueba("Excel: hora de puja = hora de pared de México, sin depender de la zona", () => {
+  const cerca = (a: number | null, b: number) => assert.ok(a !== null && Math.abs(a - b) < 1e-9, `${a} ≠ ${b}`);
+  // 20:30 UTC = 14:30 en México → 46346 (20/11/2026) + 14.5/24.
+  cerca(fechaHoraMexicoParaExcel("2026-11-20T20:30:00.000Z"), 46346 + 14.5 / 24);
+  // Cruza la medianoche UTC: 02:15 UTC del 21 = 20:15 del 20 en México.
+  cerca(fechaHoraMexicoParaExcel("2026-11-21T02:15:00.000Z"), 46346 + 20.25 / 24);
+  // Con segundos.
+  cerca(fechaHoraMexicoParaExcel("2026-11-20T20:30:45.000Z"), 46346 + (14 * 3600 + 30 * 60 + 45) / 86400);
+  // Julio de 2021: México aún tenía horario de verano (UTC-5). 19:30 UTC =
+  // 14:30 local. Un "−6 h" fijo daría 13:30; aquí manda la base de zonas.
+  cerca(fechaHoraMexicoParaExcel("2021-07-01T19:30:00.000Z"), 44378 + 14.5 / 24);
+  assert.equal(fechaHoraMexicoParaExcel(null), null);
+  assert.equal(fechaHoraMexicoParaExcel("basura"), null);
 });
 
 console.log(`\n${total} pruebas OK, cada una en ${ZONAS.length} zonas`);

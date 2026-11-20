@@ -83,11 +83,9 @@ export default async function ImprimirOrdenPage({
     tiposCambio,
     monedaConsolidacion
   );
-  const hoy = new Date().toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  // Se genera en el servidor (UTC en Vercel): sin zona explícita, después de
+  // las 18:00 hora de México imprimía la fecha del día siguiente.
+  const hoy = formatFechaMexico(new Date());
 
   const badgeClass: Record<string, string> = {
     Pendiente: "badge-pendiente",

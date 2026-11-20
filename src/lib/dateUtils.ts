@@ -109,3 +109,37 @@ export function fechaDiaParaExcel(fecha: Date | string | null | undefined): numb
   if (Number.isNaN(d.getTime())) return null;
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86_400_000 + EPOCA_EXCEL_EN_DIAS;
 }
+
+const PARTES_HORA_MEXICO = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Mexico_City",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+/**
+ * Para una celda de Excel con un instante CON HORA (p. ej. la hora de una
+ * puja): el número de serie de Excel de la HORA DE PARED de Ciudad de México
+ * en ese instante. 2026-11-20T20:30Z → 20/11/2026 14:30.
+ *
+ * Excel no tiene zona horaria: la celda muestra el número tal cual. Por eso se
+ * convierte EXPLÍCITAMENTE a America/Mexico_City y se arma el número a mano,
+ * sin pasar un Date a `xlsx`. Esa librería usa la zona del entorno y el desfase
+ * histórico de 1899. El "−6 h" que había antes solo acertaba si el archivo se
+ * generaba en un servidor en UTC. Descargado desde un navegador en México, la
+ * puja de las 14:30 salía 08:29.
+ */
+export function fechaHoraMexicoParaExcel(fecha: Date | string | null | undefined): number | null {
+  if (!fecha) return null;
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  const p = Object.fromEntries(
+    PARTES_HORA_MEXICO.formatToParts(d).map((x) => [x.type, x.value])
+  ) as Record<string, string>;
+  const paredComoUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  return paredComoUTC / 86_400_000 + EPOCA_EXCEL_EN_DIAS;
+}
