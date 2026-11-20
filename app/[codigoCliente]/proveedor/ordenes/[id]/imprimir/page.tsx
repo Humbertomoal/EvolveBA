@@ -1,4 +1,4 @@
-import { formatFechaDia } from "@/src/lib/dateUtils";
+import { formatFechaDia, formatFechaMexico } from "@/src/lib/dateUtils";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR, getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { prisma } from "@/src/lib/prisma";
@@ -14,15 +14,6 @@ import PrintTrigger from "./_components/PrintTrigger";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
-
-function formatFecha(d: Date | string | null | undefined): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 // Sin formatMoneda local: cada importe se muestra en la moneda CONTRACTUAL de
 // su línea (OrdenCompraLinea.moneda) con la equivalencia consolidada, vía
@@ -199,7 +190,7 @@ export default async function ImprimirOrdenPage({
           </div>
           <div className="meta-item">
             <label>Fecha de creación</label>
-            <span>{formatFecha(orden.fechaCreacion as Date)}</span>
+            <span>{formatFechaMexico(orden.fechaCreacion as Date)}</span>
           </div>
           <div className="meta-item">
             <label>Entrega estimada</label>
