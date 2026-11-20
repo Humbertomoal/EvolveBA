@@ -1,97 +1,149 @@
 /**
- * Llena el catálogo de proveedores (ProveedorMaterial) a partir de las
- * familias que cada uno tiene asignadas: a cada proveedor con la familia F, le
- * agrega los productos de F que todavía no tiene.
+ * Llena el catálogo de proveedores (ProveedorMaterial) a partir de sus
+ * familias, y opcionalmente les ASIGNA familias nuevas en la misma transacción.
  *
  * Correr:
- *   npx tsx scripts/asignar-materiales-por-familia.ts                          → MODO PRUEBA (no escribe nada)
- *   npx tsx scripts/asignar-materiales-por-familia.ts --apply                  → escribe (pide confirmación)
- *   npx tsx scripts/asignar-materiales-por-familia.ts --apply --yes            → escribe sin preguntar
- *   --incluir-anteriores   agrega también los productos ANTERIORES a la última
- *                          edición del catálogo de cada proveedor (ver abajo)
- *   --licitacion=0029      licitación cuya cobertura se reporta antes y después
- *   --familias=CANAL,CONSUM  limita la corrida a esas familias (CÓDIGOS del
- *                          catálogo FAMILIA). Sin el parámetro: todas.
- *   --detalle              lista, por proveedor y familia, qué productos recibe
+ *   npx tsx scripts/asignar-materiales-por-familia.ts [opciones]          → MODO PRUEBA (no escribe nada)
+ *   … --apply                                                              → escribe (pide confirmación)
+ *   … --apply --yes                                                        → escribe sin preguntar
  *
- * Proveedores excluidos siempre: ver PROVEEDORES_EXCLUIDOS (de prueba).
+ * Opciones:
+ *   --familias=MECA,CANAL   limita la corrida a esas familias (CÓDIGOS del catálogo
+ *                           FAMILIA). Un código desconocido aborta.
+ *   --proveedores=<csv>     limita la corrida a los proveedores del archivo (columna
+ *                           `id`). Un id inexistente, eliminado o excluido aborta.
+ *   --asignar-familias      además ASIGNA las --familias a los --proveedores
+ *                           (requiere ambos). Solo AGREGA a familiasAsignadas,
+ *                           conservando las existentes y su orden; nunca quita.
+ *   --incluir-anteriores    agrega también los productos que el proveedor pudo
+ *                           curar y no eligió (ver la regla). Rara vez hace falta.
+ *   --licitacion=0029       licitación cuya cobertura se reporta antes y después.
+ *   --detalle               lista qué producto recibe cada proveedor.
  *
- * ── Qué NO se agrega por defecto ──────────────────────────────────────────
- * El catálogo de un proveedor puede estar CURADO: si en la familia F desmarcó
- * a propósito un producto, volver a ponérselo deshace su decisión. La base no
- * guarda las desmarcas (sincronizarMaterialesDB borra la fila), así que la
- * regla es por fecha:
- *   · producto creado DESPUÉS de la última edición del catálogo del proveedor
- *     → nunca lo pudo elegir → SE AGREGA;
- *   · producto ANTERIOR → pudo elegirlo y no lo hizo → NO se agrega, salvo con
- *     --incluir-anteriores. El modo prueba los cuenta igual.
- * "Última edición" = la más reciente entre el último material agregado
- * (ProveedorMaterial.createdAt) y la validación del catálogo
- * (catalogoValidadoEn). Es una aproximación: una edición que SOLO quitó
- * materiales no deja fecha. Un proveedor sin ningún material nunca curó nada:
- * todo producto de sus familias se le agrega.
+ * Ejemplo (familias eléctricas, 2026-11-20):
+ *   npx tsx scripts/asignar-materiales-por-familia.ts --asignar-familias \
+ *     --familias=MECA,MECD,CANAL,CHAROLA,CONSUM,TIERRAS \
+ *     --proveedores=scripts/datos/proveedores_familias_electricas.csv
  *
- * ── Qué cuenta como "familia asignada" ────────────────────────────────────
- * La misma lectura que usan las pantallas (getFamiliasAsignadasProveedor):
- * Proveedor.familiasAsignadas y, si está vacía, el dato legado de
- * ProveedorMaterial.familias. Se comparan con Producto.familia (nombre).
- * Solo productos activos y no eliminados.
+ * ── La regla: por par (proveedor, familia) ────────────────────────────────
+ * El catálogo de un proveedor puede estar CURADO: si desmarcó a propósito un
+ * producto, volver a ponérselo deshace su decisión. La base no guarda las
+ * desmarcas (sincronizarMaterialesDB borra la fila), así que:
+ *
+ *   · Familia que se le ASIGNA en esta corrida (no estaba en sus familias):
+ *     ningún producto suyo es "anterior". Nunca pudo curarla: se agregan todos.
+ *   · Familia que YA tenía: solo se agregan los productos creados DESPUÉS de
+ *     su última edición HUMANA del catálogo. Los anteriores pudo elegirlos y no
+ *     lo hizo, así que se omiten (salvo --incluir-anteriores) y se reportan.
+ *
+ * "Última edición humana" = la más reciente entre catalogoValidadoEn y las
+ * filas de ProveedorMaterial que guardó una persona. Una persona edita UN
+ * proveedor a la vez (formulario del proveedor, portal), así que un instante en
+ * que se crearon filas para VARIOS proveedores es una escritura automática
+ * (este script, la carga de materiales, la asignación al crear un producto) y
+ * NO cuenta. Límite conocido: una escritura automática que tocara a un solo
+ * proveedor parecería humana; el modo prueba lo advierte para esta corrida.
  *
  * ── Garantías ──────────────────────────────────────────────────────────────
- * · SOLO agrega. Nunca quita ni modifica filas existentes.
- * · Idempotente: createMany con skipDuplicates sobre @@unique(proveedorId,
- *   productoId). Correrlo dos veces no duplica.
- * · Todo en UNA transacción.
- * · No toca catalogoValidado: agregar materiales nuevos no "desvalida" lo que
- *   el proveedor ya revisó.
+ * · Solo AGREGA: ni familias ni materiales se quitan o modifican.
+ * · Una sola transacción: familias asignadas + altas. Dentro de ella se
+ *   comprueba que las familias de cada proveedor no cambiaron desde el plan;
+ *   si cambiaron, no se escribe nada.
+ * · Idempotente: altas con skipDuplicates; familias ya presentes no se repiten.
+ * · No toca catalogoValidado.
  */
 import "dotenv/config";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { prisma } from "../src/lib/prisma";
-import { getFamiliasAsignadasProveedor } from "../src/lib/proveedorMaterialesData";
+import { familiasAsignadasPorProveedor } from "../src/lib/catalogoPorFamilia";
 import { filtrarItemsPorMaterialesProveedor } from "../src/lib/proveedorMateriales";
 
+const arg = (nombre: string) =>
+  process.argv.find((a) => a.startsWith(`--${nombre}=`))?.slice(nombre.length + 3);
 const APLICAR = process.argv.includes("--apply");
 const SIN_PREGUNTAR = process.argv.includes("--yes");
 const INCLUIR_ANTERIORES = process.argv.includes("--incluir-anteriores");
-const NUMERO_LICITACION =
-  process.argv.find((a) => a.startsWith("--licitacion="))?.slice("--licitacion=".length) ?? "0029";
-const CODIGOS_FAMILIA = process.argv
-  .find((a) => a.startsWith("--familias="))
-  ?.slice("--familias=".length)
-  .split(",")
+const ASIGNAR_FAMILIAS = process.argv.includes("--asignar-familias");
+const DETALLE = process.argv.includes("--detalle");
+const NUMERO_LICITACION = arg("licitacion") ?? "0029";
+const ARCHIVO_PROVEEDORES = arg("proveedores");
+const CODIGOS_FAMILIA = arg("familias")
+  ?.split(",")
   .map((c) => c.trim().toUpperCase())
   .filter(Boolean);
-const DETALLE = process.argv.includes("--detalle");
 
-/** Nunca reciben altas: proveedores de prueba. */
+/** Nunca reciben nada: proveedores de prueba sin confirmar. */
 const PROVEEDORES_EXCLUIDOS: Record<string, string> = {
-  cmwkzpizr000004l8pa63036j: "Ejemplo tadeo (de prueba)",
+  cmwkzpizr000004l8pa63036j: "Ejemplo tadeo (pendiente de verificar quién es)",
 };
+
+const CORTO: Record<string, string> = {
+  "Material Eléctrico de Corriente Alterna": "CA",
+  "Material Eléctrico de Corriente Directa": "CD",
+  "Canalización": "Canal",
+  "Sistema de Charola Portacables": "Charola",
+  "Material Consumible para Instalación de SFV": "Consum",
+  "Sistema de Tierras": "Tierras",
+  "Servicios Profesionales": "ServProf",
+  "Panales Solares": "Paneles",
+  "Inversores": "Inv",
+  "Estructura": "Estruc",
+  "Mano de Obra": "MObra",
+};
+const corto = (f: string) => CORTO[f] ?? f;
 
 type Alta = { proveedorId: string; productoId: string; familias: string };
 
+/** Primera columna (`id`) de un CSV con encabezado. */
+function leerIdsProveedores(ruta: string): string[] {
+  const lineas = readFileSync(resolve(ruta), "utf-8").replace(/^﻿/, "").split(/\r?\n/);
+  const [encabezado, ...resto] = lineas;
+  if (encabezado.split(",")[0].trim() !== "id") throw new Error(`${ruta}: la primera columna debe llamarse "id".`);
+  return resto.map((l) => l.split(",")[0].trim()).filter(Boolean);
+}
+
 async function main() {
-  // Familias a las que se limita la corrida (por código → nombre, que es lo que
-  // guardan Producto.familia y familiasAsignadas). Un código desconocido aborta.
-  let familiasPermitidas: Set<string> | null = null;
+  if (ASIGNAR_FAMILIAS && (!CODIGOS_FAMILIA || !ARCHIVO_PROVEEDORES)) {
+    throw new Error("--asignar-familias requiere --familias y --proveedores. No se escribió nada.");
+  }
+
+  // ── Familias de la corrida (código → nombre) ─────────────────────────────
+  let familiasPedidas: string[] | null = null;
   if (CODIGOS_FAMILIA) {
     const valores = await prisma.catalogoValor.findMany({
-      where: { tipo: "FAMILIA", codigo: { in: CODIGOS_FAMILIA } },
+      where: { tipo: "FAMILIA", codigo: { in: CODIGOS_FAMILIA }, activo: true },
       select: { codigo: true, nombre: true },
     });
     const desconocidos = CODIGOS_FAMILIA.filter((c) => !valores.some((v) => v.codigo === c));
     if (desconocidos.length > 0) {
-      throw new Error(`Código(s) de familia desconocido(s): ${desconocidos.join(", ")}. No se escribió nada.`);
+      throw new Error(`Código(s) de familia desconocido(s) o inactivo(s): ${desconocidos.join(", ")}. No se escribió nada.`);
     }
-    familiasPermitidas = new Set(valores.map((v) => v.nombre));
+    familiasPedidas = CODIGOS_FAMILIA.map((c) => valores.find((v) => v.codigo === c)!.nombre);
   }
 
+  // ── Proveedores ──────────────────────────────────────────────────────────
   const proveedores = await prisma.proveedor.findMany({
     where: { eliminado: false },
-    select: { id: true, razonSocial: true, estado: true, catalogoValidadoEn: true },
+    select: { id: true, razonSocial: true, estado: true, catalogoValidadoEn: true, usuarioId: true },
     orderBy: { razonSocial: "asc" },
   });
+  let destino = proveedores.filter((p) => !PROVEEDORES_EXCLUIDOS[p.id]);
+  if (ARCHIVO_PROVEEDORES) {
+    const ids = leerIdsProveedores(ARCHIVO_PROVEEDORES);
+    const problemas = ids.flatMap((id) =>
+      PROVEEDORES_EXCLUIDOS[id]
+        ? [`${id} está excluido: ${PROVEEDORES_EXCLUIDOS[id]}`]
+        : proveedores.some((p) => p.id === id)
+          ? []
+          : [`${id} no existe o está eliminado`]
+    );
+    if (problemas.length > 0) throw new Error(`Archivo de proveedores:\n  ${problemas.join("\n  ")}\nNo se escribió nada.`);
+    destino = ids.map((id) => proveedores.find((p) => p.id === id)!);
+  }
+
+  const familiasAntes = await familiasAsignadasPorProveedor(prisma);
   const productos = await prisma.producto.findMany({
     where: { activo: true, eliminado: false, familia: { not: null } },
     select: { id: true, codigo: true, nombre: true, familia: true, createdAt: true },
@@ -99,180 +151,187 @@ async function main() {
   const catalogo = await prisma.proveedorMaterial.findMany({
     select: { proveedorId: true, productoId: true, createdAt: true },
   });
+
+  // ── Última edición HUMANA ────────────────────────────────────────────────
+  // Instante compartido por varios proveedores = escritura automática.
+  const proveedoresPorInstante = new Map<number, Set<string>>();
+  for (const r of catalogo) {
+    const t = r.createdAt.getTime();
+    if (!proveedoresPorInstante.has(t)) proveedoresPorInstante.set(t, new Set());
+    proveedoresPorInstante.get(t)!.add(r.proveedorId);
+  }
   const tiene = new Map<string, Set<string>>();
-  const ultimaAlta = new Map<string, Date>();
+  const ultimaHumana = new Map<string, Date>();
   for (const r of catalogo) {
     if (!tiene.has(r.proveedorId)) tiene.set(r.proveedorId, new Set());
     tiene.get(r.proveedorId)!.add(r.productoId);
-    const u = ultimaAlta.get(r.proveedorId);
-    if (!u || r.createdAt > u) ultimaAlta.set(r.proveedorId, r.createdAt);
+    if (proveedoresPorInstante.get(r.createdAt.getTime())!.size > 1) continue;
+    const u = ultimaHumana.get(r.proveedorId);
+    if (!u || r.createdAt > u) ultimaHumana.set(r.proveedorId, r.createdAt);
   }
+  const edicionHumana = (p: (typeof proveedores)[number]): Date | null => {
+    const fechas = [ultimaHumana.get(p.id), p.catalogoValidadoEn].filter((d): d is Date => !!d);
+    return fechas.length === 0 ? null : new Date(Math.max(...fechas.map((d) => d.getTime())));
+  };
 
+  // ── Plan ─────────────────────────────────────────────────────────────────
   const altas: Alta[] = [];
-  const porProveedor: {
-    proveedor: string;
-    estado: string;
-    familias: number;
-    ultima_edicion: string;
-    agrega: number;
-    anteriores_omitidos: number;
-  }[] = [];
-  const porFamilia = new Map<string, { proveedores: Set<string>; altas: number; omitidos: number }>();
-  const detalle: { proveedor: string; familia: string; codigo: string; producto: string }[] = [];
-  const nombreProducto = new Map(productos.map((p) => [p.id, p]));
+  const cambiosFamilias: { proveedorId: string; antes: string[]; despues: string[] }[] = [];
+  const filasProveedor: Record<string, string | number>[] = [];
+  const filasFamilias: Record<string, string | number>[] = [];
+  const porFamilia = new Map<string, { proveedores: Set<string>; altas: number; omitidas: number }>();
+  const detalle: string[] = [];
 
-  for (const p of proveedores) {
-    if (PROVEEDORES_EXCLUIDOS[p.id]) continue;
-    const familias = await getFamiliasAsignadasProveedor(p.id);
-    if (familias.length === 0) continue;
-    const familiasCorrida = familiasPermitidas
-      ? familias.filter((f) => familiasPermitidas!.has(f))
-      : familias;
-    if (familiasCorrida.length === 0) continue;
+  for (const p of destino) {
+    const antes = familiasAntes.get(p.id) ?? [];
+    const despues = ASIGNAR_FAMILIAS ? [...antes, ...familiasPedidas!.filter((f) => !antes.includes(f))] : antes;
+    if (despues.length !== antes.length) cambiosFamilias.push({ proveedorId: p.id, antes, despues });
+    const corrida = familiasPedidas ? despues.filter((f) => familiasPedidas!.includes(f)) : despues;
+    if (corrida.length === 0) continue;
+
     const suyos = tiene.get(p.id) ?? new Set<string>();
-    const candidatos = [ultimaAlta.get(p.id), p.catalogoValidadoEn].filter((d): d is Date => !!d);
-    const ultimaEdicion = suyos.size === 0 || candidatos.length === 0
-      ? null
-      : new Date(Math.max(...candidatos.map((d) => d.getTime())));
-    let agrega = 0;
-    let omitidos = 0;
-    for (const prod of productos) {
-      if (!familiasCorrida.includes(prod.familia!) || suyos.has(prod.id)) continue;
-      const fam = porFamilia.get(prod.familia!) ?? { proveedores: new Set(), altas: 0, omitidos: 0 };
-      porFamilia.set(prod.familia!, fam);
-      const pudoElegirlo = ultimaEdicion !== null && prod.createdAt <= ultimaEdicion;
-      if (pudoElegirlo && !INCLUIR_ANTERIORES) {
-        omitidos++;
-        fam.omitidos++;
-        continue;
+    const humana = edicionHumana(p);
+    const fila: Record<string, string | number> = { proveedor: p.razonSocial.slice(0, 32) };
+    let totalAltas = 0;
+    let totalOmitidas = 0;
+    for (const f of corrida) {
+      const nueva = !antes.includes(f);
+      const faltan = productos.filter((x) => x.familia === f && !suyos.has(x.id));
+      const entran = faltan.filter((x) => nueva || INCLUIR_ANTERIORES || !humana || x.createdAt > humana);
+      const omitidas = faltan.length - entran.length;
+      for (const x of entran) {
+        altas.push({ proveedorId: p.id, productoId: x.id, familias: JSON.stringify(despues) });
+        if (DETALLE) detalle.push(`${p.razonSocial.slice(0, 32).padEnd(32)} ${corto(f).padEnd(8)} ${x.codigo.padEnd(16)} ${x.nombre.slice(0, 50)}`);
       }
-      altas.push({ proveedorId: p.id, productoId: prod.id, familias: JSON.stringify(familias) });
-      detalle.push({
-        proveedor: p.razonSocial.slice(0, 40),
-        familia: prod.familia!,
-        codigo: nombreProducto.get(prod.id)!.codigo,
-        producto: nombreProducto.get(prod.id)!.nombre.slice(0, 50),
-      });
-      agrega++;
-      fam.altas++;
-      fam.proveedores.add(p.id);
+      fila[corto(f)] = entran.length || "";
+      totalAltas += entran.length;
+      totalOmitidas += omitidas;
+      const pf = porFamilia.get(f) ?? { proveedores: new Set(), altas: 0, omitidas: 0 };
+      if (entran.length) pf.proveedores.add(p.id);
+      pf.altas += entran.length;
+      pf.omitidas += omitidas;
+      porFamilia.set(f, pf);
     }
-    porProveedor.push({
-      proveedor: p.razonSocial.slice(0, 40),
-      estado: p.estado,
-      familias: familias.length,
-      ultima_edicion: ultimaEdicion ? ultimaEdicion.toISOString().slice(0, 10) : "nunca curó",
-      agrega,
-      anteriores_omitidos: omitidos,
+    fila.altas = totalAltas;
+    fila.omitidas_curadas = totalOmitidas;
+    fila.ultima_edicion_humana = humana ? humana.toISOString().slice(0, 10) : "nunca curó";
+    fila.portal = p.usuarioId ? "sí" : "NO";
+    filasProveedor.push(fila);
+    filasFamilias.push({
+      proveedor: p.razonSocial.slice(0, 32),
+      antes: antes.map(corto).join(", ") || "(ninguna)",
+      se_agregan: despues.filter((f) => !antes.includes(f)).map(corto).join(", ") || "—",
+      quedan: despues.length,
     });
   }
 
-  // ── Cobertura de la licitación, antes y después ──────────────────────────
+  // ── Cobertura de la licitación ───────────────────────────────────────────
   const lic = await prisma.licitacion.findUnique({
     where: { numero: NUMERO_LICITACION },
     select: { items: { where: { eliminado: false }, select: { productoId: true } } },
   });
-  const cobertura = (tabla: Map<string, Set<string>>) => {
-    if (!lic) return null;
-    const mats = new Set(lic.items.map((i) => i.productoId));
-    const sinProveedor = [...mats].filter((m) => ![...tabla.values()].some((s) => s.has(m))).length;
-    const vista = proveedores.map((p) => {
-      const suyos = [...(tabla.get(p.id) ?? [])];
-      const coinciden = lic.items.filter((i) => suyos.includes(i.productoId)).length;
-      return {
-        id: p.id,
-        visibles: filtrarItemsPorMaterialesProveedor(lic.items, suyos).length,
-        respaldo: suyos.length === 0 ? "sin catálogo" : coinciden === 0 ? "nada coincide" : "",
-      };
-    });
-    return { materiales: mats.size, sinProveedor, vista };
-  };
-  const despues = new Map([...tiene].map(([k, v]) => [k, new Set(v)]));
+  const despuesCatalogo = new Map([...tiene].map(([k, v]) => [k, new Set(v)]));
   for (const a of altas) {
-    if (!despues.has(a.proveedorId)) despues.set(a.proveedorId, new Set());
-    despues.get(a.proveedorId)!.add(a.productoId);
+    if (!despuesCatalogo.has(a.proveedorId)) despuesCatalogo.set(a.proveedorId, new Set());
+    despuesCatalogo.get(a.proveedorId)!.add(a.productoId);
   }
-  const cAntes = cobertura(tiene);
-  const cDespues = cobertura(despues);
 
   // ── Reporte ──────────────────────────────────────────────────────────────
   const linea = "─".repeat(78);
   console.log(`\n${linea}\n${APLICAR ? "APLICAR" : "MODO PRUEBA (no se escribe nada)"}` +
-    `${INCLUIR_ANTERIORES ? " · CON --incluir-anteriores" : ""}` +
-    `${familiasPermitidas ? ` · SOLO familias: ${[...familiasPermitidas].join(", ")}` : " · todas las familias"}\n${linea}`);
-  console.log(`Excluidos: ${Object.values(PROVEEDORES_EXCLUIDOS).join(", ")}`);
-  console.log(`\nPor proveedor (solo los que tienen familias asignadas):`);
-  console.table(porProveedor.sort((a, b) => b.agrega - a.agrega));
-  console.log(`Por familia:`);
-  console.table(
-    [...porFamilia.entries()]
-      .map(([familia, v]) => ({ familia, proveedores_que_reciben: v.proveedores.size, altas: v.altas, anteriores_omitidos: v.omitidos }))
-      .sort((a, b) => b.altas - a.altas)
-  );
-  if (DETALLE) {
-    console.log(`Detalle: qué recibe cada proveedor`);
-    let actual = "";
-    for (const d of detalle.sort((a, b) =>
-      a.proveedor.localeCompare(b.proveedor) || a.familia.localeCompare(b.familia) || a.codigo.localeCompare(b.codigo)
-    )) {
-      const cabeza = `${d.proveedor} · ${d.familia}`;
-      if (cabeza !== actual) {
-        actual = cabeza;
-        const n = detalle.filter((x) => x.proveedor === d.proveedor && x.familia === d.familia).length;
-        console.log(`\n  ${cabeza} (${n})`);
-      }
-      console.log(`    ${d.codigo.padEnd(16)} ${d.producto}`);
-    }
-    console.log("");
-  }
-  const omitidosTotal = porProveedor.reduce((s, p) => s + p.anteriores_omitidos, 0);
-  console.log(`Total a agregar: ${altas.length} filas de ProveedorMaterial` +
-    (INCLUIR_ANTERIORES ? "" : ` · omitidos por anteriores (posibles desmarcas): ${omitidosTotal}`));
+    `${ASIGNAR_FAMILIAS ? " · ASIGNA FAMILIAS" : ""}${INCLUIR_ANTERIORES ? " · CON --incluir-anteriores" : ""}\n${linea}`);
+  console.log(`Familias: ${familiasPedidas ? familiasPedidas.map(corto).join(", ") : "todas las asignadas"}`);
+  console.log(`Proveedores: ${ARCHIVO_PROVEEDORES ? `${destino.length} del archivo ${ARCHIVO_PROVEEDORES}` : "todos los que tienen familias"}`);
+  console.log(`Excluidos: ${Object.values(PROVEEDORES_EXCLUIDOS).join("; ")}`);
 
-  if (cAntes && cDespues) {
-    console.log(`\nCobertura de la licitación ${NUMERO_LICITACION} (${cAntes.materiales} materiales):`);
-    console.log(`  Materiales sin ningún proveedor: ${cAntes.sinProveedor} → ${cDespues.sinProveedor}`);
-    const filas = proveedores
-      .map((p, i) => ({
-        proveedor: p.razonSocial.slice(0, 36),
-        ve_antes: cAntes.vista[i].visibles,
-        ve_despues: cDespues.vista[i].visibles,
-        respaldo_antes: cAntes.vista[i].respaldo,
-        respaldo_despues: cDespues.vista[i].respaldo,
-      }))
-      .filter((f) => f.ve_antes !== f.ve_despues || f.respaldo_antes !== f.respaldo_despues);
-    console.log(`  Proveedores cuya vista cambia (${filas.length}); con la regla de respaldo ACTUAL:`);
-    console.table(filas);
-  } else {
-    console.log(`\n(No existe la licitación ${NUMERO_LICITACION}: no se reporta cobertura.)`);
+  if (ASIGNAR_FAMILIAS) {
+    console.log(`\n1) familiasAsignadas, antes y después (solo se agrega; ${cambiosFamilias.length} proveedor(es) cambian)`);
+    console.table(filasFamilias);
   }
+  console.log(`\n2) Altas por proveedor y familia`);
+  console.table(filasProveedor);
+  console.log(`3) Por familia`);
+  console.table(
+    [...porFamilia.entries()].map(([f, v]) => ({ familia: f, proveedores_que_reciben: v.proveedores.size, altas: v.altas, omitidas_curadas: v.omitidas }))
+  );
+  const omitidas = filasProveedor.reduce((s, f) => s + Number(f.omitidas_curadas), 0);
+  console.log(`Total: ${altas.length} altas · ${omitidas} omitidas.`);
+  if (omitidas > 0 && !INCLUIR_ANTERIORES) {
+    console.log("  Motivo de las omitidas: producto ANTERIOR a la última edición humana del catálogo, en una familia que");
+    console.log("  el proveedor YA tenía. Pudo elegirlo y no lo hizo: se respeta su decisión.");
+  }
+  const tocados = new Set(altas.map((a) => a.proveedorId));
+  if (tocados.size === 1) {
+    console.log("  ⚠ Las altas tocan a UN solo proveedor: en corridas futuras parecerán una edición humana suya.");
+  }
+
+  if (lic) {
+    const mats = [...new Set(lic.items.map((i) => i.productoId))];
+    const huerfanos = (cat: Map<string, Set<string>>) => mats.filter((m) => ![...cat.values()].some((s) => s.has(m))).length;
+    console.log(`\n4) Cobertura de la licitación ${NUMERO_LICITACION} (${lic.items.length} partidas, ${mats.length} materiales)`);
+    console.log(`   Materiales sin ningún proveedor: ${huerfanos(tiene)} → ${huerfanos(despuesCatalogo)}`);
+    console.table(
+      destino.map((p) => ({
+        proveedor: p.razonSocial.slice(0, 32),
+        ve_antes: filtrarItemsPorMaterialesProveedor(lic.items, [...(tiene.get(p.id) ?? [])]).length,
+        ve_despues: filtrarItemsPorMaterialesProveedor(lic.items, [...(despuesCatalogo.get(p.id) ?? [])]).length,
+      }))
+    );
+  }
+  if (DETALLE) console.log(`\nDetalle:\n  ${detalle.join("\n  ")}`);
 
   if (!APLICAR) {
-    console.log(`\n${linea}\nNo se escribió nada. Repite con --apply para agregar ${altas.length} filas.\n${linea}\n`);
+    console.log(`\n${linea}\nNo se escribió nada. Repite con --apply para aplicar.\n${linea}\n`);
     return;
   }
-  if (altas.length === 0) {
-    console.log("\nNada que agregar.\n");
+  if (altas.length === 0 && cambiosFamilias.length === 0) {
+    console.log("\nNada que hacer.\n");
     return;
   }
   if (!SIN_PREGUNTAR) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const r = await rl.question(`\n¿Agregar ${altas.length} materiales a catálogos de proveedores? Escribe ASIGNAR para continuar: `);
+    const r = await rl.question(
+      `\n¿Asignar familias a ${cambiosFamilias.length} proveedor(es) y agregar ${altas.length} materiales? Escribe ASIGNAR para continuar: `
+    );
     rl.close();
     if (r.trim().toUpperCase() !== "ASIGNAR") {
       console.log("Cancelado. No se escribió nada.\n");
       return;
     }
   }
-  const { count } = await prisma.$transaction(async (tx) =>
-    tx.proveedorMaterial.createMany({ data: altas, skipDuplicates: true })
+
+  const resultado = await prisma.$transaction(
+    async (tx) => {
+      // Las familias no deben haber cambiado desde el plan.
+      const ahora = await familiasAsignadasPorProveedor(tx);
+      for (const c of cambiosFamilias) {
+        if (JSON.stringify(ahora.get(c.proveedorId) ?? []) !== JSON.stringify(c.antes)) {
+          throw new Error(`Las familias del proveedor ${c.proveedorId} cambiaron mientras corría el script. No se escribió nada.`);
+        }
+        await tx.proveedor.update({
+          where: { id: c.proveedorId },
+          data: { familiasAsignadas: JSON.stringify(c.despues) },
+        });
+      }
+      // Un solo instante para todo el lote: así queda marcado como escritura
+      // automática (varios proveedores, mismo instante) para corridas futuras.
+      const instante = new Date();
+      const { count } = altas.length
+        ? await tx.proveedorMaterial.createMany({
+            data: altas.map((a) => ({ ...a, createdAt: instante })),
+            skipDuplicates: true,
+          })
+        : { count: 0 };
+      return { familias: cambiosFamilias.length, altas: count };
+    },
+    { timeout: 30_000 }
   );
-  console.log(`\n✓ Agregadas ${count} filas de ProveedorMaterial (de ${altas.length} planeadas).\n`);
+  console.log(`\n✓ Familias asignadas a ${resultado.familias} proveedor(es); ${resultado.altas} materiales agregados (de ${altas.length} planeados).\n`);
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error(e instanceof Error ? e.message : e);
     process.exitCode = 1;
   })
   .finally(() => prisma.$disconnect());
