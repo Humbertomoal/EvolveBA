@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   IconCheck,
   IconClock,
@@ -42,15 +43,6 @@ import type {
   LicitacionInfo,
 } from "./types";
 import HistoricoPujas from "./HistoricoPujas";
-
-function formatFecha(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 // La fecha estimada puede venir prellenada con la fecha objetivo (ya no es
 // null cuando cumple), así que "cumple" se determina comparando fechas, no
@@ -182,8 +174,8 @@ ${[...grupos.entries()]
           <td>${a.unidadMedida}</td>
           <td>${mon}</td>
           <td class="right">${formatImporte(a.precioUnitario, mon)}</td>
-          <td>${formatFecha(a.fechaObjetivo)}</td>
-          <td>${formatFecha(a.fechaEstimadaProveedor)}</td>
+          <td>${formatFechaDia(a.fechaObjetivo)}</td>
+          <td>${formatFechaDia(a.fechaEstimadaProveedor)}</td>
           <td class="right">${formatImporte(a.cantidadAsignada * a.precioUnitario, mon)}</td>
           <td><span class="badge ${badgeCls}">${a.estatusProveedor}</span></td>
         </tr>`;
@@ -670,7 +662,7 @@ export default function SeguimientoView({
                   {formatImporte(a.precioUnitario, a.moneda ?? "MXN")}
                 </td>
                 <td className={`${CELL} text-zinc-500`}>
-                  {formatFecha(a.fechaObjetivo)}
+                  {formatFechaDia(a.fechaObjetivo)}
                 </td>
                 <td className={CELL}>
                   {cumpleFechaObjetivo(a.fechaEstimadaProveedor, a.fechaObjetivo) ? (
@@ -679,7 +671,7 @@ export default function SeguimientoView({
                     </span>
                   ) : (
                     <span className="text-xs text-amber-600">
-                      {formatFecha(a.fechaEstimadaProveedor)}
+                      {formatFechaDia(a.fechaEstimadaProveedor)}
                     </span>
                   )}
                 </td>
@@ -875,7 +867,7 @@ export default function SeguimientoView({
                   className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <p className="text-[11px] text-zinc-400">
-                  Fecha objetivo: {formatFecha(modalEditar.fechaObjetivo)}. Vacío = sin
+                  Fecha objetivo: {formatFechaDia(modalEditar.fechaObjetivo)}. Vacío = sin
                   estimado.
                 </p>
               </div>
@@ -970,7 +962,7 @@ export default function SeguimientoView({
                           {!o.puedeCumplirFecha && o.fechaEstimadaEntrega && (
                             <p className="text-xs text-amber-600">
                               Entrega estimada:{" "}
-                              {formatFecha(o.fechaEstimadaEntrega)}
+                              {formatFechaDia(o.fechaEstimadaEntrega)}
                             </p>
                           )}
                         </div>

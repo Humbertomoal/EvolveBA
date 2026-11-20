@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   IconArrowLeft,
   IconArrowDown,
@@ -52,15 +53,6 @@ export type MejorOfertaItem = {
 // Nota: no hay un formatPeso local a propósito. Cada importe se muestra en la
 // moneda de SU material con la equivalencia consolidada, vía
 // formatMontoConEquivalencia — antes todo se pintaba como MXN a la fuerza.
-
-function formatFecha(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -248,7 +240,7 @@ export default function ResumenOfertasView({
                               </span>
                               {item.fechaEstimadaEntrega && (
                                 <p className="mt-0.5 text-xs text-zinc-400">
-                                  {formatFecha(item.fechaEstimadaEntrega)}
+                                  {formatFechaDia(item.fechaEstimadaEntrega)}
                                 </p>
                               )}
                             </div>

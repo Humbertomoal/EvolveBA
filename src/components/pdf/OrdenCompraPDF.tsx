@@ -1,3 +1,4 @@
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import { Document, Text, View } from "@react-pdf/renderer";
 import type { Cliente } from "@/src/config/clientes";
 import { formatImporte } from "@/src/lib/monedas";
@@ -129,7 +130,7 @@ export default function OrdenCompraPDF({
                   {formatImporte(l.precioUnitario, l.moneda)}
                 </Text>
                 <Text style={[pdfStyles.tablaCellMuted, { width: "18%" }]}>
-                  {formatFechaPdf(l.fechaEntregaObjetivo)}
+                  {formatFechaDia(l.fechaEntregaObjetivo, "N/A")}
                 </Text>
                 <Text style={[pdfStyles.tablaCell, { width: "20%", textAlign: "right" }]}>
                   {formatImporte(l.subtotal, l.moneda)}

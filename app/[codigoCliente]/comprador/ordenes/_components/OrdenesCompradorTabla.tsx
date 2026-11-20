@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   IconDownload,
   IconEye,
@@ -235,7 +236,7 @@ export default function OrdenesCompradorTabla({
                       </span>
                     </td>
                     <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaCreacion)}</td>
-                    <td className={`${CELL} text-zinc-600`}>{formatFecha(o.fechaEstimadaEntrega)}</td>
+                    <td className={`${CELL} text-zinc-600`}>{formatFechaDia(o.fechaEstimadaEntrega)}</td>
                     <td className={CELL}>
                       {o.fechaEstimadaEntrega ? (
                         <CountdownTimer

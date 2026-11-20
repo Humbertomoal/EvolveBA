@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   IconArrowLeft,
   IconCheck,
@@ -29,15 +30,6 @@ import { formatImporte } from "@/src/lib/monedas";
 import type { AsignacionProveedor, LicitacionResultado } from "../page";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatFecha(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 // Total de una lista de asignaciones, CONVERTIDO a la moneda de consolidación
 // con el TC congelado: cada línea puede venir en distinta moneda, así que no se
@@ -146,8 +138,8 @@ function generarPDF(
         <td style="text-align:right">${a.cantidadAsignada}</td>
         <td>${a.unidadMedida}</td>
         <td style="text-align:right">${formatMontoConEquivalencia(a.precioUnitario, a.moneda, tiposCambio, monedaConsolidacion)}</td>
-        <td>${formatFecha(a.fechaObjetivo)}</td>
-        <td>${a.fechaEstimadaProveedor ? formatFecha(a.fechaEstimadaProveedor) : "Sí cumple"}</td>
+        <td>${formatFechaDia(a.fechaObjetivo)}</td>
+        <td>${a.fechaEstimadaProveedor ? formatFechaDia(a.fechaEstimadaProveedor) : "Sí cumple"}</td>
         <td style="text-align:right">${formatMontoConEquivalencia(a.cantidadAsignada * a.precioUnitario, a.moneda, tiposCambio, monedaConsolidacion)}</td>
       </tr>`
     )
@@ -476,12 +468,12 @@ export default function ResultadoView({
                       licitacion.monedaConsolidacion
                     )}
                   </td>
-                  <td className="px-4 py-3 text-zinc-600">{formatFecha(a.fechaObjetivo)}</td>
+                  <td className="px-4 py-3 text-zinc-600">{formatFechaDia(a.fechaObjetivo)}</td>
                   <td className="px-4 py-3 text-zinc-600">
                     {cumpleFechaObjetivo(a.fechaEstimadaProveedor, a.fechaObjetivo) ? (
                       <span className="text-zinc-400 text-xs">Cumple fecha</span>
                     ) : (
-                      <span className="text-amber-600">{formatFecha(a.fechaEstimadaProveedor)}</span>
+                      <span className="text-amber-600">{formatFechaDia(a.fechaEstimadaProveedor)}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">

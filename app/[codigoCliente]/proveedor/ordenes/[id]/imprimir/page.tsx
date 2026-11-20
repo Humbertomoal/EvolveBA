@@ -1,3 +1,4 @@
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR, getClienteByCodigo } from "@/src/lib/getClienteByCodigo";
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { prisma } from "@/src/lib/prisma";
@@ -202,7 +203,7 @@ export default async function ImprimirOrdenPage({
           </div>
           <div className="meta-item">
             <label>Entrega estimada</label>
-            <span>{formatFecha(orden.fechaEstimadaEntrega as Date | null)}</span>
+            <span>{formatFechaDia(orden.fechaEstimadaEntrega as Date | null)}</span>
           </div>
         </div>
 
@@ -244,8 +245,8 @@ export default async function ImprimirOrdenPage({
                     monedaConsolidacion
                   )}
                 </td>
-                <td>{formatFecha(l.fechaEntregaObjetivo as Date | null)}</td>
-                <td>{formatFecha(l.fechaEstimadaProveedor as Date | null)}</td>
+                <td>{formatFechaDia(l.fechaEntregaObjetivo as Date | null)}</td>
+                <td>{formatFechaDia(l.fechaEstimadaProveedor as Date | null)}</td>
                 <td className="text-right">
                   {formatMontoConEquivalencia(
                     l.subtotal as number,

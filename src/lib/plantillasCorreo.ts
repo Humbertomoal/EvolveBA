@@ -1,6 +1,6 @@
 import { getConfigEmpresa } from "@/src/config/empresa";
 import { plantillasCorreo, type TipoCorreo } from "@/src/config/plantillasCorreo";
-import { formatFechaMexico } from "@/src/lib/dateUtils";
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import {
   agruparPartidas,
   domicilioDeGrupo,
@@ -184,7 +184,7 @@ export type ItemTablaMaterial = {
 };
 
 function lineaMaterial(item: ItemTablaMaterial): string {
-  return `- ${item.producto}: ${item.cantidad.toLocaleString("es-MX")} ${item.unidad} · Fecha requerida: ${formatFechaMexico(item.fechaRequerida)}`;
+  return `- ${item.producto}: ${item.cantidad.toLocaleString("es-MX")} ${item.unidad} · Fecha requerida: ${formatFechaDia(item.fechaRequerida)}`;
 }
 
 /**

@@ -12,7 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { useState, useTransition } from "react";
 import Badge from "@/src/components/Badge";
-import { formatFechaMexico } from "@/src/lib/dateUtils";
+import { formatFechaDia, formatFechaMexico } from "@/src/lib/dateUtils";
 import {
   faltanTiposCambio,
   formatMontoConEquivalencia,
@@ -336,7 +336,7 @@ export default function HistoricoPujas({
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-zinc-500">
-                        {formatFechaMexico(f.fechaEstimadaEntrega)}
+                        {formatFechaDia(f.fechaEstimadaEntrega)}
                       </td>
                       <td className="px-3 py-2 text-zinc-500">
                         {formatFechaMexico(f.fechaPuja, {

@@ -11,6 +11,7 @@
 // cargan con import() dinámico y así sigue fuera del bundle inicial del cliente.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { fechaDiaParaExcel } from "@/src/lib/dateUtils";
 import { convertirAMXN, tasaDe, type TiposCambio } from "./conversionMoneda";
 
 /**
@@ -164,7 +165,7 @@ export function construirFilasExcel(
     "Variación %": f.variacionPct,
     "TC aplicado": tasaDe(f.moneda, tiposCambio),
     "¿Cumple fecha?": f.puedeCumplirFecha ? "Sí" : "No",
-    "Fecha estimada de entrega": fechaExcelMexico(f.fechaEstimadaEntrega),
+    "Fecha estimada de entrega": fechaDiaParaExcel(f.fechaEstimadaEntrega),
     "Fecha/hora de la puja": fechaExcelMexico(f.fechaPuja),
     // Texto y no booleano: en Excel un "Sí/No" se filtra de un clic y se
     // lee sin tener que saber que TRUE significa.

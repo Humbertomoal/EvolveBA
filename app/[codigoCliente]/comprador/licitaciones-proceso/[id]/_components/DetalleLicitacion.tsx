@@ -41,7 +41,7 @@ import DescargarPdfButton from "@/src/components/pdf/DescargarPdfButton";
 import toast from "react-hot-toast";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import ModalInvitacionLicitacion from "@/src/components/ModalInvitacionLicitacion";
-import { formatFechaMexico } from "@/src/lib/dateUtils";
+import { formatFechaDia, formatFechaMexico } from "@/src/lib/dateUtils";
 import type { DatosInvitacionLicitacion } from "@/src/lib/datosInvitacionTypes";
 
 // ── Types (exported for use in server page) ───────────────────────────────────
@@ -1237,15 +1237,7 @@ export default function DetalleLicitacion({
                             No
                             {d.fechaEstimadaEntrega && (
                               <span className="ml-1 font-normal text-zinc-400">
-                                (
-                                {new Date(
-                                  d.fechaEstimadaEntrega
-                                ).toLocaleDateString("es-MX", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                })}
-                                )
+                                ({formatFechaDia(d.fechaEstimadaEntrega)})
                               </span>
                             )}
                           </span>

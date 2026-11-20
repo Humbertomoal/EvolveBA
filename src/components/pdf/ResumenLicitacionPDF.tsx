@@ -1,3 +1,4 @@
+import { formatFechaDia } from "@/src/lib/dateUtils";
 import { Document, Text, View } from "@react-pdf/renderer";
 import type { Cliente } from "@/src/config/clientes";
 import { formatImporte } from "@/src/lib/monedas";
@@ -75,8 +76,9 @@ export default function ResumenLicitacionPDF({
             <Dato label="Fin de licitación" valor={formatFechaPdf(licitacion.fechaFinLicitacion)} />
             <Dato
               label="Rango de entrega"
-              valor={`${formatFechaPdf(licitacion.fechaInicioRangoEntrega)} — ${formatFechaPdf(
-                licitacion.fechaFinRangoEntrega
+              valor={`${formatFechaDia(licitacion.fechaInicioRangoEntrega, "N/A")} — ${formatFechaDia(
+                licitacion.fechaFinRangoEntrega,
+                "N/A"
               )}`}
             />
             <Dato
@@ -116,7 +118,7 @@ export default function ResumenLicitacionPDF({
                 <Text style={[pdfStyles.tablaCellMuted, { width: "14%" }]}>{m.unidadMedida}</Text>
                 <Text style={[pdfStyles.tablaCellMuted, { width: "14%" }]}>{m.moneda}</Text>
                 <Text style={[pdfStyles.tablaCellMuted, { width: "24%" }]}>
-                  {formatFechaPdf(m.fechaEntrega)}
+                  {formatFechaDia(m.fechaEntrega, "N/A")}
                 </Text>
               </View>
             ))}
