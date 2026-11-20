@@ -2,16 +2,17 @@
 -- LIMPIEZA de las licitaciones de PRUEBA
 --   · prueba MANUAL de grupos de partidas (checklist: docs/pruebas/checklist-grupos-partidas.md)
 --   · prueba del autollenado de precios (scripts/crear-licitacion-prueba-autollenado.ts)
+--   · demostración para el video a proveedores (scripts/crear-licitacion-prueba-demo.ts)
 --
 -- La prueba se hace a mano, por la UI. No hay arnés automático.
 --
 -- Borra COMPLETAS las licitaciones de prueba y todo lo que cuelga de ellas.
 -- Base compartida con PRODUCCIÓN. Alcance:
 --   · número LIKE 'PRUEBA-GRUPOS%'  (PRUEBA-GRUPOS y PRUEBA-GRUPOS-DUP)
---   · número = 'PRUEBA-AUTOLLENADO' (exacto)
---   · y como máximo 3 licitaciones: si el filtro atrapa más, el script aborta
+--   · número IN ('PRUEBA-AUTOLLENADO', 'PRUEBA-DEMO') (exactos)
+--   · y como máximo 4 licitaciones: si el filtro atrapa más, el script aborta
 --     sin tocar nada (algo que no es de la prueba usa ese prefijo).
--- PRUEBA-AUTOLLENADO la crea el script, ya En Proceso, con Proveedor2
+-- PRUEBA-AUTOLLENADO y PRUEBA-DEMO las crean sus scripts, con Proveedor2
 -- invitado: aquí se borran sus ofertas, su invitación y los avisos de ronda de
 -- su chat. Proveedor2 se queda como está.
 -- La licitación se crea por la UI con el comprador real; NO se marca
@@ -45,20 +46,20 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 BEGIN;
 
--- Guarda: no puede haber más de las 3 licitaciones que crean las pruebas.
+-- Guarda: no puede haber más de las 4 licitaciones que crean las pruebas.
 DO $$
 DECLARE objetivo INT;
 BEGIN
   SELECT count(*) INTO objetivo FROM "Licitacion"
-   WHERE numero LIKE 'PRUEBA-GRUPOS%' OR numero = 'PRUEBA-AUTOLLENADO';
-  IF objetivo > 3 THEN
-    RAISE EXCEPTION 'Abortado: % licitaciones de prueba; las pruebas crean a lo más 3 (PRUEBA-GRUPOS, PRUEBA-GRUPOS-DUP y PRUEBA-AUTOLLENADO). Revisar a mano.', objetivo;
+   WHERE numero LIKE 'PRUEBA-GRUPOS%' OR numero IN ('PRUEBA-AUTOLLENADO', 'PRUEBA-DEMO');
+  IF objetivo > 4 THEN
+    RAISE EXCEPTION 'Abortado: % licitaciones de prueba; las pruebas crean a lo más 4 (PRUEBA-GRUPOS, PRUEBA-GRUPOS-DUP, PRUEBA-AUTOLLENADO y PRUEBA-DEMO). Revisar a mano.', objetivo;
   END IF;
   RAISE NOTICE 'Licitaciones de prueba a borrar: %', objetivo;
 END $$;
 
 CREATE TEMP TABLE _lic ON COMMIT DROP AS
-  SELECT id FROM "Licitacion" WHERE numero LIKE 'PRUEBA-GRUPOS%' OR numero = 'PRUEBA-AUTOLLENADO';
+  SELECT id FROM "Licitacion" WHERE numero LIKE 'PRUEBA-GRUPOS%' OR numero IN ('PRUEBA-AUTOLLENADO', 'PRUEBA-DEMO');
 CREATE TEMP TABLE _item ON COMMIT DROP AS
   SELECT id FROM "LicitacionItem" WHERE "licitacionId" IN (SELECT id FROM _lic);
 
@@ -80,8 +81,8 @@ DELETE FROM "Licitacion"               WHERE id                 IN (SELECT id FR
 COMMIT;
 
 -- ── Verificación (solo lectura): todo debe salir en 0 ───────────────────────
-SELECT 'Licitacion PRUEBA-GRUPOS% / PRUEBA-AUTOLLENADO' AS tabla, count(*)::int AS filas
-  FROM "Licitacion" WHERE numero LIKE 'PRUEBA-GRUPOS%' OR numero = 'PRUEBA-AUTOLLENADO'
+SELECT 'Licitacion PRUEBA-GRUPOS% / PRUEBA-AUTOLLENADO / PRUEBA-DEMO' AS tabla, count(*)::int AS filas
+  FROM "Licitacion" WHERE numero LIKE 'PRUEBA-GRUPOS%' OR numero IN ('PRUEBA-AUTOLLENADO', 'PRUEBA-DEMO')
 UNION ALL SELECT 'LicitacionGrupo huérfano de licitación', count(*)::int
   FROM "LicitacionGrupo" g WHERE NOT EXISTS (SELECT 1 FROM "Licitacion" l WHERE l.id = g."licitacionId")
 UNION ALL SELECT 'LicitacionGrupo con nombre PRUEBA', count(*)::int
