@@ -18,7 +18,7 @@
  *   · 1 material en los dos grupos, MXN en Norte y USD en Sur → no debe copiar
  *   · 1 material solo en Norte                        → no tiene a dónde copiar
  *   · FLETE (SP-FDE-001) en cada grupo                → no debe copiar
- * Invitado SOLO Proveedor1. Todos los materiales deben estar en su catálogo (si
+ * Invitado SOLO Proveedor2. Todos los materiales deben estar en su catálogo (si
  * no, no los vería en el portal): si falta alguno, NO escribe.
  *
  * ── Cómo escribe (sin mandar correos) ──────────────────────────────────────
@@ -31,7 +31,7 @@
  *      hace la acción); en una licitación de prueba no importa.
  *   3. verificarYActualizarEstado → En Proceso, ronda 1, porque la fecha de
  *      inicio ya pasó. Publica el aviso "ronda 1" en el CHAT del portal de
- *      Proveedor1 (no es correo).
+ *      Proveedor2 (no es correo).
  *
  * Fechas: inicio = hace 2 minutos; fin y ronda = 7 días; 3 rondas. Así queda
  * En Proceso de inmediato y la ronda 1 dura una semana.
@@ -47,7 +47,7 @@ const BASE_PATH = "/evolve-ba";
 
 const NUMERO = "PRUEBA-AUTOLLENADO";
 const CORREO_DUENO = "humberto.morales@evolveba.com.mx";
-const PROVEEDOR1_ID = "cmscftlam000004jl3kxdk96j";
+const PROVEEDOR_ID = "cmscfvbu3000104l95apfjnv5"; // Proveedor2 (cuenta de prueba; su correo es del comprador)
 
 const DURACION_RONDA_MINUTOS = 7 * 24 * 60;
 const MAX_RONDAS = 3;
@@ -103,15 +103,15 @@ async function main() {
   }
 
   const proveedor = await prisma.proveedor.findUnique({
-    where: { id: PROVEEDOR1_ID },
+    where: { id: PROVEEDOR_ID },
     select: { razonSocial: true, eliminado: true, usuario: { select: { activo: true } } },
   });
-  if (!proveedor || proveedor.eliminado) problemas.push("Proveedor1 no existe o está eliminado.");
+  if (!proveedor || proveedor.eliminado) problemas.push("Proveedor2 no existe o está eliminado.");
   const usuarioPortal = proveedor?.usuario?.activo ? 1 : 0;
-  if (usuarioPortal === 0) problemas.push("Proveedor1 no tiene usuario activo del portal.");
+  if (usuarioPortal === 0) problemas.push("Proveedor2 no tiene usuario activo del portal.");
 
   // Catálogo con la MISMA lectura que usa el portal.
-  const catalogo = new Set((await getMapaProveedorMateriales())[PROVEEDOR1_ID] ?? []);
+  const catalogo = new Set((await getMapaProveedorMateriales())[PROVEEDOR_ID] ?? []);
 
   const codigos = [...new Set(PARTIDAS.map(([c]) => c))];
   const productos = await prisma.producto.findMany({
@@ -123,7 +123,7 @@ async function main() {
     const p = porCodigo.get(c);
     if (!p) problemas.push(`No existe el producto ${c}`);
     else if (p.eliminado || !p.activo) problemas.push(`El producto ${c} está eliminado o inactivo`);
-    else if (catalogo.size > 0 && !catalogo.has(p.id)) problemas.push(`${c} no está en el catálogo de Proveedor1: no lo vería en el portal`);
+    else if (catalogo.size > 0 && !catalogo.has(p.id)) problemas.push(`${c} no está en el catálogo de Proveedor2: no lo vería en el portal`);
   }
 
   // ── Fechas ────────────────────────────────────────────────────────────────
@@ -168,7 +168,7 @@ async function main() {
     reordenado: false,
     items,
     grupos,
-    proveedoresInvitados: [PROVEEDOR1_ID],
+    proveedoresInvitados: [PROVEEDOR_ID],
     monedaConsolidacion: "MXN",
   };
   problemas.push(...planearGrupos([], grupos, items).errores.map((e) => `Grupos: ${e}`));

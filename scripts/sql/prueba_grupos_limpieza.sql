@@ -11,9 +11,9 @@
 --   · número = 'PRUEBA-AUTOLLENADO' (exacto)
 --   · y como máximo 3 licitaciones: si el filtro atrapa más, el script aborta
 --     sin tocar nada (algo que no es de la prueba usa ese prefijo).
--- PRUEBA-AUTOLLENADO la crea el script, ya En Proceso, con Proveedor1
+-- PRUEBA-AUTOLLENADO la crea el script, ya En Proceso, con Proveedor2
 -- invitado: aquí se borran sus ofertas, su invitación y los avisos de ronda de
--- su chat. Proveedor1 se queda como está.
+-- su chat. Proveedor2 se queda como está.
 -- La licitación se crea por la UI con el comprador real; NO se marca
 -- compradorId (marcarla a mano era frágil y la sacaba de las listas).
 --
