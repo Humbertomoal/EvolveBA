@@ -192,6 +192,9 @@ function cellInputClass(hasError: boolean, width: string) {
   }`;
 }
 
+/** Línea a la derecha de la última columna fija (Producto) de la tabla de partidas. */
+const SOMBRA_COLUMNA_FIJA = "shadow-[inset_-1px_0_0_rgb(228_228_231)]";
+
 let _seq = 0;
 function nuevoId() {
   return `fila_${Date.now()}_${_seq++}`;
@@ -1755,7 +1758,11 @@ Asistente de Inteligencia Artificial`;
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full max-w-5xl min-w-0 space-y-8 overflow-x-hidden">
+    // Ancho: todo el formulario queda en max-w-5xl (1024 px), MENOS la sección de
+    // partidas (data-ancho-completo), que usa el ancho disponible porque su
+    // tabla no cabe en 1024. Los modales (.fixed) se excluyen: un max-w en su
+    // raíz encogería el fondo oscuro.
+    <div className="w-full min-w-0 space-y-8 overflow-x-hidden [&>*:not([data-ancho-completo]):not(.fixed)]:max-w-5xl">
 
       {/* Duplicado: de dónde vienen los datos y cómo empezar de cero */}
       {base && (
@@ -2264,8 +2271,9 @@ Asistente de Inteligencia Artificial`;
         </div>
       </fieldset>
 
-      {/* Section B – Productos */}
-      <fieldset className="min-w-0 space-y-3">
+      {/* Section B – Productos. Más ancha que el resto del formulario: ver el
+          contenedor raíz. */}
+      <fieldset className="min-w-0 space-y-3" data-ancho-completo>
         <legend className="text-sm font-semibold text-zinc-900">
           Productos de la licitación
         </legend>
@@ -2290,7 +2298,8 @@ Asistente de Inteligencia Artificial`;
             // encabezado. Con grupos, una sección por grupo (encabezado con
             // nombre, domicilio y coordenadas) y "Sin grupo" al final si hace
             // falta. `items` ya está ordenado por sección (formularioGrupos.ts).
-            const columnas = hayGrupos ? 11 : 10;
+            // Sin columna Unidad: va como sufijo de la cantidad.
+            const columnas = hayGrupos ? 10 : 9;
             const filaIncompleta = (f: ItemFila | undefined) =>
               !!f &&
               (!f.productoId ||
@@ -2325,10 +2334,17 @@ Asistente de Inteligencia Artificial`;
               const ayudaEspecificacion = grupoDeFila?.domicilio.trim()
                 ? `El domicilio ya va en el grupo «${grupoDeFila.nombre.trim() || "este grupo"}»`
                 : "Detalles adicionales…";
+              // Las celdas fijas (Orden, Producto) necesitan fondo OPACO: lo de
+              // atrás se desliza debajo de ellas. Repiten el color de la fila.
+              const fondoFijo = retirada
+                ? "bg-zinc-50"
+                : rowHasError
+                  ? "bg-red-50"
+                  : "bg-white group-hover:bg-zinc-50";
               return (
                 <tr
                   key={item._id}
-                  className={`transition-colors duration-150 ${
+                  className={`group transition-colors duration-150 ${
                     retirada
                       ? "bg-zinc-50 text-zinc-400 line-through opacity-60"
                       : `hover:bg-zinc-50/50 ${rowHasError ? "bg-red-50/40" : ""}`
@@ -2341,7 +2357,7 @@ Asistente de Inteligencia Artificial`;
                 >
                   {/* Orden: número de fila + subir/bajar DENTRO de su grupo.
                       Las retiradas también se mueven, para conservar su lugar. */}
-                  <td className="px-2 py-2 no-underline">
+                  <td className={`sticky left-0 z-10 w-[68px] min-w-[68px] px-2 py-2 no-underline ${fondoFijo}`}>
                     <div className="flex items-center gap-1">
                       <span className="w-4 shrink-0 text-xs tabular-nums text-zinc-400">
                         {indice + 1}
@@ -2370,7 +2386,7 @@ Asistente de Inteligencia Artificial`;
                       </div>
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td className={`sticky left-[68px] z-10 px-2 py-2 ${fondoFijo} ${SOMBRA_COLUMNA_FIJA}`}>
                     <select
                       value={item.productoId}
                       onChange={(e) => cambiarItem(item._id, "productoId", e.target.value)}
@@ -2388,14 +2404,20 @@ Asistente de Inteligencia Artificial`;
                     </select>
                   </td>
                   <td className="px-2 py-2">
-                    <input
-                      type="text"
-                      value={item.especificacion}
-                      onChange={(e) => cambiarItem(item._id, "especificacion", e.target.value)}
-                      placeholder={ayudaEspecificacion}
-                      title={item.especificacion || (grupoDeFila?.domicilio.trim() ? ayudaEspecificacion : undefined)}
-                      className={cellInputClass(false, "w-40")}
-                    />
+                    {/* Angosta (w-24) y se EXPANDE al enfocarla, encima de las
+                        columnas de la derecha: el campo es absoluto dentro de una
+                        caja de tamaño fijo, así la celda no cambia y la tabla no
+                        se reacomoda mientras se escribe. */}
+                    <div className="relative h-[38px] w-24">
+                      <input
+                        type="text"
+                        value={item.especificacion}
+                        onChange={(e) => cambiarItem(item._id, "especificacion", e.target.value)}
+                        placeholder={ayudaEspecificacion}
+                        title={item.especificacion || (grupoDeFila?.domicilio.trim() ? ayudaEspecificacion : undefined)}
+                        className={`${cellInputClass(false, "absolute left-0 top-0 w-24")} bg-white transition-[width] duration-150 focus:z-30 focus:w-72 focus:shadow-md`}
+                      />
+                    </div>
                   </td>
                   <td className="px-2 py-2">
                     <input
@@ -2407,15 +2429,10 @@ Asistente de Inteligencia Artificial`;
                     />
                   </td>
                   <td className="px-2 py-2">
-                    <span className="block w-20 truncate rounded-md bg-zinc-100 px-2 py-2 text-zinc-500">
-                      {item.unidadMedida || "—"}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2">
                     <select
                       value={item.moneda}
                       onChange={(e) => cambiarItem(item._id, "moneda" as keyof ItemFila, e.target.value)}
-                      className={cellInputClass(false, "w-28")}
+                      className={cellInputClass(false, "w-20")}
                     >
                       {(catalogos?.monedas && catalogos.monedas.length > 0
                         ? catalogos.monedas
@@ -2426,14 +2443,22 @@ Asistente de Inteligencia Artificial`;
                     </select>
                   </td>
                   <td className="px-2 py-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={item.cantidadSolicitada}
-                      onChange={(e) => cambiarItem(item._id, "cantidadSolicitada", e.target.value)}
-                      className={cellInputClass(intentoGuardar && !item.cantidadSolicitada, "w-24")}
-                    />
+                    {/* La unidad es de solo lectura (sale del producto): va como
+                        sufijo de la cantidad en vez de ocupar su propia columna. */}
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={item.cantidadSolicitada}
+                        onChange={(e) => cambiarItem(item._id, "cantidadSolicitada", e.target.value)}
+                        aria-label={`Cantidad${item.unidadMedida ? ` en ${item.unidadMedida}` : ""}`}
+                        className={cellInputClass(intentoGuardar && !item.cantidadSolicitada, "w-24")}
+                      />
+                      <span className="w-14 truncate text-xs text-zinc-500" title={item.unidadMedida || undefined}>
+                        {item.unidadMedida || "—"}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-2 py-2">
                     <div className="relative w-28">
@@ -2527,7 +2552,9 @@ Asistente de Inteligencia Artificial`;
                   }
                 >
                   <td colSpan={columnas} className="px-2 py-2">
-                    <div className="flex flex-wrap items-start gap-2">
+                    {/* Fijo a la izquierda: con desplazamiento horizontal, el
+                        encabezado del grupo no se va con las columnas. */}
+                    <div className="sticky left-2 flex w-fit flex-wrap items-start gap-2">
                       <div className="flex flex-col">
                         <button
                           type="button"
@@ -2649,23 +2676,27 @@ Asistente de Inteligencia Artificial`;
 
             const seccionesVista = secciones(items, grupos);
             return (
-              <div className="w-full overflow-x-auto rounded-card border border-border bg-white shadow-card">
+              // La tabla tiene su PROPIO desplazamiento, vertical y horizontal,
+              // con alto máximo del tamaño de la ventana: así la barra horizontal
+              // siempre está a la vista, aunque haya cientos de partidas (antes
+              // quedaba al fondo de la tabla y "parecía cortada"). El encabezado
+              // y las columnas Orden y Producto se quedan fijos al desplazarse.
+              <div className="w-full max-h-[75vh] overflow-auto rounded-card border border-border bg-white shadow-card">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
-                      <th className="px-2 py-2.5 w-14">
+                    <tr className="border-b border-border text-left text-xs font-medium text-zinc-500 [&>th]:sticky [&>th]:top-0 [&>th]:z-20 [&>th]:bg-surface-muted">
+                      <th className="left-0 !z-30 w-[68px] min-w-[68px] px-2 py-2.5">
                         Orden
                         <span className="sr-only">
                           {" "}
                           — usa los botones subir y bajar de cada fila para cambiarlo
                         </span>
                       </th>
-                      <th className="px-2 py-2.5 w-44">Producto</th>
-                      <th className="px-2 py-2.5 w-40">Especificación</th>
+                      <th className={`left-[68px] !z-30 w-44 px-2 py-2.5 ${SOMBRA_COLUMNA_FIJA}`}>Producto</th>
+                      <th className="px-2 py-2.5 w-24">Especificación</th>
                       <th className="px-2 py-2.5 w-36">Fecha de entrega</th>
-                      <th className="px-2 py-2.5 w-20">Unidad</th>
-                      <th className="px-2 py-2.5 w-28">Moneda</th>
-                      <th className="px-2 py-2.5 w-24">Cantidad</th>
+                      <th className="px-2 py-2.5 w-20">Moneda</th>
+                      <th className="px-2 py-2.5 w-40">Cantidad</th>
                       <th className="px-2 py-2.5 w-28">Precio obj.</th>
                       <th className="px-2 py-2.5 w-28 text-right">Subtotal</th>
                       {hayGrupos && <th className="px-2 py-2.5 w-36">Grupo</th>}
@@ -2688,10 +2719,12 @@ Asistente de Inteligencia Artificial`;
                           {!g && hayGrupos && (
                             <tr className="border-t-2 border-zinc-200 bg-amber-50/50">
                               <td colSpan={columnas} className="px-3 py-2 text-xs text-amber-900">
-                                <span className="font-semibold">Sin grupo</span> ·{" "}
-                                {sec.items.length} {sec.items.length === 1 ? "partida" : "partidas"} — el
-                                proveedor las verá sin domicilio de entrega. Usa la columna «Grupo» para
-                                moverlas.
+                                <div className="sticky left-3 w-fit">
+                                  <span className="font-semibold">Sin grupo</span> ·{" "}
+                                  {sec.items.length} {sec.items.length === 1 ? "partida" : "partidas"} — el
+                                  proveedor las verá sin domicilio de entrega. Usa la columna «Grupo» para
+                                  moverlas.
+                                </div>
                               </td>
                             </tr>
                           )}
@@ -2711,7 +2744,7 @@ Asistente de Inteligencia Artificial`;
                                       ? "Completa todos los campos del producto anterior antes de agregar uno nuevo"
                                       : undefined
                                   }
-                                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="sticky left-3 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   <IconPlus className="h-3.5 w-3.5" />
                                   Agregar producto a «{g.nombre.trim() || "este grupo"}»
