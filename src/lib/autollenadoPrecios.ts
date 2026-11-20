@@ -3,28 +3,28 @@
  *
  * Cuando el proveedor termina de capturar el precio unitario de una partida,
  * ese precio se copia a las OTRAS partidas del mismo producto (otros sitios de
- * entrega) que sigan vacías. Es el mismo producto en otro sitio, así que viaja
- * también la marca "Es producto similar" con su descripción: sin ella, un
- * precio de un producto similar se presentaría como si fuera del original.
+ * entrega) que tengan el precio vacío. Lo ÚNICO que se copia es el precio.
  *
  * ── Reglas ─────────────────────────────────────────────────────────────────
- * · Destino = mismo productoId, MISMA moneda, la partida en "cotizo" y vacía
- *   (sin precio, sin marca de similar ni descripción). Nunca pisa algo que el
- *   proveedor tecleó.
- * · Solo precio + similar. Cantidad disponible, "¿Cumples la fecha?" y los
- *   estados "No dispongo" / "Sin costo" NO se copian: cambian por sitio.
+ * · Destino = mismo productoId, MISMA moneda, la partida en "cotizo" y con el
+ *   precio vacío. Nunca pisa un precio que el proveedor tecleó.
+ * · Solo el precio unitario. NO se copian: cantidad disponible, "¿Cumples la
+ *   fecha?", los estados "No dispongo" / "Sin costo" (cambian por sitio) ni
+ *   "Es producto similar" con su descripción. Esa casilla dice que el
+ *   proveedor ofrece OTRO producto que reemplaza al pedido: es su juicio para
+ *   ESA partida y no se replica. Marcarla o desmarcarla no dispara nada, y un
+ *   origen marcado como similar sigue copiando su precio (es su precio para
+ *   ese material; en cada sitio decide si ofrece el sustituto).
  * · Partidas no autollenables (flete y seguro, familia Servicios
  *   Profesionales; y Mano de Obra) ni dan ni reciben: cambian por sitio
  *   (traslados, tarifas locales).
- * · La copia queda marcada (`copiadoDe`). Mientras conserve la marca es una
- *   copia VIVA: si el proveedor corrige el precio de la partida origen o marca
- *   después "similar", la copia se actualiza. Por eso el orden de captura (precio
- *   primero, casilla después) no deja copias sin la marca de similar. En cuanto
- *   el proveedor toca precio, estado o similar en la copia, la marca se va
- *   (ver `setFila`) y la partida es suya: ya no se vuelve a tocar. Si el
- *   origen se queda sin precio (lo borra, o pasa a "No dispongo"/"Sin costo"),
- *   sus copias CONSERVAN su valor y solo pierden la marca: pasan a ser del
- *   proveedor. Nada desaparece de la pantalla sin que él lo haga, y "No
+ * · La copia queda marcada (`copiadoDe`). Mientras conserve la marca, sigue
+ *   al origen: si el proveedor corrige el precio del origen (tecleó 12 en vez
+ *   de 120), la copia se corrige también. Cualquier acción deliberada del
+ *   proveedor sobre la copia (precio, estado o "similar") le quita la marca
+ *   (ver `setFila`) y deja de seguir al origen para siempre. Si el origen se queda sin precio (lo borra, o pasa a "No
+ *   dispongo"/"Sin costo"), sus copias CONSERVAN su valor y solo pierden la
+ *   marca: nada desaparece de la pantalla sin que el proveedor lo haga, y "No
  *   dispongo" habla de ESE sitio, no de que el precio no valga en los demás.
  * · Todo se resuelve por licitacionItemId, nunca por posición.
  *
@@ -38,8 +38,6 @@ export type FilaAutollenado = {
   licitacionItemId: string;
   precioUnitario: string;
   estado: string;
-  esProductoSimilar: boolean;
-  productoSimilarDetalle: string;
   copiadoDe: CopiaDe | null;
 };
 
@@ -47,7 +45,7 @@ export type ItemAutollenado = {
   licitacionItemId: string;
   productoId: string;
   moneda: string;
-  /** false para flete y seguro (familia Servicios Profesionales). */
+  /** false para flete y seguro (Servicios Profesionales) y Mano de Obra. */
   autollenable: boolean;
   grupo: { nombre: string } | null;
 };
@@ -58,19 +56,10 @@ export function esAutollenable(familia: string | null | undefined): boolean {
   return !FAMILIAS_SIN_AUTOLLENADO.includes(familia ?? "");
 }
 
-function vacia(f: FilaAutollenado): boolean {
-  return (
-    f.precioUnitario.trim() === "" &&
-    !f.esProductoSimilar &&
-    f.productoSimilarDetalle.trim() === "" &&
-    f.copiadoDe === null
-  );
-}
-
 /**
- * Copia el precio (y la marca de similar) de la partida `origenId` a sus
- * gemelas. Devuelve el MISMO arreglo si no hay nada que cambiar, para que el
- * setState no provoque un render de más.
+ * Copia el precio de la partida `origenId` a sus gemelas. Devuelve el MISMO
+ * arreglo si no hay nada que cambiar, para que el setState no provoque un
+ * render de más.
  */
 export function propagarDesde<F extends FilaAutollenado>(
   filas: F[],
@@ -84,9 +73,9 @@ export function propagarDesde<F extends FilaAutollenado>(
   // Una copia que nadie ha tocado no es origen de nada: evita cadenas A→B→C.
   if (origen.copiadoDe) return filas;
   // El origen ya no tiene precio (lo borró, o pasó a "No dispongo" / "Sin
-  // costo"): sus copias se SUELTAN — conservan precio y similar y pierden la
-  // marca, porque "copiado de…" ya no sería cierto. No se vacían: nada
-  // desaparece de la pantalla sin que el proveedor lo haga.
+  // costo"): sus copias se SUELTAN — conservan su precio y pierden la marca,
+  // porque "copiado de…" ya no sería cierto. No se vacían: nada desaparece de
+  // la pantalla sin que el proveedor lo haga.
   if (origen.estado !== "cotizo" || origen.precioUnitario.trim() === "") {
     return soltarCopiasDe(filas, origenId);
   }
@@ -112,23 +101,11 @@ export function propagarDesde<F extends FilaAutollenado>(
       return f;
     }
     const esMiCopia = f.copiadoDe?.licitacionItemId === origenId;
-    if (!esMiCopia && !vacia(f)) return f;
-    if (
-      esMiCopia &&
-      f.precioUnitario === origen.precioUnitario &&
-      f.esProductoSimilar === origen.esProductoSimilar &&
-      f.productoSimilarDetalle === origen.productoSimilarDetalle
-    ) {
-      return f;
-    }
+    const vacia = f.precioUnitario.trim() === "" && f.copiadoDe === null;
+    if (!esMiCopia && !vacia) return f;
+    if (esMiCopia && f.precioUnitario === origen.precioUnitario) return f;
     cambio = true;
-    return {
-      ...f,
-      precioUnitario: origen.precioUnitario,
-      esProductoSimilar: origen.esProductoSimilar,
-      productoSimilarDetalle: origen.productoSimilarDetalle,
-      copiadoDe: copia,
-    };
+    return { ...f, precioUnitario: origen.precioUnitario, copiadoDe: copia };
   });
   return cambio ? siguiente : filas;
 }

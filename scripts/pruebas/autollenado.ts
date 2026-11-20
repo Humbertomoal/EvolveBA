@@ -18,7 +18,13 @@ function prueba(nombre: string, f: () => void) {
   console.log("✓", nombre);
 }
 
-type Fila = FilaAutollenado & { cantidadDisponible: string; puedeCumplirFecha: boolean };
+// Campos de la fila del portal que el autollenado NO debe tocar nunca.
+type Fila = FilaAutollenado & {
+  cantidadDisponible: string;
+  puedeCumplirFecha: boolean;
+  esProductoSimilar: boolean;
+  productoSimilarDetalle: string;
+};
 
 const I = (id: string, productoId: string, grupo: string | null, extra: Partial<ItemAutollenado> = {}): ItemAutollenado => ({
   licitacionItemId: id,
@@ -54,27 +60,45 @@ prueba("copia a las vacías del mismo producto, con la etiqueta del sitio origen
   assert.equal(por(r, "a1").copiadoDe, null);
 });
 
-prueba("nunca pisa un precio capturado ni una descripción de similar tecleada", () => {
-  const filas = [F("a1", { precioUnitario: "125" }), F("b1"), F("a2", { precioUnitario: "130" }), F("a3", { productoSimilarDetalle: "x" })];
+prueba("nunca pisa un precio capturado", () => {
+  const filas = [F("a1", { precioUnitario: "125" }), F("b1"), F("a2", { precioUnitario: "130" }), F("a3", { precioUnitario: "99" })];
   const r = propagarDesde(filas, items, "a1");
   assert.equal(r, filas, "sin cambios → mismo arreglo");
 });
 
-prueba("solo precio + similar: cantidad y fecha no se copian", () => {
-  const filas = [F("a1", { precioUnitario: "125", cantidadDisponible: "3", puedeCumplirFecha: false }), F("b1"), F("a2"), F("a3")];
+prueba("solo el precio: cantidad, fecha y similar del origen no se copian", () => {
+  const filas = [
+    F("a1", { precioUnitario: "125", cantidadDisponible: "3", puedeCumplirFecha: false, esProductoSimilar: true, productoSimilarDetalle: "Modelo 720" }),
+    F("b1"),
+    F("a2"),
+    F("a3"),
+  ];
   const r = propagarDesde(filas, items, "a1");
-  assert.equal(por(r, "a2").cantidadDisponible, "10");
-  assert.equal(por(r, "a2").puedeCumplirFecha, true);
+  const a2 = por(r, "a2");
+  assert.equal(a2.precioUnitario, "125", "origen marcado como similar SÍ copia su precio");
+  assert.deepEqual(
+    [a2.cantidadDisponible, a2.puedeCumplirFecha, a2.esProductoSimilar, a2.productoSimilarDetalle],
+    ["10", true, false, ""]
+  );
 });
 
-prueba("copia la marca de similar y su detalle; también si se marcó DESPUÉS del precio", () => {
-  let filas = [F("a1", { precioUnitario: "125" }), F("b1"), F("a2"), F("a3")];
-  filas = propagarDesde(filas, items, "a1");
-  // El proveedor marca "similar" en el origen después de capturar el precio.
-  filas = filas.map((f) => (f.licitacionItemId === "a1" ? { ...f, esProductoSimilar: true, productoSimilarDetalle: "Modelo 720" } : f));
-  filas = propagarDesde(filas, items, "a1");
-  assert.equal(por(filas, "a2").esProductoSimilar, true);
-  assert.equal(por(filas, "a2").productoSimilarDetalle, "Modelo 720");
+prueba("destino vacío marcado como similar recibe el precio y conserva SU similar", () => {
+  const filas = [F("a1", { precioUnitario: "125" }), F("b1"), F("a2", { esProductoSimilar: true, productoSimilarDetalle: "Otro" }), F("a3")];
+  const a2 = por(propagarDesde(filas, items, "a1"), "a2");
+  assert.deepEqual([a2.precioUnitario, a2.esProductoSimilar, a2.productoSimilarDetalle], ["125", true, "Otro"]);
+});
+
+prueba("marcar similar en el origen NO cambia nada en las copias", () => {
+  const copiado = propagarDesde([F("a1", { precioUnitario: "125" }), F("b1"), F("a2"), F("a3")], items, "a1");
+  const marcado = copiado.map((f) =>
+    f.licitacionItemId === "a1" ? { ...f, esProductoSimilar: true, productoSimilarDetalle: "Modelo 720" } : f
+  );
+  // Aunque algo volviera a llamar al autollenado, el resultado es el mismo arreglo.
+  const r = propagarDesde(marcado, items, "a1");
+  assert.equal(r, marcado);
+  for (const id of ["a2", "a3"]) {
+    assert.deepEqual(por(r, id), por(copiado, id), id);
+  }
 });
 
 prueba("copia viva: corregir el precio origen actualiza la copia sin marca de edición", () => {
@@ -108,8 +132,8 @@ prueba("No dispongo / Sin costo no se copian; las vacías destino en esos estado
   assert.equal(propagarDesde(destino, items, "a1"), destino);
 });
 
-prueba("origen se queda sin precio → las copias CONSERVAN su valor y similar, solo pierden la marca", () => {
-  const base = propagarDesde([F("a1", { precioUnitario: "125", esProductoSimilar: true, productoSimilarDetalle: "Modelo 720" }), F("b1"), F("a2"), F("a3")], items, "a1");
+prueba("origen se queda sin precio → las copias CONSERVAN su valor, solo pierden la marca", () => {
+  const base = propagarDesde([F("a1", { precioUnitario: "125" }), F("b1"), F("a2"), F("a3")], items, "a1");
   const conOrigen = (cambio: Partial<Fila>) =>
     propagarDesde(base.map((f) => (f.licitacionItemId === "a1" ? { ...f, ...cambio } : f)), items, "a1");
   for (const [caso, cambio] of [
@@ -121,8 +145,8 @@ prueba("origen se queda sin precio → las copias CONSERVAN su valor y similar, 
     for (const id of ["a2", "a3"]) {
       const f = por(r, id);
       assert.deepEqual(
-        [f.precioUnitario, f.esProductoSimilar, f.productoSimilarDetalle, f.copiadoDe],
-        ["125", true, "Modelo 720", null],
+        [f.precioUnitario, f.copiadoDe],
+        ["125", null],
         `${caso} / ${id}`
       );
     }
