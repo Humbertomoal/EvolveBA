@@ -39,11 +39,16 @@ import {
   encabezadosPorIndice,
   type GrupoLectura,
 } from "@/src/lib/agruparPartidas";
+import { propagarDesde, type CopiaDe } from "@/src/lib/autollenadoPrecios";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type ItemDetalle = {
   licitacionItemId: string;
+  /** Agrupa las partidas del mismo producto para el autollenado de precios. */
+  productoId: string;
+  /** false para flete y seguro (Servicios Profesionales): no se autollenan. */
+  autollenable: boolean;
   nombre: string;
   unidadMedida: string;
   especificacion: string | null;
@@ -113,7 +118,21 @@ type FilaState = {
    */
   esProductoSimilar: boolean;
   productoSimilarDetalle: string;
+  /**
+   * Si el precio (y la marca de similar) se copió de otra partida del mismo
+   * producto, de cuál. Se borra en cuanto el proveedor toca precio, estado o
+   * similar en esta fila. Ver src/lib/autollenadoPrecios.ts.
+   */
+  copiadoDe: CopiaDe | null;
 };
+
+/** Campos cuya edición manual convierte una copia en captura propia. */
+const CAMPOS_QUE_QUITAN_COPIA: (keyof FilaState)[] = [
+  "precioUnitario",
+  "estado",
+  "esProductoSimilar",
+  "productoSimilarDetalle",
+];
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -296,6 +315,7 @@ export default function LicitacionCotizacion({
       fechaEstimadaEntrega: base?.fechaEstimadaEntrega
         ? new Date(base.fechaEstimadaEntrega).toISOString().split("T")[0]
         : "",
+      copiadoDe: null,
     };
   }
 
@@ -645,6 +665,11 @@ export default function LicitacionCotizacion({
       if (pos === -1) return prev;
       const next = [...prev];
       next[pos] = { ...next[pos], [campo]: valor };
+      // Editar a mano una copia la vuelve captura propia: se va la marca
+      // "copiado de…" y el autollenado ya no la vuelve a tocar.
+      if (CAMPOS_QUE_QUITAN_COPIA.includes(campo)) {
+        next[pos] = { ...next[pos], copiadoDe: null };
+      }
       // Salir de "cotizo" tira la marca de producto similar. No es cosmético:
       // sin esto viajaría pegada a una partida sin precio y el CHECK
       // `oferta_similar_coherente` rechazaría el INSERT. El servidor lo vuelve
@@ -659,6 +684,20 @@ export default function LicitacionCotizacion({
       }
       return next;
     });
+  }
+
+  /**
+   * Copia el precio de la partida `idx` a las otras partidas del mismo
+   * producto que sigan vacías (ver src/lib/autollenadoPrecios.ts). Se llama al
+   * TERMINAR de capturar (onBlur del precio y de la descripción) y al cambiar
+   * la casilla de similar o el estado; nunca con cada tecla, para no copiar un
+   * "1" a medio escribir "125". Resuelve por id dentro del updater, sobre el
+   * estado más reciente.
+   */
+  function autollenarDesde(idx: number) {
+    const itemId = items[idx]?.licitacionItemId;
+    if (!itemId) return;
+    setFilas((prev) => propagarDesde(prev, items, itemId));
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -1115,9 +1154,10 @@ export default function LicitacionCotizacion({
                                         type="radio"
                                         name={`estado-${item.licitacionItemId}`}
                                         checked={fila.estado === opcion.valor}
-                                        onChange={() =>
-                                          setFila(idx, "estado", opcion.valor)
-                                        }
+                                        onChange={() => {
+                                          setFila(idx, "estado", opcion.valor);
+                                          autollenarDesde(idx);
+                                        }}
                                         aria-label={opcion.etiqueta}
                                         className="sr-only"
                                       />
@@ -1149,8 +1189,11 @@ export default function LicitacionCotizacion({
                                 </div>
                               ) : (
                                 <div className="relative">
+                                  {/* Alto fijo del input (38px), no inset-y-0:
+                                      la marca "copiado de…" va debajo dentro de
+                                      este mismo div y descentraría el "$". */}
                                   <span
-                                    className={`pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400 ${
+                                    className={`pointer-events-none absolute left-3 top-0 flex h-[38px] items-center text-zinc-400 ${
                                       fila.estado === "no_dispongo" ? "opacity-40" : ""
                                     }`}
                                   >
@@ -1172,6 +1215,7 @@ export default function LicitacionCotizacion({
                                     onChange={(e) =>
                                       setFila(idx, "precioUnitario", e.target.value)
                                     }
+                                    onBlur={() => autollenarDesde(idx)}
                                     className={`${INPUT} pl-7 ${
                                       fila.estado === "no_dispongo"
                                         ? "cursor-not-allowed opacity-40"
@@ -1183,6 +1227,14 @@ export default function LicitacionCotizacion({
                                       fila.estado === "no_dispongo" ? "—" : "0.00"
                                     }
                                   />
+                                  {fila.copiadoDe && fila.estado === "cotizo" && (
+                                    <p
+                                      className="mt-0.5 text-[11px] leading-tight text-sky-700"
+                                      title="Mismo producto en otro sitio. Si lo editas, deja de ser copia."
+                                    >
+                                      ↳ copiado de {fila.copiadoDe.etiqueta}
+                                    </p>
+                                  )}
                                 </div>
                               )}
 
@@ -1195,13 +1247,14 @@ export default function LicitacionCotizacion({
                                   <input
                                     type="checkbox"
                                     checked={fila.esProductoSimilar}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
                                       setFila(
                                         idx,
                                         "esProductoSimilar",
                                         e.target.checked
-                                      )
-                                    }
+                                      );
+                                      autollenarDesde(idx);
+                                    }}
                                     className="h-3.5 w-3.5 shrink-0 rounded border-zinc-300 accent-[var(--color-primario)]"
                                   />
                                   <span className="font-medium">Es producto similar</span>
@@ -1321,6 +1374,7 @@ export default function LicitacionCotizacion({
                                       e.target.value
                                     )
                                   }
+                                  onBlur={() => autollenarDesde(idx)}
                                   placeholder="¿Qué producto ofreces? Ej.: modelo 720 en lugar del 715"
                                   aria-label="Descripción del producto similar"
                                   className={`mt-1 w-full rounded-md border px-3 py-1.5 text-sm leading-snug text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
