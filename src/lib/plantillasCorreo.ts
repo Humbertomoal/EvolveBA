@@ -248,6 +248,16 @@ export function generarTablaMateriales(items: ItemTablaMaterial[]): string {
       const encabezado = grupo
         ? `${grupo.nombre}${domicilio ? ` — Entrega en: ${domicilio}` : ""}`
         : `${ETIQUETA_SIN_GRUPO} (sin domicilio de entrega)`;
+      // Si todo el sitio comparte la fecha, va una vez en el encabezado y no
+      // en cada línea. Con fechas distintas dentro del sitio, por línea.
+      const fechas = new Set(delGrupo.map((i) => formatFechaDia(i.fechaRequerida)));
+      if (fechas.size === 1) {
+        const [fecha] = fechas;
+        return [
+          `${encabezado} · Fecha requerida: ${fecha}`,
+          ...delGrupo.map((i) => `- ${i.producto}: ${formatCantidad(i.cantidad)} ${i.unidad}`),
+        ].join("\n");
+      }
       return [encabezado, ...delGrupo.map(lineaMaterial)].join("\n");
     })
     .join("\n\n");

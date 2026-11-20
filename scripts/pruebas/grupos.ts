@@ -323,13 +323,27 @@ prueba("correo: resumen antes del desglose con 2+ secciones; sin decimales basur
   assert.equal(lineas[2], "- PROD c: 0.3 Pieza (2 sitios)");
   assert.equal(lineas[3], "");
   assert.equal(lineas[4], TITULO_DESGLOSE_GRUPOS);
-  assert.equal(lineas[5], "Sitio A — Entrega en: Calle A");
+  assert.equal(lineas[5], "Sitio A — Entrega en: Calle A · Fecha requerida: 07/12/2026");
+  assert.equal(lineas[6], "- PROD b: 2 Pieza");
   assert.ok(t.indexOf("Sin grupo") > t.indexOf(TITULO_DESGLOSE_GRUPOS));
+});
+prueba("correo: sitio con fechas distintas → fecha por línea; los demás, en el encabezado", () => {
+  const t = generarTablaMateriales([
+    M("a", 1, "A"),
+    { ...M("b", 1, "A"), fechaRequerida: "2026-12-01T00:00:00.000Z" },
+    M("a", 2, "B"),
+  ]);
+  const lineas = t.split("\n");
+  const iA = lineas.indexOf("Sitio A — Entrega en: Calle A");
+  assert.ok(iA > 0);
+  assert.equal(lineas[iA + 1], "- PROD a: 1 Pieza · Fecha requerida: 07/12/2026");
+  assert.equal(lineas[iA + 2], "- PROD b: 1 Pieza · Fecha requerida: 01/12/2026");
+  assert.ok(lineas.includes("Sitio B — Entrega en: Calle B · Fecha requerida: 07/12/2026"));
 });
 prueba("correo: una sola sección o sin grupos → sin resumen (igual que antes)", () => {
   const uno = generarTablaMateriales([M("a", 1, "A"), M("a", 2, "A")]);
   assert.ok(!uno.includes(TITULO_RESUMEN_MATERIALES));
-  assert.ok(uno.startsWith("Sitio A"));
+  assert.ok(uno.startsWith("Sitio A — Entrega en: Calle A · Fecha requerida: 07/12/2026"));
   const sin = generarTablaMateriales([M("a", 1, null), M("b", 2, null)]);
   assert.equal(sin.split("\n").length, 2);
   assert.ok(!sin.includes(TITULO_RESUMEN_MATERIALES));
