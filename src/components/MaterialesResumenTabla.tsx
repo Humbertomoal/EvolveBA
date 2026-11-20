@@ -1,7 +1,20 @@
 import { formatFechaDia } from "@/src/lib/dateUtils";
 import { IconInfoCircle, IconPaperclip } from "@tabler/icons-react";
+import { Fragment } from "react";
+import FilaEncabezadoGrupo from "@/src/components/FilaEncabezadoGrupo";
+import {
+  agruparPartidas,
+  encabezadosPorIndice,
+  type GrupoLectura,
+} from "@/src/lib/agruparPartidas";
 
 export type MaterialResumen = {
+  /**
+   * Grupo (sitio de entrega) del material. Ausente o null = sin grupo. Los
+   * materiales deben llegar en ORDEN_PARTIDAS (cada grupo contiguo). Si
+   * ninguno tiene grupo, la tabla se ve exactamente como antes, sin encabezados.
+   */
+  grupo?: GrupoLectura | null;
   id: string;
   nombre: string;
   cantidadSolicitada: number;
@@ -33,6 +46,10 @@ export default function MaterialesResumenTabla({
   mensajeVacio?: string;
   mostrarEspecificaciones?: boolean;
 }) {
+  // Encabezado de grupo antes de la fila donde empieza cada sección. Vacío si
+  // ningún material tiene grupo.
+  const encabezadoEn = encabezadosPorIndice(agruparPartidas(materiales, (m) => m.grupo));
+  const columnas = mostrarEspecificaciones ? 6 : 5;
   return (
     <div className="space-y-1.5">
       <p className="text-sm font-medium text-zinc-700">{titulo}</p>
@@ -54,8 +71,12 @@ export default function MaterialesResumenTabla({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 bg-white">
-              {materiales.map((m) => (
-                <tr key={m.id}>
+              {materiales.map((m, indice) => (
+                <Fragment key={m.id}>
+                {encabezadoEn.has(indice) && (
+                  <FilaEncabezadoGrupo grupo={encabezadoEn.get(indice)!.grupo} colSpan={columnas} />
+                )}
+                <tr>
                   <td
                     className="max-w-48 truncate px-3 py-2 text-zinc-800"
                     title={m.nombre}
@@ -101,6 +122,7 @@ export default function MaterialesResumenTabla({
                     </td>
                   )}
                 </tr>
+                </Fragment>
               ))}
             </tbody>
           </table>

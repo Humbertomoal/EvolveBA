@@ -23,11 +23,18 @@ export type GrupoLectura = {
   id: string;
   nombre: string;
   domicilio: string | null;
+  /**
+   * Coordenadas del sitio, para el enlace al mapa del encabezado. Opcionales:
+   * el correo y la vista previa del formulario no las usan. En la base las dos
+   * van juntas o ninguna (CHECK grupo_coordenadas_coherentes).
+   */
+  latitud?: number | null;
+  longitud?: number | null;
 };
 
 /** `select` de Prisma que produce un `GrupoLectura`. */
 export const SELECT_GRUPO_LECTURA = {
-  select: { id: true, nombre: true, domicilio: true },
+  select: { id: true, nombre: true, domicilio: true, latitud: true, longitud: true },
 } as const;
 
 /**
@@ -92,6 +99,15 @@ export function encabezadosPorIndice<T>(
 }
 
 export const ETIQUETA_SIN_GRUPO = "Sin grupo";
+
+/**
+ * Enlace a Google Maps del sitio del grupo, o null si no tiene coordenadas.
+ * Mismo formato que el "Ver en el mapa" del formulario del comprador.
+ */
+export function urlMapaGrupo(grupo: GrupoLectura | null): string | null {
+  if (grupo?.latitud == null || grupo?.longitud == null) return null;
+  return `https://www.google.com/maps?q=${grupo.latitud},${grupo.longitud}`;
+}
 
 /** Domicilio para mostrar, o null si el grupo no tiene o es la sección sin grupo. */
 export function domicilioDeGrupo(grupo: GrupoLectura | null): string | null {

@@ -2,6 +2,7 @@ import { IconMapPin } from "@tabler/icons-react";
 import {
   domicilioDeGrupo,
   ETIQUETA_SIN_GRUPO,
+  urlMapaGrupo,
   type GrupoLectura,
 } from "@/src/lib/agruparPartidas";
 
@@ -24,6 +25,9 @@ export default function FilaEncabezadoGrupo({
   textoSinGrupo?: string;
 }) {
   const domicilio = domicilioDeGrupo(grupo);
+  // Con coordenadas, el 📍 y el domicilio son un enlace a Google Maps en pestaña
+  // nueva: quien entrega necesita llegar al sitio. Sin coordenadas, igual que antes.
+  const mapa = urlMapaGrupo(grupo);
   return (
     <tr className="border-t-2 border-zinc-200 bg-zinc-50">
       <td colSpan={colSpan} className="px-3 py-2">
@@ -31,7 +35,20 @@ export default function FilaEncabezadoGrupo({
           <span className="font-semibold text-zinc-800">
             {grupo ? grupo.nombre : ETIQUETA_SIN_GRUPO}
           </span>
-          {grupo && domicilio && (
+          {grupo && mapa && (
+            <a
+              href={mapa}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Ver en el mapa"
+              aria-label={`Ver ${grupo.nombre} en el mapa (abre en una pestaña nueva)`}
+              className="inline-flex items-center gap-1 text-[var(--color-primario)] underline-offset-2 hover:underline"
+            >
+              <IconMapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {domicilio ?? "Ver en el mapa"}
+            </a>
+          )}
+          {grupo && !mapa && domicilio && (
             <span className="inline-flex items-center gap-1 text-zinc-500">
               <IconMapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
               {domicilio}
