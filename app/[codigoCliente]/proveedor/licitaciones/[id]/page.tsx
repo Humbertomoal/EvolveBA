@@ -98,10 +98,12 @@ export default async function DetalleLicitacionPage({
     );
   }
 
-  // Filtrar items según catálogo del proveedor. Si el proveedor no tiene catálogo
-  // definido o no hay coincidencias, se muestran todos los items.
+  // Filtrar items según catálogo del proveedor (filtrarItemsPorMaterialesProveedor):
+  // sin catálogo ve todos; con catálogo, solo los que coinciden, que pueden ser
+  // cero. En ese caso la pantalla lo dice, en vez de "no tiene productos".
   const materialesIds = proveedorId ? await getMaterialesProveedor(proveedorId) : [];
   const itemsFiltrados = filtrarItemsPorMaterialesProveedor(licitacion.items, materialesIds);
+  const ocultasPorCatalogo = licitacion.items.length > 0 && itemsFiltrados.length === 0;
 
   // ── Vista de resultados para licitaciones cerradas/finalizadas ──────────────
   // Incluye "Esperando Validación": es la pantalla donde el proveedor confirma
@@ -353,6 +355,7 @@ export default async function DetalleLicitacionPage({
       tiposCambio={licitacion.tiposCambio}
       monedaConsolidacion={(licitacion as { monedaConsolidacion?: string }).monedaConsolidacion ?? "MXN"}
       noLeidosInicial={noLeidosInicial}
+      ocultasPorCatalogo={ocultasPorCatalogo}
     />
   );
 }

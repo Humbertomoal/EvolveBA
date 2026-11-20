@@ -7,21 +7,44 @@
  */
 
 /**
- * Filtra items (licitación, o cualquier lista con productoId) a los que
- * coinciden con el catálogo de un proveedor. Si el proveedor no tiene
- * materiales asignados, o ninguno coincide con la lista, se devuelven TODOS
- * los items sin filtrar — mismo comportamiento que ve el proveedor al entrar
- * a su detalle de licitación en el portal.
+ * Filtra items (licitación, o cualquier lista con productoId) a los que ve un
+ * proveedor según su catálogo. Es la regla del portal, y la usan también el
+ * correo de invitación y el formulario. Dos casos:
+ *
+ *   · Proveedor SIN catálogo (cero materiales): ve TODOS los items. Nunca lo
+ *     configuró, así que mostrarle todo es razonable y lo empuja a hacerlo.
+ *   · Proveedor CON catálogo: ve SOLO los que coinciden, aunque sean cero.
+ *     Curó su lista, y una licitación que no toca nada de lo suyo no es suya.
+ *
+ * Antes había un tercer caso: con catálogo pero sin ninguna coincidencia veía
+ * TODO, justo lo contrario de lo que el proveedor decidió (en la 0029, 10
+ * proveedores con un solo producto ajeno veían las 244 partidas). Ver cero
+ * ahora es posible: el formulario avisa al invitar a quien quedaría así
+ * (`veNingunaPartida`).
  */
 export function filtrarItemsPorMaterialesProveedor<T extends { productoId: string }>(
   items: T[],
   materialesProveedorIds: string[]
 ): T[] {
   if (materialesProveedorIds.length === 0) return items;
-  const coincidencias = items.filter((item) =>
-    materialesProveedorIds.includes(item.productoId)
+  return items.filter((item) => materialesProveedorIds.includes(item.productoId));
+}
+
+/**
+ * true si el proveedor TIENE catálogo y ninguna de estas partidas está en él:
+ * con la regla de `filtrarItemsPorMaterialesProveedor`, abriría la licitación
+ * y no vería nada. Un proveedor sin catálogo nunca queda así (ve todo), y una
+ * licitación sin partidas tampoco cuenta.
+ */
+export function veNingunaPartida(
+  items: { productoId: string }[],
+  materialesProveedorIds: string[]
+): boolean {
+  return (
+    items.length > 0 &&
+    materialesProveedorIds.length > 0 &&
+    filtrarItemsPorMaterialesProveedor(items, materialesProveedorIds).length === 0
   );
-  return coincidencias.length > 0 ? coincidencias : items;
 }
 
 /**
