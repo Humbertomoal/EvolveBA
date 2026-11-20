@@ -28,7 +28,7 @@
  *   1. crearLicitacionAction  → Borrador, con grupos, partidas e invitado.
  *   2. lanzarLicitacionAction → Programada. No envía correos (los manda el
  *      modal del navegador ANTES de llamarla; aquí no hay modal).
- *   3. Arranque: el inicio es en 5 minutos, así que queda Programada. Pasa a
+ *   3. Arranque: el inicio es una fecha FIJA futura, así que queda Programada. Pasa a
  *      En Proceso (ronda 1) la primera vez que alguien abre la licitación o la
  *      lista, en el portal o del lado del comprador, después de esa hora
  *      (verificarYActualizarEstado). Eso publica el aviso "ronda 1" en el CHAT
@@ -36,9 +36,9 @@
  * Al final se comprueba que el módulo de correo (emailService) no se cargó.
  *
  * ── Fechas ─────────────────────────────────────────────────────────────────
- * · Inicio: ahora + 5 min. Rondas: 3 de 30 días. Cierre por reloj: lo decide
- *   la duración de la ronda, no la fecha fin; fin = inicio + 90 días para que
- *   cuadre con las rondas.
+ * · Inicio y fin FIJOS (hora de México, UTC-6): lun 23/11/2026 10:00 → 18:00.
+ *   UNA ronda; su duración = fin − inicio (480 min). El cierre por reloj lo
+ *   decide la duración, así que fin y ronda terminan juntos.
  * · Fecha requerida de las 15 partidas: FECHA_ENTREGA fija (15/03/2027), DESPUÉS
  *   de la fecha fin, como exige el formulario. Rango de entrega = ese mismo
  *   día. Si el fin cayera en o después de esa fecha, el script no escribe.
@@ -57,9 +57,12 @@ const NUMERO_ORIGEN_GRUPOS = "0029";
 const CORREO_DUENO = "humberto.morales@evolveba.com.mx";
 const PROVEEDOR_ID = "cmscfvbu3000104l95apfjnv5"; // Proveedor2 (cuenta de prueba; su correo es del comprador)
 
-const MINUTOS_PARA_INICIO = 5;
-const DURACION_RONDA_MINUTOS = 30 * 24 * 60;
-const MAX_RONDAS = 3;
+const INICIO_MEXICO = "2026-11-23T10:00"; // lun 23/11/2026 10:00 México
+const FIN_MEXICO = "2026-11-23T18:00"; //    lun 23/11/2026 18:00 México
+const MAX_RONDAS = 1;
+/** Hora de México (UTC-6 fija) → instante. */
+const desdeMexico = (s: string) => new Date(`${s}:00-06:00`);
+const DURACION_RONDA_MINUTOS = (desdeMexico(FIN_MEXICO).getTime() - desdeMexico(INICIO_MEXICO).getTime()) / 60000 / MAX_RONDAS;
 const FECHA_ENTREGA = "2027-03-15";
 const TOTAL_ESPERADO = 15;
 
@@ -119,7 +122,7 @@ async function main() {
 
   const existente = await prisma.licitacion.findUnique({ where: { numero: NUMERO }, select: { estado: true } });
   if (existente) {
-    problemas.push(`Ya existe ${NUMERO} (${existente.estado}). Corre scripts/sql/prueba_grupos_limpieza.sql antes de recrearla.`);
+    problemas.push(`Ya existe ${NUMERO} (${existente.estado}). Corre scripts/sql/prueba_demo_limpieza.sql antes de recrearla.`);
   }
 
   // Tope de la limpieza: debe poder borrar todas las de prueba sin abortar.
@@ -180,7 +183,9 @@ async function main() {
 
   // ── Fechas ────────────────────────────────────────────────────────────────
   const ahora = new Date();
-  const inicio = new Date(ahora.getTime() + MINUTOS_PARA_INICIO * 60 * 1000);
+  const inicio = desdeMexico(INICIO_MEXICO);
+  if (inicio <= ahora) problemas.push(`El inicio ${INICIO_MEXICO} ya pasó.`);
+  if (!(DURACION_RONDA_MINUTOS > 0)) problemas.push(`Duración de ronda inválida: ${DURACION_RONDA_MINUTOS}`);
   const fin = new Date(inicio.getTime() + MAX_RONDAS * DURACION_RONDA_MINUTOS * 60 * 1000);
   const entrega = FECHA_ENTREGA;
   if (entrega <= diaMexico(fin)) problemas.push(`La fecha requerida ${entrega} no queda después del cierre (${diaMexico(fin)}).`);
@@ -240,9 +245,9 @@ async function main() {
   console.log(`Número      : ${NUMERO}`);
   console.log(`Dueño       : ${dueno.nombre}`);
   console.log(`Invitado    : ${proveedor?.razonSocial ?? "?"} (catálogo: ${catalogo.size} productos; portal: ${portalActivo ? "sí" : "NO"})`);
-  console.log(`Inicio      : ${payload.fechaEjecucion} (México) — en ${MINUTOS_PARA_INICIO} min, contados desde que se corra --apply`);
-  console.log(`Fin         : ${payload.fechaFinLicitacion} (México) = inicio + ${MAX_RONDAS} × 30 días`);
-  console.log(`Rondas      : ${MAX_RONDAS} de ${DURACION_RONDA_MINUTOS} min (${DURACION_RONDA_MINUTOS / 1440} días)`);
+  console.log(`Inicio      : ${payload.fechaEjecucion} (México) — fecha fija`);
+  console.log(`Fin         : ${payload.fechaFinLicitacion} (México) = inicio + ${MAX_RONDAS} × ${DURACION_RONDA_MINUTOS} min`);
+  console.log(`Rondas      : ${MAX_RONDAS} de ${DURACION_RONDA_MINUTOS} min (${DURACION_RONDA_MINUTOS / 60} h)`);
   console.log(`Entrega     : ${entrega} en todas las partidas (rango ${entrega} → ${entrega})`);
   console.log(`Moneda      : MXN en todas · precio objetivo 1 en todas`);
   console.log(`Limpieza    : hoy hay ${dePrueba.length} de prueba (${dePrueba.map((l) => l.numero).join(", ") || "ninguna"}); quedarían ${trasCrear}, tope ${TOPE_LIMPIEZA}`);
