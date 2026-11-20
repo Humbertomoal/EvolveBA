@@ -10,6 +10,11 @@
  *   --incluir-anteriores   agrega también los productos ANTERIORES a la última
  *                          edición del catálogo de cada proveedor (ver abajo)
  *   --licitacion=0029      licitación cuya cobertura se reporta antes y después
+ *   --familias=CANAL,CONSUM  limita la corrida a esas familias (CÓDIGOS del
+ *                          catálogo FAMILIA). Sin el parámetro: todas.
+ *   --detalle              lista, por proveedor y familia, qué productos recibe
+ *
+ * Proveedores excluidos siempre: ver PROVEEDORES_EXCLUIDOS (de prueba).
  *
  * ── Qué NO se agrega por defecto ──────────────────────────────────────────
  * El catálogo de un proveedor puede estar CURADO: si en la familia F desmarcó
@@ -51,10 +56,37 @@ const SIN_PREGUNTAR = process.argv.includes("--yes");
 const INCLUIR_ANTERIORES = process.argv.includes("--incluir-anteriores");
 const NUMERO_LICITACION =
   process.argv.find((a) => a.startsWith("--licitacion="))?.slice("--licitacion=".length) ?? "0029";
+const CODIGOS_FAMILIA = process.argv
+  .find((a) => a.startsWith("--familias="))
+  ?.slice("--familias=".length)
+  .split(",")
+  .map((c) => c.trim().toUpperCase())
+  .filter(Boolean);
+const DETALLE = process.argv.includes("--detalle");
+
+/** Nunca reciben altas: proveedores de prueba. */
+const PROVEEDORES_EXCLUIDOS: Record<string, string> = {
+  cmwkzpizr000004l8pa63036j: "Ejemplo tadeo (de prueba)",
+};
 
 type Alta = { proveedorId: string; productoId: string; familias: string };
 
 async function main() {
+  // Familias a las que se limita la corrida (por código → nombre, que es lo que
+  // guardan Producto.familia y familiasAsignadas). Un código desconocido aborta.
+  let familiasPermitidas: Set<string> | null = null;
+  if (CODIGOS_FAMILIA) {
+    const valores = await prisma.catalogoValor.findMany({
+      where: { tipo: "FAMILIA", codigo: { in: CODIGOS_FAMILIA } },
+      select: { codigo: true, nombre: true },
+    });
+    const desconocidos = CODIGOS_FAMILIA.filter((c) => !valores.some((v) => v.codigo === c));
+    if (desconocidos.length > 0) {
+      throw new Error(`Código(s) de familia desconocido(s): ${desconocidos.join(", ")}. No se escribió nada.`);
+    }
+    familiasPermitidas = new Set(valores.map((v) => v.nombre));
+  }
+
   const proveedores = await prisma.proveedor.findMany({
     where: { eliminado: false },
     select: { id: true, razonSocial: true, estado: true, catalogoValidadoEn: true },
@@ -86,10 +118,17 @@ async function main() {
     anteriores_omitidos: number;
   }[] = [];
   const porFamilia = new Map<string, { proveedores: Set<string>; altas: number; omitidos: number }>();
+  const detalle: { proveedor: string; familia: string; codigo: string; producto: string }[] = [];
+  const nombreProducto = new Map(productos.map((p) => [p.id, p]));
 
   for (const p of proveedores) {
+    if (PROVEEDORES_EXCLUIDOS[p.id]) continue;
     const familias = await getFamiliasAsignadasProveedor(p.id);
     if (familias.length === 0) continue;
+    const familiasCorrida = familiasPermitidas
+      ? familias.filter((f) => familiasPermitidas!.has(f))
+      : familias;
+    if (familiasCorrida.length === 0) continue;
     const suyos = tiene.get(p.id) ?? new Set<string>();
     const candidatos = [ultimaAlta.get(p.id), p.catalogoValidadoEn].filter((d): d is Date => !!d);
     const ultimaEdicion = suyos.size === 0 || candidatos.length === 0
@@ -98,7 +137,7 @@ async function main() {
     let agrega = 0;
     let omitidos = 0;
     for (const prod of productos) {
-      if (!familias.includes(prod.familia!) || suyos.has(prod.id)) continue;
+      if (!familiasCorrida.includes(prod.familia!) || suyos.has(prod.id)) continue;
       const fam = porFamilia.get(prod.familia!) ?? { proveedores: new Set(), altas: 0, omitidos: 0 };
       porFamilia.set(prod.familia!, fam);
       const pudoElegirlo = ultimaEdicion !== null && prod.createdAt <= ultimaEdicion;
@@ -108,6 +147,12 @@ async function main() {
         continue;
       }
       altas.push({ proveedorId: p.id, productoId: prod.id, familias: JSON.stringify(familias) });
+      detalle.push({
+        proveedor: p.razonSocial.slice(0, 40),
+        familia: prod.familia!,
+        codigo: nombreProducto.get(prod.id)!.codigo,
+        producto: nombreProducto.get(prod.id)!.nombre.slice(0, 50),
+      });
       agrega++;
       fam.altas++;
       fam.proveedores.add(p.id);
@@ -153,7 +198,9 @@ async function main() {
   // ── Reporte ──────────────────────────────────────────────────────────────
   const linea = "─".repeat(78);
   console.log(`\n${linea}\n${APLICAR ? "APLICAR" : "MODO PRUEBA (no se escribe nada)"}` +
-    `${INCLUIR_ANTERIORES ? " · CON --incluir-anteriores" : ""}\n${linea}`);
+    `${INCLUIR_ANTERIORES ? " · CON --incluir-anteriores" : ""}` +
+    `${familiasPermitidas ? ` · SOLO familias: ${[...familiasPermitidas].join(", ")}` : " · todas las familias"}\n${linea}`);
+  console.log(`Excluidos: ${Object.values(PROVEEDORES_EXCLUIDOS).join(", ")}`);
   console.log(`\nPor proveedor (solo los que tienen familias asignadas):`);
   console.table(porProveedor.sort((a, b) => b.agrega - a.agrega));
   console.log(`Por familia:`);
@@ -162,6 +209,22 @@ async function main() {
       .map(([familia, v]) => ({ familia, proveedores_que_reciben: v.proveedores.size, altas: v.altas, anteriores_omitidos: v.omitidos }))
       .sort((a, b) => b.altas - a.altas)
   );
+  if (DETALLE) {
+    console.log(`Detalle: qué recibe cada proveedor`);
+    let actual = "";
+    for (const d of detalle.sort((a, b) =>
+      a.proveedor.localeCompare(b.proveedor) || a.familia.localeCompare(b.familia) || a.codigo.localeCompare(b.codigo)
+    )) {
+      const cabeza = `${d.proveedor} · ${d.familia}`;
+      if (cabeza !== actual) {
+        actual = cabeza;
+        const n = detalle.filter((x) => x.proveedor === d.proveedor && x.familia === d.familia).length;
+        console.log(`\n  ${cabeza} (${n})`);
+      }
+      console.log(`    ${d.codigo.padEnd(16)} ${d.producto}`);
+    }
+    console.log("");
+  }
   const omitidosTotal = porProveedor.reduce((s, p) => s + p.anteriores_omitidos, 0);
   console.log(`Total a agregar: ${altas.length} filas de ProveedorMaterial` +
     (INCLUIR_ANTERIORES ? "" : ` · omitidos por anteriores (posibles desmarcas): ${omitidosTotal}`));
