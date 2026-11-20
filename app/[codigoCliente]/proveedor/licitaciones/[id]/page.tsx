@@ -12,6 +12,7 @@ import { ESTADO_ESPERANDO_VALIDACION } from "@/src/lib/seleccionTypes";
 import { parseTiposCambio } from "@/src/lib/conversionMoneda";
 import { getMensajesNoLeidos } from "@/src/lib/chatActions";
 import { ORDEN_PARTIDAS, SELECT_GRUPO_LECTURA } from "@/src/lib/agruparPartidas";
+import { esAutollenable } from "@/src/lib/autollenadoPrecios";
 import LicitacionCotizacion, { type ItemDetalle } from "./_components/LicitacionCotizacion";
 import ResumenOfertasView, { type MejorOfertaItem } from "./_components/ResumenOfertasView";
 
@@ -66,6 +67,9 @@ export default async function DetalleLicitacionPage({
               select: {
                 nombre: true,
                 unidadMedida: true,
+                // Autollenado de precios: agrupa por producto y excluye flete
+                // y seguro (Servicios Profesionales) y Mano de Obra.
+                familia: true,
                 especificacionesTecnicas: true,
                 archivosEspecificaciones: true,
               },
@@ -273,6 +277,8 @@ export default async function DetalleLicitacionPage({
     const ofertaAnterior = ofertaAnteriorMap.get(item.id);
     return {
       licitacionItemId: item.id,
+      productoId: item.productoId,
+      autollenable: esAutollenable(item.producto.familia),
       nombre: item.producto.nombre,
       unidadMedida: item.producto.unidadMedida,
       especificacion: item.especificacion,
