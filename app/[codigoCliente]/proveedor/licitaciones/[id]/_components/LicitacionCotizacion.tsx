@@ -1,6 +1,6 @@
 "use client";
 
-import { formatFechaDia } from "@/src/lib/dateUtils";
+import { formatFechaDia, formatFechaMexico } from "@/src/lib/dateUtils";
 import {
   IconMessageCircle,
   IconPaperclip,
@@ -565,12 +565,52 @@ export default function LicitacionCotizacion({
     }
   }, [tiempoExtraRestante, tiempoExtraActivo]);
 
+  // ── Preregistro (licitación Programada) ───────────────────────────────────
+  // Con la licitación Programada el proveedor ya puede capturar y GUARDAR su
+  // oferta de la ronda 1; cuando la ronda abre, eso ya es su oferta (ver
+  // preregistroAceptable en ofertasActions.ts). Sin cuenta regresiva ni tiempo
+  // extra: no hay ronda corriendo.
+  //
+  // La ventana se cierra a la hora de inicio. `preregistroVencido` arranca en
+  // false (lo mismo en servidor y cliente: si la hora ya hubiera pasado, la
+  // página habría arrancado la licitación y no estaría Programada) y un timer
+  // lo enciende al llegar la hora. Después, el refresco automático trae la
+  // ronda 1 ya abierta.
+  const inicioMs = fechaEjecucion ? new Date(fechaEjecucion).getTime() : null;
+  const [preregistroVencido, setPreregistroVencido] = useState(false);
+  useEffect(() => {
+    if (inicioMs === null) return;
+    // Si ya pasó, el timer dispara de inmediato (0 ms): siempre por el timer,
+    // nunca un setState síncrono dentro del efecto.
+    const faltaMs = Math.max(0, inicioMs - Date.now());
+    // setTimeout se desborda arriba de ~24.8 días: en ese caso no se programa
+    // (la página se habrá recargado mucho antes).
+    if (faltaMs > 2_147_483_647) return;
+    const t = setTimeout(() => setPreregistroVencido(true), faltaMs);
+    return () => clearTimeout(t);
+  }, [inicioMs]);
+  const esPreregistro =
+    estado === "Programada" && rondaActual === 0 && !esperandoDecision && inicioMs !== null;
+  const preregistroAbierto = esPreregistro && !preregistroVencido && !modoSoloLectura;
+  const [preregistroGuardadoEn, setPreregistroGuardadoEn] = useState<Date | null>(null);
+  const aperturaTexto = inicioMs
+    ? `${formatFechaMexico(new Date(inicioMs))} a las ${formatFechaMexico(new Date(inicioMs), {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })}`
+    : "";
+
   // ── Round open/closed ─────────────────────────────────────────────────────
+  // `rondaAbierta` = se puede capturar. Incluye el preregistro: así la tabla
+  // habilita precio, cantidad, estados, similar, "¿Cumples la fecha?" y el
+  // autollenado exactamente igual que en una ronda abierta.
   const rondaAbierta =
-    !modoSoloLectura &&
-    !esperandoDecision &&
-    rondaActual > 0 &&
-    (rondaFinMs === null || (remaining !== null && remaining > 0));
+    preregistroAbierto ||
+    (!modoSoloLectura &&
+      !esperandoDecision &&
+      rondaActual > 0 &&
+      (rondaFinMs === null || (remaining !== null && remaining > 0)));
 
   const tieneOfertaPrevia = items.some((item) => item.oferta !== null);
 
@@ -715,9 +755,11 @@ export default function LicitacionCotizacion({
       // `ronda` SÍ se manda —es lo único que el servidor no puede reconstruir
       // una vez que la licitación avanzó de ronda— pero allá se valida contra
       // la línea de tiempo real, así que no es un dato de confianza.
+      // Preregistro: la licitación sigue en ronda 0, pero lo que se guarda es
+      // la oferta de la RONDA 1.
       const resultado = await enviarOfertaAction(
         id,
-        rondaActual,
+        esPreregistro ? 1 : rondaActual,
         basePath,
         items.map((item, idx) => ({
           licitacionItemId: item.licitacionItemId,
@@ -754,6 +796,13 @@ export default function LicitacionCotizacion({
         // La ronda cerró: el formulario ya no sirve para nada, así que se
         // bloquea en vez de invitar a reintentar algo que no va a entrar.
         if (resultado.motivo === "fuera_de_tiempo") setModoSoloLectura(true);
+        return;
+      }
+
+      // Preregistro guardado: el formulario sigue abierto para corregirlo
+      // hasta que abra la ronda. No se pasa a solo lectura.
+      if (esPreregistro) {
+        setPreregistroGuardadoEn(new Date());
         return;
       }
 
@@ -944,7 +993,13 @@ export default function LicitacionCotizacion({
         {!esperandoDecision && rondaActual === 0 && (
           <div className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
             <span className="mt-px shrink-0">🕐</span>
-            <span>La ronda aún no ha comenzado. Espera a que el comprador inicie la licitación.</span>
+            <span>
+              {esPreregistro && !preregistroVencido
+                ? `La ronda abre el ${aperturaTexto}. Puedes capturar tus precios desde ahora y se guardarán como tu oferta de la ronda 1.`
+                : esPreregistro
+                  ? "La ronda 1 está abriendo. En un momento podrás cotizar; si no cambia, recarga la página."
+                  : "La ronda aún no ha comenzado."}
+            </span>
           </div>
         )}
 
@@ -1469,7 +1524,7 @@ export default function LicitacionCotizacion({
       </div>
 
       {/* ── Sticky bottom bar ────────────────────────────────────────────── */}
-      {!esperandoDecision && rondaActual > 0 && items.length > 0 && (
+      {!esperandoDecision && (rondaActual > 0 || esPreregistro) && items.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-200 bg-white/95 backdrop-blur-sm px-8 py-4">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-6">
             <div>
@@ -1492,7 +1547,38 @@ export default function LicitacionCotizacion({
               )}
             </div>
 
-            {rondaAbierta ? (
+            {preregistroAbierto ? (
+              // Preregistro: guarda directo, sin modal de confirmación —se
+              // puede corregir cuantas veces quiera hasta que abra la ronda—.
+              <div className="flex items-center gap-3">
+                {preregistroGuardadoEn && !enviando && (
+                  <span className="text-sm text-emerald-700">
+                    ✓ Guardado a las{" "}
+                    {formatFechaMexico(preregistroGuardadoEn, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => enviarOfertaAhora(false)}
+                  disabled={hayErroresCantidad || enviando}
+                  className="rounded-md bg-[var(--color-primario)] px-6 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[var(--color-secundario)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {enviando
+                    ? "Guardando…"
+                    : tieneOfertaPrevia || preregistroGuardadoEn
+                      ? "Actualizar preregistro"
+                      : "Guardar preregistro"}
+                </button>
+              </div>
+            ) : esPreregistro ? (
+              <span className="rounded-md border border-zinc-200 px-4 py-2 text-sm text-zinc-400">
+                {modoSoloLectura ? "Recarga la página para cotizar" : "La ronda 1 está abriendo…"}
+              </span>
+            ) : rondaAbierta ? (
               <button
                 type="button"
                 onClick={() => setModalConfirm(true)}

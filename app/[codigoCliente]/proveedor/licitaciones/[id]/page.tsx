@@ -224,8 +224,18 @@ export default async function DetalleLicitacionPage({
 
   // Cuando esperandoDecision=true cargamos la última oferta de cada ítem (ronda más
   // reciente en que cotizó). En rondas activas cargamos solo la ronda actual.
+  //
+  // Programada (ronda 0): la ronda 1 todavía no abre, pero el proveedor puede
+  // PREREGISTRAR su oferta de ronda 1 (ver preregistroAceptable en
+  // ofertasActions.ts). Se cargan esas ofertas para que vea lo que ya guardó.
+  const rondaACargar =
+    licitacion.rondaActual > 0
+      ? licitacion.rondaActual
+      : licitacion.estado === "Programada"
+        ? 1
+        : 0;
   const ofertasExistentes =
-    proveedorId && licitacion.rondaActual > 0
+    proveedorId && rondaACargar > 0
       ? licitacion.esperandoDecision
         ? await prisma.ofertaItem.findMany({
             where: { proveedorId, licitacionItem: { licitacionId: id, eliminado: false } },
@@ -234,7 +244,7 @@ export default async function DetalleLicitacionPage({
         : await prisma.ofertaItem.findMany({
             where: {
               proveedorId,
-              ronda: licitacion.rondaActual,
+              ronda: rondaACargar,
               licitacionItem: { licitacionId: id, eliminado: false },
             },
           })
