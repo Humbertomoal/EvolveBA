@@ -109,6 +109,35 @@ function rondaAceptable(ronda: number, lic: EstadoRonda, ahoraMs: number): boole
 }
 
 /**
+ * ¿Es un PREREGISTRO aceptable? La licitación está Programada (la ronda 1 aún
+ * no abre) y el proveedor deja capturada su oferta de ronda 1 por adelantado,
+ * para no tener que estar pendiente del minuto en que abre.
+ *
+ * Se guarda como un OfertaItem de ronda 1 normal: cuando la licitación arranca
+ * (verificarYActualizarEstado → En Proceso, ronda 1) ya ES su oferta de la
+ * ronda 1, sin conversión ni confirmación.
+ *
+ * La ventana se cierra con la HORA de inicio, no con el estado: el estado lo
+ * escribe verificarYActualizarEstado() solo cuando alguien carga una página,
+ * así que puede seguir diciendo "Programada" después de la hora. Pasada la
+ * hora se rechaza y el proveedor recarga para cotizar ya en la ronda abierta.
+ */
+function preregistroAceptable(
+  ronda: number,
+  lic: EstadoRonda & { estado: string; fechaEjecucion: Date | null },
+  ahoraMs: number
+): boolean {
+  return (
+    lic.estado === "Programada" &&
+    ronda === 1 &&
+    lic.rondaActual === 0 &&
+    !lic.esperandoDecision &&
+    lic.fechaEjecucion !== null &&
+    ahoraMs < lic.fechaEjecucion.getTime()
+  );
+}
+
+/**
  * Registra la oferta del proveedor autenticado para la ronda indicada.
  *
  * ── Identidad ──────────────────────────────────────────────────────────────
@@ -119,7 +148,9 @@ function rondaAceptable(ronda: number, lic: EstadoRonda, ahoraMs: number): boole
  *   1. La licitación existe, no está eliminada y no es de captura Manual.
  *   2. El proveedor está INVITADO.
  *   3. Todos los licitacionItemId pertenecen a ESA licitación.
- *   4. La ronda pedida es aceptable según la línea de tiempo (ver arriba).
+ *   4. La ronda pedida es aceptable según la línea de tiempo (ver arriba), o
+ *      es un preregistro de ronda 1 con la licitación Programada y antes de
+ *      la hora de inicio (ver preregistroAceptable).
  *
  * Devuelve un resultado en vez de lanzar para los rechazos ESPERADOS, de modo
  * que el proveedor vea por qué no se registró su oferta. Lanzar queda reservado
@@ -150,6 +181,7 @@ export async function enviarOfertaAction(
       inicioRondaActual: true,
       duracionRondaMinutos: true,
       esperandoDecision: true,
+      fechaEjecucion: true,
       proveedoresInvitados: { where: { proveedorId }, select: { id: true } },
       // `eliminado: false` es CRÍTICO aquí: de esta lista sale `idsValidos`,
       // que autoriza qué partidas admite una oferta. Sin el filtro, un
@@ -173,15 +205,25 @@ export async function enviarOfertaAction(
       mensaje: "No estás invitado a esta licitación.",
     };
   }
-  if (licitacion.estado !== "En Proceso") {
+  const ahoraMs = Date.now();
+  if (licitacion.estado === "Programada") {
+    // Preregistro (ver preregistroAceptable). Si la hora de inicio ya pasó, la
+    // ronda 1 está abriendo: recargar la arranca y deja cotizar en ella.
+    if (!preregistroAceptable(ronda, licitacion, ahoraMs)) {
+      return {
+        ok: false,
+        motivo: "fuera_de_tiempo",
+        mensaje:
+          "La ronda 1 ya abrió o está por abrir, así que tu preregistro no se guardó. Recarga la página para cotizar en la ronda 1.",
+      };
+    }
+  } else if (licitacion.estado !== "En Proceso") {
     return {
       ok: false,
       motivo: "licitacion_no_disponible",
       mensaje: "La licitación ya no está abierta a ofertas.",
     };
-  }
-
-  if (!rondaAceptable(ronda, licitacion, Date.now())) {
+  } else if (!rondaAceptable(ronda, licitacion, ahoraMs)) {
     return {
       ok: false,
       motivo: "fuera_de_tiempo",
