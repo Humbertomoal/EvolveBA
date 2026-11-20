@@ -838,6 +838,9 @@ export default function LicitacionCotizacion({
               moneda: item.moneda,
               especificacionesTecnicas: item.especificacionesTecnicas,
               archivosEspecificaciones: item.archivosEspecificaciones,
+              // Mismo orden y mismo filtro por catálogo que la tabla de
+              // cotización: un grupo sin materiales visibles no muestra encabezado.
+              grupo: item.grupo,
             }))}
             mensajeVacio="No hay materiales asignados a tu catálogo en esta licitación."
             mostrarEspecificaciones

@@ -72,6 +72,7 @@ import {
   type GrupoFila,
   type Transicion,
 } from "@/src/lib/formularioGrupos";
+import type { GrupoLectura } from "@/src/lib/agruparPartidas";
 import {
   MAX_DOMICILIO_GRUPO,
   MAX_NOMBRE_GRUPO,
@@ -1000,25 +1001,35 @@ Asistente de Inteligencia Artificial`;
       : itemsValidos;
     // `items` ya está ordenado por sección (formularioGrupos.ts) y el filtro
     // conserva ese orden, así que generarTablaMateriales puede cortar por
-    // grupo igual que con el payload del servidor. La clave del grupo sirve
-    // de id: solo se usa para distinguir una sección de otra.
-    return itemsFiltrados.map((i) => {
-      const clave = seccionDe(i, grupos);
-      const g = clave !== null ? grupos.find((x) => x.clave === clave) : undefined;
-      return {
-        producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
-        cantidad: parseFloat(i.cantidadSolicitada) || 0,
-        unidad: i.unidadMedida,
-        fechaRequerida: i.fechaEntrega ? new Date(i.fechaEntrega) : null,
-        grupo: g
-          ? {
-              id: g.clave,
-              nombre: g.nombre.trim() || "Grupo sin nombre",
-              domicilio: g.domicilio.trim() || null,
-            }
-          : null,
-      };
-    });
+    // grupo igual que con el payload del servidor.
+    return itemsFiltrados.map((i) => ({
+      producto: productos.find((p: any) => p.id === i.productoId)?.nombre ?? "—",
+      cantidad: parseFloat(i.cantidadSolicitada) || 0,
+      unidad: i.unidadMedida,
+      fechaRequerida: i.fechaEntrega ? new Date(i.fechaEntrega) : null,
+      grupo: grupoLecturaDe(i),
+    }));
+  }
+
+  /**
+   * El grupo de una partida, tal como lo ven las lecturas (correo, tabla de
+   * materiales, portal). Lo usan la vista previa del correo y la ventana de
+   * instrucciones, para que el comprador revise lo mismo que verá el proveedor.
+   * La clave del grupo sirve de id: solo se usa para distinguir una sección de
+   * otra. Las coordenadas solo se toman si son válidas.
+   */
+  function grupoLecturaDe(i: ItemFila): GrupoLectura | null {
+    const clave = seccionDe(i, grupos);
+    const g = clave !== null ? grupos.find((x) => x.clave === clave) : undefined;
+    if (!g) return null;
+    const coords = parsearCoordenadas(g.coordenadas);
+    return {
+      id: g.clave,
+      nombre: g.nombre.trim() || "Grupo sin nombre",
+      domicilio: g.domicilio.trim() || null,
+      latitud: coords.ok && coords.valor ? coords.valor.latitud : null,
+      longitud: coords.ok && coords.valor ? coords.valor.longitud : null,
+    };
   }
 
   /** proveedorId → correo, en el mismo orden/filtro que destinatariosSeleccionados(). */
@@ -3262,6 +3273,8 @@ Asistente de Inteligencia Artificial`;
                     unidadMedida: i.unidadMedida,
                     fechaEntrega: i.fechaEntrega || null,
                     moneda: i.moneda,
+                    // Agrupada igual que la tabla que verá el proveedor.
+                    grupo: grupoLecturaDe(i),
                   }))}
               />
 
