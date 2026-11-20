@@ -36,6 +36,13 @@ import {
   type GrupoFila,
   type Transicion,
 } from "../../src/lib/formularioGrupos";
+import {
+  generarTablaMateriales,
+  resumenPorMaterial,
+  TITULO_DESGLOSE_GRUPOS,
+  TITULO_RESUMEN_MATERIALES,
+  type ItemTablaMaterial,
+} from "../../src/lib/plantillasCorreo";
 
 let total = 0;
 function prueba(nombre: string, f: () => void) {
@@ -280,6 +287,52 @@ prueba("restaurar una partida de un grupo quitado restaura el grupo", () => {
   const t = restaurarPartida(quitado, "a1");
   assert.equal(t.items.find((i) => i._id === "a1")?.eliminado, false);
   assert.equal(t.grupos.find((g) => g.clave === "A")?.eliminado, false);
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Parte 3 — correo: resumen consolidado por material
+// ═════════════════════════════════════════════════════════════════════════════
+
+const GL = (id: string) => ({ id, nombre: "Sitio " + id, domicilio: "Calle " + id, latitud: null, longitud: null });
+const M = (productoId: string, cantidad: number, grupo: string | null, unidad = "Pieza"): ItemTablaMaterial => ({
+  productoId,
+  producto: "PROD " + productoId,
+  cantidad,
+  unidad,
+  fechaRequerida: "2026-12-07T00:00:00.000Z",
+  grupo: grupo ? GL(grupo) : null,
+});
+
+prueba("resumen: suma por producto, orden de primera aparición, cuenta sitios", () => {
+  const r = resumenPorMaterial([M("b", 2, "A"), M("a", 1, "A"), M("b", 3, "B"), M("c", 0.1, "B"), M("c", 0.2, null)]);
+  assert.deepEqual(r.map((x) => [x.producto, x.cantidad, x.sitios]), [
+    ["PROD b", 5, 2],
+    ["PROD a", 1, 1],
+    ["PROD c", 0.1 + 0.2, 2],
+  ]);
+});
+prueba("resumen: homónimos con distinto productoId NO se suman", () => {
+  const items = [M("x", 1, "A"), { ...M("y", 4, "B"), producto: "PROD x" }];
+  assert.equal(resumenPorMaterial(items).length, 2);
+});
+prueba("correo: resumen antes del desglose con 2+ secciones; sin decimales basura", () => {
+  const t = generarTablaMateriales([M("b", 2, "A"), M("c", 0.1, "A"), M("b", 3, "B"), M("c", 0.2, null)]);
+  const lineas = t.split("\n");
+  assert.equal(lineas[0], TITULO_RESUMEN_MATERIALES);
+  assert.equal(lineas[1], "- PROD b: 5 Pieza (2 sitios)");
+  assert.equal(lineas[2], "- PROD c: 0.3 Pieza (2 sitios)");
+  assert.equal(lineas[3], "");
+  assert.equal(lineas[4], TITULO_DESGLOSE_GRUPOS);
+  assert.equal(lineas[5], "Sitio A — Entrega en: Calle A");
+  assert.ok(t.indexOf("Sin grupo") > t.indexOf(TITULO_DESGLOSE_GRUPOS));
+});
+prueba("correo: una sola sección o sin grupos → sin resumen (igual que antes)", () => {
+  const uno = generarTablaMateriales([M("a", 1, "A"), M("a", 2, "A")]);
+  assert.ok(!uno.includes(TITULO_RESUMEN_MATERIALES));
+  assert.ok(uno.startsWith("Sitio A"));
+  const sin = generarTablaMateriales([M("a", 1, null), M("b", 2, null)]);
+  assert.equal(sin.split("\n").length, 2);
+  assert.ok(!sin.includes(TITULO_RESUMEN_MATERIALES));
 });
 
 console.log(`\n${total} pruebas OK`);

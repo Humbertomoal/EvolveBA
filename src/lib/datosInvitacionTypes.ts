@@ -17,6 +17,8 @@
 
 /** Un material de la licitación, tal como se lista en el correo. */
 export type ItemInvitacion = {
+  /** Llave del resumen consolidado por material del correo. */
+  productoId: string;
   producto: string;
   cantidad: number;
   unidad: string;
