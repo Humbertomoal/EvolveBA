@@ -55,6 +55,7 @@ import {
   formatearConsecutivo,
   inicialesDescripcion,
 } from "../src/lib/generarCodigoProducto";
+import { PROVEEDORES_EXCLUIDOS } from "./lib/proveedoresExcluidos";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -397,7 +398,11 @@ async function main() {
   imprimirPlan(plan);
 
   // Catálogo de proveedores: a quién se le asignaría cada familia a crear.
-  const familiasPorProveedor = await familiasAsignadasPorProveedor(prisma);
+  // Sin los PROVEEDORES_EXCLUIDOS, igual que al escribir.
+  const familiasPorProveedor = new Map(
+    [...(await familiasAsignadasPorProveedor(prisma))].filter(([id]) => !PROVEEDORES_EXCLUIDOS[id])
+  );
+  console.log(`\nExcluidos del catálogo de proveedores: ${Object.values(PROVEEDORES_EXCLUIDOS).join("; ") || "ninguno"}`);
   console.log("\n── Asignación automática al catálogo de proveedores (por familia) ──");
   for (const [fam, n] of Object.entries(contarPor(plan.altas, (a) => a.familia))) {
     const proveedores = [...familiasPorProveedor.values()].filter((fs) => fs.includes(fam)).length;
@@ -486,7 +491,11 @@ async function main() {
         where: { codigo: { in: altas.map((a) => a.codigo) } },
         select: { id: true, familia: true },
       });
-      const filasCatalogo = await filasCatalogoPorFamilia(tx, nuevos);
+      // Misma regla que crearProducto, menos los PROVEEDORES_EXCLUIDOS (la
+      // misma lista que asignar-materiales-por-familia.ts).
+      const filasCatalogo = (await filasCatalogoPorFamilia(tx, nuevos)).filter(
+        (f) => !PROVEEDORES_EXCLUIDOS[f.proveedorId]
+      );
       const asignados =
         filasCatalogo.length > 0
           ? (await tx.proveedorMaterial.createMany({ data: filasCatalogo, skipDuplicates: true })).count
