@@ -59,6 +59,7 @@ import { createInterface } from "node:readline/promises";
 import { prisma } from "../src/lib/prisma";
 import { familiasAsignadasPorProveedor } from "../src/lib/catalogoPorFamilia";
 import { filtrarItemsPorMaterialesProveedor } from "../src/lib/proveedorMateriales";
+import { PROVEEDORES_EXCLUIDOS } from "./lib/proveedoresExcluidos";
 
 const arg = (nombre: string) =>
   process.argv.find((a) => a.startsWith(`--${nombre}=`))?.slice(nombre.length + 3);
@@ -74,10 +75,8 @@ const CODIGOS_FAMILIA = arg("familias")
   .map((c) => c.trim().toUpperCase())
   .filter(Boolean);
 
-/** Nunca reciben nada: proveedores de prueba sin confirmar. */
-const PROVEEDORES_EXCLUIDOS: Record<string, string> = {
-  cmwkzpizr000004l8pa63036j: "Ejemplo tadeo (pendiente de verificar quién es)",
-};
+// Nunca reciben nada: proveedores de prueba sin confirmar. La lista es la
+// misma que usa cargar-materiales-electricos.ts.
 
 const CORTO: Record<string, string> = {
   "Material Eléctrico de Corriente Alterna": "CA",
