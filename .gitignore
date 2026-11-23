@@ -42,3 +42,6 @@ next-env.d.ts
 
 /src/generated/prisma
 __tmp_* 
+
+# Descargas locales (copias de trabajo; las buenas viven en scripts/datos/)
+/Claude outputs/
