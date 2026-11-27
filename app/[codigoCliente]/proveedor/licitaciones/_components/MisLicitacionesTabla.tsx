@@ -615,8 +615,15 @@ export default function MisLicitacionesTabla({
       {/* Modal: Instrucciones */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+          {/* Alto máximo 85vh, encabezado y pie fijos, solo el texto con scroll.
+              Con instrucciones largas el botón Cerrar (y la X) quedaban fuera
+              de la pantalla, y quien se atoraba era el proveedor. Mismo patrón
+              que los modales del comprador (EnProcesoTabla, LicitacionForm). */}
+          <div
+            className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl"
+            style={{ maxHeight: "85vh" }}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-5 py-4">
               <div>
                 <h2 className="text-base font-semibold text-zinc-900">
                   Instrucciones de la Licitación
@@ -627,7 +634,7 @@ export default function MisLicitacionesTabla({
                 <IconX className="h-5 w-5" />
               </button>
             </div>
-            <div className="px-5 py-5">
+            <div className="flex-1 overflow-y-auto px-5 py-5" style={{ minHeight: 0 }}>
               {modal.instrucciones ? (
                 <p className="whitespace-pre-wrap text-sm text-zinc-700">{modal.instrucciones}</p>
               ) : (
@@ -636,7 +643,7 @@ export default function MisLicitacionesTabla({
                 </p>
               )}
             </div>
-            <div className="flex justify-end border-t border-zinc-200 px-5 py-4">
+            <div className="flex shrink-0 justify-end border-t border-zinc-200 px-5 py-4">
               <button
                 type="button"
                 onClick={() => setModal(null)}
