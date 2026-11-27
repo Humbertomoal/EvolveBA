@@ -474,8 +474,17 @@ export default function EnProcesoTabla({
       {/* ── Modal: Decisión Final ─────────────────────────────────────────── */}
       {modalDecision && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl">
-            <div className="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
+          {/* Alto máximo 85vh con encabezado y pie FIJOS y solo la lista con
+              scroll: con 252 partidas (la 0030) la lista crecía sin límite y
+              dejaba los botones (y la X) fuera de la pantalla. Mismo patrón que
+              el modal de proveedores participantes de LicitacionForm. Scroll
+              nativo, sin escuchar la rueda: fuera de la lista, la rueda se
+              comporta igual que antes. */}
+          <div
+            className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl"
+            style={{ maxHeight: "85vh" }}
+          >
+            <div className="flex shrink-0 items-start justify-between border-b border-zinc-200 px-5 py-4">
               <div>
                 <h2 className="text-base font-semibold text-zinc-900">
                   {confirmandoCancelar
@@ -498,7 +507,7 @@ export default function EnProcesoTabla({
               </button>
             </div>
 
-            <div className="px-5 py-4">
+            <div className="flex-1 overflow-y-auto px-5 py-4" style={{ minHeight: 0 }}>
               {confirmandoCancelar ? (
                 <div className="space-y-4">
                   <p className="text-sm text-zinc-700">
@@ -564,7 +573,7 @@ export default function EnProcesoTabla({
               )}
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-200 px-5 py-4">
+            <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-zinc-200 px-5 py-4">
               {confirmandoCancelar ? (
                 <>
                   <button

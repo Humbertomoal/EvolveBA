@@ -1139,9 +1139,15 @@ export default function DetalleLicitacion({
       {/* ── Modal: Ver oferta de proveedor ───────────────────────────────────── */}
       {modalProveedor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
+          {/* Alto máximo 85vh, encabezado y pie fijos, solo la tabla con scroll:
+              lista la oferta partida por partida (252 en la 0030). Mismo patrón
+              que Decisión Final (EnProcesoTabla) y LicitacionForm. */}
+          <div
+            className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl"
+            style={{ maxHeight: "85vh" }}
+          >
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
+            <div className="flex shrink-0 items-start justify-between border-b border-zinc-200 px-5 py-4">
               <div>
                 <h2 className="text-base font-semibold text-zinc-900">
                   Oferta de {modalProveedor.razonSocial}
@@ -1162,8 +1168,8 @@ export default function DetalleLicitacion({
               </button>
             </div>
 
-            {/* Tabla de productos */}
-            <div className="overflow-x-auto px-5 py-4">
+            {/* Tabla de productos: scroll en los dos ejes (antes solo horizontal). */}
+            <div className="flex-1 overflow-auto px-5 py-4" style={{ minHeight: 0 }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
@@ -1250,7 +1256,7 @@ export default function DetalleLicitacion({
               </table>
             </div>
 
-            <div className="flex justify-end border-t border-zinc-200 px-5 py-4">
+            <div className="flex shrink-0 justify-end border-t border-zinc-200 px-5 py-4">
               <button
                 type="button"
                 onClick={() => setModalProveedor(null)}
@@ -1266,9 +1272,14 @@ export default function DetalleLicitacion({
       {/* ── Modal: Historial de rondas por proveedor ──────────────────────────── */}
       {modalHistorial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
+          {/* Mismo patrón: alto máximo, encabezado y pie fijos. Hoy son pocas
+              rondas, pero la lista no tiene tope. */}
+          <div
+            className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl"
+            style={{ maxHeight: "85vh" }}
+          >
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-zinc-200 px-5 py-4">
+            <div className="flex shrink-0 items-start justify-between border-b border-zinc-200 px-5 py-4">
               <h2 className="text-base font-semibold text-zinc-900">
                 Detalle · {modalHistorial.razonSocial}
               </h2>
@@ -1282,7 +1293,7 @@ export default function DetalleLicitacion({
             </div>
 
             {/* Tabla por ronda */}
-            <div className="overflow-x-auto px-5 py-4">
+            <div className="flex-1 overflow-auto px-5 py-4" style={{ minHeight: 0 }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left text-xs font-medium text-zinc-500">
@@ -1331,7 +1342,7 @@ export default function DetalleLicitacion({
               </table>
             </div>
 
-            <div className="flex justify-end border-t border-zinc-200 px-5 py-4">
+            <div className="flex shrink-0 justify-end border-t border-zinc-200 px-5 py-4">
               <button
                 type="button"
                 onClick={() => setModalHistorial(null)}
